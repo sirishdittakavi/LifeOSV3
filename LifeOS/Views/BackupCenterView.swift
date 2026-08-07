@@ -36,7 +36,7 @@ struct BackupCenterView: View {
                 Button { importing = true } label: {
                     Label("Restore or Merge Backup", systemImage: "square.and.arrow.down")
                 }
-                Text("The backup contains all profiles, plans, calendar history, measurements, logs, photos, and reusable templates. Restore merges by stable ID instead of duplicating existing records.")
+                Text("The backup contains all profiles, areas, actions, calendar history, measurements, logs, photos, and reusable plans. Restore merges by stable ID instead of duplicating existing records.")
                     .font(.caption).foregroundStyle(.secondary)
                 Text("Backup JSON is portable but not encrypted. Store it in a private, trusted location because it may contain family and health information.")
                     .font(.caption).foregroundStyle(.orange)
@@ -44,14 +44,14 @@ struct BackupCenterView: View {
 
             Section("Current Backup Contents") {
                 countRow("Profiles", profiles.count)
-                countRow("Categories", categories.count)
-                countRow("Tasks", activities.count)
+                countRow("Areas", categories.count)
+                countRow("Actions", activities.count)
                 countRow("Calendar items", calendarItems.count)
                 countRow("Recorded sessions", sessions.count)
                 countRow("Food entries", foodEntries.count)
                 countRow("Weight entries", weightEntries.count)
                 countRow("Sport entries", baseballEntries.count)
-                countRow("Saved templates", savedTemplates.count)
+                countRow("Saved plans", savedTemplates.count)
             }
         }
         .navigationTitle("Backup & Restore")

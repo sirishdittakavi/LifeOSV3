@@ -48,7 +48,7 @@ struct TodayTimelineView: View {
                     ContentUnavailableView(
                         "Nothing Scheduled",
                         systemImage: "calendar.badge.plus",
-                        description: Text("Add an activity or log something that happened.")
+                        description: Text("Add an action or log something that happened.")
                     )
                     .frame(maxHeight: .infinity)
                 } else {

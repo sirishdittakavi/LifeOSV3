@@ -32,7 +32,7 @@ struct AddWhatHappenedView: View {
             Form {
                 Section("What happened") {
                     TextField("e.g. Park Play", text: $name)
-                    Picker("Category", selection: $selectedCategory) {
+                    Picker("Area", selection: $selectedCategory) {
                         Text("None").tag(AppCategory?.none)
                         ForEach(categories) { category in
                             Text(category.name).tag(AppCategory?.some(category))
@@ -55,10 +55,10 @@ struct AddWhatHappenedView: View {
                 }
 
                 Section {
-                    Toggle("Save as reusable Activity", isOn: $saveAsReusable)
+                    Toggle("Save as a reusable action", isOn: $saveAsReusable)
                 } footer: {
                     Text(saveAsReusable
-                         ? "This will be scheduled daily going forward — edit its schedule later from Activities."
+                         ? "This will be scheduled daily going forward. You can change its schedule later."
                          : "This logs today only and won't repeat.")
                 }
             }

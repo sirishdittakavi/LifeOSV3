@@ -1,6 +1,6 @@
 # LifeOS
 
-LifeOS is a local-first iPhone app for turning improvement areas into scheduled tasks, recording what happened, and showing whether each area is on track today, this week, and this month. The current product specification is `DESIGN.md` v1.12.
+LifeOS is a local-first iPhone app for turning improvement areas into scheduled actions, recording what happened, and showing whether each area is on track today, this week, and this month. The current product specification is `DESIGN.md` v1.13.
 
 ## Current capabilities
 

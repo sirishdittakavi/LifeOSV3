@@ -20,9 +20,9 @@ struct AddActivityView: View {
     @State private var selectedCategory: AppCategory?
     @State private var isCreatingCategory = false
     @State private var newCategoryName: String = ""
-    @State private var newCategoryParentID: UUID?
 
-    @State private var hasTarget: Bool = true
+    @State private var hasTarget: Bool = false
+    @State private var showingTrackingOptions = false
     @State private var targetValue: Double = 30
     @State private var targetUnit: String = "min"
 
@@ -58,28 +58,25 @@ struct AddActivityView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Task") {
+                Section("1. What will you do?") {
                     TextField("What do you want to do?", text: $name)
-                    Text("Examples: High knees, batting practice, weigh in, study Swift")
+                    Text("Examples: Batting practice, homework, walk, study Swift")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
-                Section("Improvement Category") {
+                Section("2. What does this improve?") {
                     if isCreatingCategory {
-                        TextField("Category name, e.g. Speed", text: $newCategoryName)
-                        Picker("Inside", selection: $newCategoryParentID) {
-                            Text("Top-level improvement area").tag(UUID?.none)
-                            ForEach(profileCategories) { category in
-                                Text(CategoryHierarchy.breadcrumbName(for: category, in: profileCategories))
-                                    .tag(UUID?.some(category.id))
-                            }
+                        TextField("New area name, e.g. Speed", text: $newCategoryName)
+                        Text("This creates a simple top-level area. You can organise it later if needed.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        if !profileCategories.isEmpty {
+                            Button("Choose an existing area") { isCreatingCategory = false }
+                                .font(.caption)
                         }
-                        Button("Choose an existing category") { isCreatingCategory = false }
-                            .font(.caption)
                     } else {
-                        Picker("Category", selection: $selectedCategory) {
-                            Text("Choose category").tag(AppCategory?.none)
+                        Picker("Area", selection: $selectedCategory) {
+                            Text("Choose an area").tag(AppCategory?.none)
                             ForEach(profileCategories) { category in
                                 Text(CategoryHierarchy.breadcrumbName(for: category, in: profileCategories))
                                     .tag(AppCategory?.some(category))
@@ -89,35 +86,37 @@ struct AddActivityView: View {
                             isCreatingCategory = true
                             selectedCategory = nil
                         } label: {
-                            Label("Quick-create a category", systemImage: "plus.circle.fill")
+                            Label("Create a new area here", systemImage: "plus.circle.fill")
                         }
                     }
-                    Text("Every task belongs to one area you want to improve, so its progress is visible on the dashboard.")
+                    Text("An area is simply something you care about improving, such as Baseball, School or Health.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
-                Section("What to Track (Optional)") {
-                    Toggle("Has a quantitative target", isOn: $hasTarget)
-                    if hasTarget {
-                        LabeledContent("Target") {
-                            HStack(spacing: 8) {
-                                TextField("30", value: $targetValue, format: .number)
-                                    .keyboardType(.decimalPad)
-                                    .multilineTextAlignment(.trailing)
-                                    .frame(maxWidth: 90)
-                                TextField("min", text: $targetUnit)
-                                    .multilineTextAlignment(.trailing)
-                                    .frame(maxWidth: 90)
+                Section {
+                    DisclosureGroup("Track a number (optional)", isExpanded: $showingTrackingOptions) {
+                        Toggle("Set a target", isOn: $hasTarget)
+                        if hasTarget {
+                            LabeledContent("Target") {
+                                HStack(spacing: 8) {
+                                    TextField("30", value: $targetValue, format: .number)
+                                        .keyboardType(.decimalPad)
+                                        .multilineTextAlignment(.trailing)
+                                        .frame(maxWidth: 90)
+                                    TextField("min", text: $targetUnit)
+                                        .multilineTextAlignment(.trailing)
+                                        .frame(maxWidth: 90)
+                                }
                             }
+                            Text("Examples: 30 minutes, 100 swings, 20 pages or 8,000 steps.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-                        Text("Enter the exact amount—minutes, steps, swings, pages, grams, or another useful measure.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                     }
                 }
 
-                Section("Repeat and Reminders") {
+                Section("3. When should it happen?") {
                     Picker("Repeat", selection: $repeatType) {
                         ForEach(RepeatType.allCases) { type in
                             Text(type.rawValue).tag(type)
@@ -141,7 +140,7 @@ struct AddActivityView: View {
                     }
 
                     if repeatType == .timesPerWeek && occurrencesPerWeek > max(1, selectedWeekdays.count) {
-                        integerEntry("Minutes between same-day tasks", value: $repeatIntervalMinutes, range: 1...1439)
+                        integerEntry("Minutes between same-day actions", value: $repeatIntervalMinutes, range: 1...1439)
                     }
 
                     DatePicker(repeatType == .timesPerDay ? "First start time" : "Start time", selection: $plannedStart, displayedComponents: .hourAndMinute)
@@ -152,7 +151,7 @@ struct AddActivityView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("New Task")
+            .navigationTitle("New Action")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -161,6 +160,11 @@ struct AddActivityView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { save() }
                         .disabled(!canSave)
+                }
+            }
+            .onAppear {
+                if profileCategories.isEmpty {
+                    isCreatingCategory = true
                 }
             }
         }
@@ -213,7 +217,7 @@ struct AddActivityView: View {
     private var scheduleSummary: String {
         switch repeatType {
         case .once:
-            return "One task at \(formattedStartTime)."
+            return "One action at \(formattedStartTime)."
         case .daily:
             return "Every day at \(formattedStartTime)."
         case .selectedWeekdays:
@@ -239,7 +243,6 @@ struct AddActivityView: View {
                 symbol: "target", colorToken: "blue",
                 purpose: "Improve through consistent, measurable action."
             )
-            newCategory.parentCategoryID = newCategoryParentID
             modelContext.insert(newCategory)
             category = newCategory
         }

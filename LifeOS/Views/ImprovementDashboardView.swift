@@ -10,7 +10,9 @@ struct ImprovementDashboardView: View {
     @Query private var weightEntries: [WeightEntry]
     @Query private var baseballEntries: [BaseballEntry]
     @State private var period: DashboardPeriod = .day
-    @State private var showingAddCategory = false
+    @State private var showingAddAction = false
+    @State private var showingAddArea = false
+    @State private var showingStarterPlans = false
 
     private var allProfileCategories: [AppCategory] {
         guard let profile = selection.profile else { return [] }
@@ -49,9 +51,9 @@ struct ImprovementDashboardView: View {
 
                     if progresses.isEmpty {
                         ContentUnavailableView(
-                            "No Improvement Categories",
+                            "No Improvement Areas",
                             systemImage: "target",
-                            description: Text("Add a template or create a custom improvement area.")
+                            description: Text("Start from a plan or create an area that matters to you.")
                         )
                         .padding(.top, 30)
                     } else {
@@ -83,11 +85,30 @@ struct ImprovementDashboardView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { ProfilePicker(selection: selection) }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingAddCategory = true } label: { Image(systemName: "plus") }
+                    Menu {
+                        Button { showingAddAction = true } label: {
+                            Label("Add an Action", systemImage: "checkmark.circle.badge.plus")
+                        }
+                        .disabled(allProfileCategories.isEmpty)
+                        Button { showingAddArea = true } label: {
+                            Label("Add an Area", systemImage: "plus.square")
+                        }
+                        Button { showingStarterPlans = true } label: {
+                            Label("Start from a Plan", systemImage: "square.grid.2x2")
+                        }
+                    } label: { Image(systemName: "plus") }
                         .disabled(selection.profile == nil)
                 }
             }
-            .sheet(isPresented: $showingAddCategory) {
+            .sheet(isPresented: $showingAddAction) {
+                if let profile = selection.profile { AddActivityView(profile: profile) }
+            }
+            .sheet(isPresented: $showingAddArea) {
+                if let profile = selection.profile {
+                    AddImprovementCategoryView(profile: profile, startMode: .custom)
+                }
+            }
+            .sheet(isPresented: $showingStarterPlans) {
                 if let profile = selection.profile { AddImprovementCategoryView(profile: profile) }
             }
         }
@@ -107,7 +128,7 @@ private struct DashboardCoverageSummary: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(period == .day ? "TODAY'S CONFIDENCE" : "\(period.rawValue.uppercased()) CONFIDENCE")
                 .font(.caption).bold().foregroundStyle(.secondary)
-            Text("\(complete + onTrack) of \(progresses.count) active categories are complete or on track")
+            Text("\(complete + onTrack) of \(progresses.count) active areas are complete or on track")
                 .font(.title3).bold()
             HStack(spacing: 8) {
                 CoveragePill(value: complete, label: "complete", color: .green)
@@ -115,7 +136,7 @@ private struct DashboardCoverageSummary: View {
                 CoveragePill(value: attention, label: "attention", color: .orange)
                 if insufficient > 0 { CoveragePill(value: insufficient, label: "no data", color: .gray) }
             }
-            Text("Categories are counted separately; LifeOS does not blend unrelated goals into one life score.")
+            Text("Areas are counted separately; LifeOS does not blend unrelated goals into one life score.")
                 .font(.caption2).foregroundStyle(.secondary)
         }
         .padding()

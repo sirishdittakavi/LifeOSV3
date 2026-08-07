@@ -39,7 +39,7 @@ struct RootTabView: View {
                 .tabItem { Label("Week", systemImage: "calendar.day.timeline.left") }
 
             ImprovementCategoriesView(selection: selection)
-                .tabItem { Label("Categories", systemImage: "square.grid.2x2.fill") }
+                .tabItem { Label("Areas", systemImage: "target") }
 
             DailyProgressView(selection: selection)
                 .tabItem { Label("Progress", systemImage: "chart.bar.fill") }

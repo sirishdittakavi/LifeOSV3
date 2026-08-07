@@ -36,13 +36,13 @@ struct AddImprovementCategoryView: View {
                     List {
                         Section {
                             Text(parentCategory.map {
-                                "Choose an editable starting point inside \($0.name)."
-                            } ?? "Templates are editable starting points. Review the targets and schedule before creating the category.")
+                                "Choose an editable starting plan inside \($0.name)."
+                            } ?? "Starter plans create an area and a few editable actions. Nothing is locked.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
 
-                        Section("Templates") {
+                        Section("Starter Plans") {
                             ForEach(ImprovementTemplates.all) { template in
                                 NavigationLink {
                                     ConfigureImprovementCategoryView(
@@ -53,7 +53,7 @@ struct AddImprovementCategoryView: View {
                                     Label {
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(template.name)
-                                            Text("\(template.weeklySessions) sessions · \(template.weeklyMinutes) min/week")
+                                                Text("\(template.weeklySessions) times · \(template.weeklyMinutes) min/week")
                                                 .font(.caption).foregroundStyle(.secondary)
                                         }
                                     } icon: {
@@ -65,7 +65,7 @@ struct AddImprovementCategoryView: View {
                         }
 
                         if !savedTemplates.isEmpty {
-                            Section("My Saved Templates") {
+                            Section("My Saved Plans") {
                                 ForEach(savedTemplates) { saved in
                                     NavigationLink {
                                         ConfigureImprovementCategoryView(
@@ -77,7 +77,7 @@ struct AddImprovementCategoryView: View {
                                         Label {
                                             VStack(alignment: .leading, spacing: 3) {
                                                 Text(saved.name)
-                                                Text("\(saved.taskBlueprints.count) tasks · saved \(saved.createdAt.formatted(date: .abbreviated, time: .omitted))")
+                                                Text("\(saved.taskBlueprints.count) actions · saved \(saved.createdAt.formatted(date: .abbreviated, time: .omitted))")
                                                     .font(.caption).foregroundStyle(.secondary)
                                             }
                                         } icon: {
@@ -95,7 +95,7 @@ struct AddImprovementCategoryView: View {
                             }
                         }
                     }
-                    .navigationTitle("Choose Template")
+                    .navigationTitle("Choose a Plan")
                 }
             }
             .toolbar {
@@ -145,51 +145,44 @@ private struct ConfigureImprovementCategoryView: View {
         _colorToken = State(initialValue: template?.colorToken ?? "blue")
     }
 
-    private var profileCategories: [AppCategory] {
-        allCategories.filter { $0.profile?.id == profile.id && $0.isActive }
-            .sorted { $0.name < $1.name }
-    }
-
     var body: some View {
         Form {
-            Section("Improvement area") {
-                TextField("Name", text: $name)
-                Picker("Pillar", selection: $pillar) {
+            Section("Area") {
+                TextField("What do you want to improve?", text: $name)
+                Picker("Group", selection: $pillar) {
                     ForEach(ImprovementPillar.allCases) { Text($0.rawValue).tag($0) }
                 }
                 TextField("Why does this matter?", text: $purpose, axis: .vertical)
-                Picker("Icon", selection: $symbol) {
-                    ForEach(CategoryAppearanceOptions.icons) { option in
-                        Label(option.name, systemImage: option.symbol).tag(option.symbol)
+                DisclosureGroup("Appearance (optional)") {
+                    Picker("Icon", selection: $symbol) {
+                        ForEach(CategoryAppearanceOptions.icons) { option in
+                            Label(option.name, systemImage: option.symbol).tag(option.symbol)
+                        }
                     }
-                }
-                Picker("Colour", selection: $colorToken) {
-                    ForEach(CategoryAppearanceOptions.colors, id: \.self) { token in
-                        Label(token.capitalized, systemImage: "circle.fill")
-                            .foregroundStyle(ColorToken.color(for: token))
-                            .tag(token)
+                    Picker("Colour", selection: $colorToken) {
+                        ForEach(CategoryAppearanceOptions.colors, id: \.self) { token in
+                            Label(token.capitalized, systemImage: "circle.fill")
+                                .foregroundStyle(ColorToken.color(for: token))
+                                .tag(token)
+                        }
                     }
                 }
             }
 
-            Section("Placement") {
-                Picker("Inside", selection: $parentCategoryID) {
-                    Text("Top-level improvement area").tag(UUID?.none)
-                    ForEach(profileCategories) { category in
-                        Text(CategoryHierarchy.breadcrumbName(for: category, in: profileCategories))
-                            .tag(UUID?.some(category.id))
-                    }
+            if let parentCategory {
+                Section("Focus Area") {
+                    LabeledContent("Inside", value: parentCategory.name)
+                    Text("This focus area will appear inside \(parentCategory.name), not as another top-level area.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
-                Text("Use a parent when this is a program, subject, team, project, or training stream inside a broader area.")
-                    .font(.caption).foregroundStyle(.secondary)
             }
 
-            Section("Weekly commitment") {
-                Stepper("\(sessions) sessions per week", value: $sessions, in: 0...21)
+            Section("Weekly goal") {
+                Stepper("\(sessions) times per week", value: $sessions, in: 0...21)
                 Stepper("\(minutes) minutes per week", value: $minutes, in: 0...1200, step: 15)
             }
 
-            Section("Tasks") {
+            Section("Actions") {
                 if let template, !template.tasks.isEmpty {
                     ForEach(template.tasks) { task in
                         VStack(alignment: .leading) {
@@ -199,26 +192,26 @@ private struct ConfigureImprovementCategoryView: View {
                         }
                     }
                 } else {
-                    TextField("First task or habit", text: $customTaskName)
-                    Text("You can add more detailed tasks after creating the category.")
+                    TextField("First action (optional)", text: $customTaskName)
+                    Text("Example: Baseball → Batting practice. You can add more actions later.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
 
             Section("Reminder") {
-                Toggle("Enable category reminder", isOn: $reminderEnabled)
+                Toggle("Enable area reminder", isOn: $reminderEnabled)
                 if reminderEnabled {
                     DatePicker("Reminder time", selection: $reminderTime, displayedComponents: .hourAndMinute)
                 }
             }
 
             Section {
-                Button("Create and Approve Plan", action: create)
+                Button("Create Area", action: create)
                     .frame(maxWidth: .infinity)
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .navigationTitle(template == nil ? "Custom Category" : "Review Template")
+        .navigationTitle(template == nil ? "New Area" : "Review Plan")
     }
 
     private func create() {

@@ -1,4 +1,4 @@
-# LifeOS — Product Specification v1.12
+# LifeOS — Product Specification v1.13
 
 **Status:** Living product and engineering specification  
 **Primary platform:** iPhone first (SwiftUI)  
@@ -22,6 +22,7 @@ Update this table whenever the code changes.
 | Category templates | ✅ First version | Built-in library, optional profile starter plans, and locally saved reusable category/task templates |
 | Confidence dashboard | ✅ First version | Today/week/month category progress, status, evidence confidence and next action |
 | Category navigation | ✅ First version | Dashboard → nested category detail; list-row edit, custom/template creation and safe deactivation |
+| Plain-language planning UX | ✅ First version | User-facing model is Areas → Actions → Today; hierarchy and tracking options are progressive, not front-loaded |
 | Activity model | ✅ First version | Manual/template/AI-approved source |
 | Schedule rule | ✅ First version | Once, daily, selected weekdays, any count per day/week, exact minute intervals |
 | Calendar item | ✅ First version | Every calendar entry originates from an Activity |
@@ -1131,6 +1132,32 @@ StoreKit 2 may sell the subscription, but a server must validate transactions an
 - **Coach/organisation later:** roster and programme workflows only after family permissions are proven safe.
 
 A downgrade must never delete Profile data. It may stop new invitations or cloud collaboration while preserving local read/export access. Billing must not be used to hold a family's existing health or child data hostage.
+
+## 26. User-Facing Mental Model
+
+The persistence model may continue to use `AppCategory` and `Activity`, but the primary interface must use only three everyday concepts:
+
+1. **Area** — something the person wants to improve, such as Baseball, School, Health or Software Development.
+2. **Action** — a repeatable or one-time thing the person does, such as Batting Practice, Homework or Walk.
+3. **Today** — the actions due now and the fastest place to complete or record them.
+
+The normal creation path is therefore:
+
+```text
+Choose or create an Area → name the Action → choose when it happens → Save
+```
+
+The interface must not require a user to understand category trees, domain entities, parent IDs, pillars, target schemas or template terminology before adding the first useful action. These rules apply:
+
+- The primary Areas screen shows top-level Areas only. Optional Focus Areas appear after opening their parent.
+- Every main `+` menu uses explicit choices: **Add an Action**, **Add an Area**, or **Start from a Plan**.
+- A new Action may quick-create a simple top-level Area without asking hierarchy questions.
+- Numeric targets are optional and collapsed by default.
+- Icons, colours, related areas, reminders and Focus Areas are progressive options.
+- Starter content is called a **Plan** in the interface. `Template` remains an internal storage term.
+- Empty states teach with real examples rather than exposing implementation language.
+
+The UI should make the common case fast while preserving advanced recurrence, relationships and hierarchy for people who need them.
 
 ---
 

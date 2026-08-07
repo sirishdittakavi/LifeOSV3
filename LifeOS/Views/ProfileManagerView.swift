@@ -18,7 +18,7 @@ struct ProfileManagerView: View {
         NavigationStack {
             List {
                 Section {
-                    Text("Each person has a separate calendar, categories, goals, food, weight, sport logs, and progress. Switching profile never combines their results.")
+                    Text("Each person has separate areas, actions, calendar, goals, food, weight, sport logs, and progress. Switching profile never combines their results.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
@@ -428,7 +428,7 @@ enum ProfileStarterPlan: String, CaseIterable, Identifiable {
 
     var explanation: String {
         switch self {
-        case .blank: return "Starts with no categories or tasks."
+        case .blank: return "Starts with no areas or actions."
         case .balanced: return "Adds editable movement, learning, nutrition, relationships, and recovery areas."
         case .studentAndSport: return "Adds editable school, sport training, mobility, nutrition, and recovery areas."
         case .healthAndCareer: return "Adds editable health, career, nutrition, and recovery areas."

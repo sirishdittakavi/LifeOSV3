@@ -11,6 +11,7 @@ struct ImprovementCategoriesView: View {
     @Query private var baseballEntries: [BaseballEntry]
     @State private var addRoute: CategoryAddRoute?
     @State private var editingCategory: AppCategory?
+    @State private var showingAddAction = false
 
     private var profileCategories: [AppCategory] {
         guard let profile = selection.profile else { return [] }
@@ -24,20 +25,56 @@ struct ImprovementCategoriesView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Areas are the parts of life you want to improve. Actions are the repeatable things you do for each area.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        HStack {
+                            Button {
+                                showingAddAction = true
+                            } label: {
+                                Label("Add Action", systemImage: "checkmark.circle.badge.plus")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(profileCategories.isEmpty)
+
+                            Button {
+                                addRoute = .custom
+                            } label: {
+                                Label("Add Area", systemImage: "plus.square")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                if topLevelCategories.isEmpty {
+                    Section {
+                        ContentUnavailableView(
+                            "No Improvement Areas",
+                            systemImage: "target",
+                            description: Text("Start with something meaningful such as Baseball, School, Health or Software Development.")
+                        )
+                        Button("Create My First Area") { addRoute = .custom }
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+
                 ForEach(ImprovementPillar.allCases) { pillar in
                     let roots = topLevelCategories.filter { $0.pillar == pillar }.sorted { $0.name < $1.name }
-                    let tree = categoryTree(from: roots)
-                    if !tree.isEmpty {
+                    if !roots.isEmpty {
                         Section(pillar.rawValue) {
-                            ForEach(tree) { item in
+                            ForEach(roots) { category in
                                 NavigationLink {
-                                    ImprovementCategoryDetailView(selection: selection, category: item.category)
+                                    ImprovementCategoryDetailView(selection: selection, category: category)
                                 } label: {
-                                    categoryRow(item.category, depth: item.depth)
+                                    categoryRow(category)
                                 }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                     Button {
-                                        editingCategory = item.category
+                                        editingCategory = category
                                     } label: {
                                         Label("Edit", systemImage: "pencil")
                                     }
@@ -45,9 +82,9 @@ struct ImprovementCategoriesView: View {
                                 }
                                 .contextMenu {
                                     Button {
-                                        editingCategory = item.category
+                                        editingCategory = category
                                     } label: {
-                                        Label("Edit Category", systemImage: "pencil")
+                                        Label("Edit Area", systemImage: "pencil")
                                     }
                                 }
                             }
@@ -55,20 +92,26 @@ struct ImprovementCategoriesView: View {
                     }
                 }
             }
-            .navigationTitle("Categories")
+            .navigationTitle("Improvement Areas")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { ProfilePicker(selection: selection) }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
+                            showingAddAction = true
+                        } label: {
+                            Label("Add an Action", systemImage: "checkmark.circle.badge.plus")
+                        }
+                        .disabled(profileCategories.isEmpty)
+                        Button {
                             addRoute = .custom
                         } label: {
-                            Label("Add Custom Category", systemImage: "plus.square")
+                            Label("Add an Area", systemImage: "plus.square")
                         }
                         Button {
                             addRoute = .templates
                         } label: {
-                            Label("Use a Template", systemImage: "square.grid.2x2")
+                            Label("Start from a Plan", systemImage: "square.grid.2x2")
                         }
                     } label: {
                         Image(systemName: "plus")
@@ -85,14 +128,23 @@ struct ImprovementCategoriesView: View {
                 let categoryActivities = activities.filter { $0.category?.id == category.id }
                 EditImprovementCategoryView(category: category, activities: categoryActivities)
             }
+            .sheet(isPresented: $showingAddAction) {
+                if let profile = selection.profile {
+                    AddActivityView(profile: profile)
+                }
+            }
         }
     }
 
-    private func categoryRow(_ category: AppCategory, depth: Int) -> some View {
+    private func categoryRow(_ category: AppCategory) -> some View {
+        let includedIDs = CategoryHierarchy.idsIncludingDescendants(of: category, in: profileCategories)
+        let actionCount = activities.filter {
+            $0.isActive && $0.category.map { includedIDs.contains($0.id) } == true
+        }.count
         let progress = selection.profile.map {
             CategoryProgressEngine.progress(
                 profile: $0, category: category,
-                includedCategoryIDs: CategoryHierarchy.idsIncludingDescendants(of: category, in: profileCategories),
+                includedCategoryIDs: includedIDs,
                 period: .week,
                 activities: activities, calendarItems: calendarItems,
                 foodEntries: foodEntries, weightEntries: weightEntries,
@@ -100,12 +152,6 @@ struct ImprovementCategoriesView: View {
             )
         }
         return HStack(spacing: 12) {
-            if depth > 0 {
-                Image(systemName: "arrow.turn.down.right")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .padding(.leading, CGFloat(min(depth, 3)) * 10)
-            }
             Image(systemName: category.symbol)
                 .frame(width: 34, height: 34)
                 .background(ColorToken.color(for: category.colorToken).opacity(0.15))
@@ -113,7 +159,7 @@ struct ImprovementCategoriesView: View {
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: 3) {
                 Text(category.name).font(.headline)
-                Text(progress?.progressText ?? "No progress data")
+                Text("\(actionCount) action\(actionCount == 1 ? "" : "s") · \(progress?.progressText ?? "No progress yet")")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
@@ -122,17 +168,6 @@ struct ImprovementCategoriesView: View {
         }
     }
 
-    private func categoryTree(from roots: [AppCategory]) -> [CategoryTreeItem] {
-        var items: [CategoryTreeItem] = []
-        func append(_ category: AppCategory, depth: Int) {
-            items.append(CategoryTreeItem(category: category, depth: depth))
-            for child in CategoryHierarchy.directChildren(of: category, in: profileCategories) {
-                append(child, depth: depth + 1)
-            }
-        }
-        roots.forEach { append($0, depth: 0) }
-        return items
-    }
 }
 
 private enum CategoryAddRoute: String, Identifiable {
@@ -141,10 +176,4 @@ private enum CategoryAddRoute: String, Identifiable {
 
     var id: String { rawValue }
     var creationMode: CategoryCreationMode { self == .custom ? .custom : .templates }
-}
-
-private struct CategoryTreeItem: Identifiable {
-    let category: AppCategory
-    let depth: Int
-    var id: UUID { category.id }
 }

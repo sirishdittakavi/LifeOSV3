@@ -83,7 +83,7 @@ struct WeeklyScheduleView: View {
                     ContentUnavailableView(
                         "Nothing Scheduled This Week",
                         systemImage: "calendar.badge.plus",
-                        description: Text("Add a task with a start time and repeat schedule.")
+                        description: Text("Add an action with a start time and repeat schedule.")
                     )
                 } else {
                     scheduleGrid
@@ -225,7 +225,7 @@ struct WeeklyScheduleView: View {
             HStack(spacing: 5) {
                 Rectangle().fill(color).frame(width: 4)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.activity?.name ?? "Task")
+                    Text(item.activity?.name ?? "Action")
                         .font(.caption).bold().lineLimit(2)
                     if height >= 48 {
                         Text(start.formatted(date: .omitted, time: .shortened))
@@ -311,7 +311,7 @@ private struct WeekItemDetailView: View {
         NavigationStack {
             List {
                 Section {
-                    Text(item.activity?.name ?? "Task").font(.title2).bold()
+                    Text(item.activity?.name ?? "Action").font(.title2).bold()
                     if let category = item.activity?.category {
                         Label(category.name, systemImage: category.symbol)
                             .foregroundStyle(ColorToken.color(for: category.colorToken))
