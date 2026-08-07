@@ -1,0 +1,284 @@
+//
+//  AddActivityView.swift
+//  LifeOS
+//
+//  DESIGN.md Section 22: fast task creation and flexible recurrence.
+//  New activities are configuration, not code (Section 14 architecture rule).
+//
+
+import SwiftUI
+import SwiftData
+
+struct AddActivityView: View {
+    let profile: Profile
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @Query(sort: \AppCategory.name) private var categories: [AppCategory]
+
+    @State private var name: String = ""
+    @State private var selectedCategory: AppCategory?
+    @State private var isCreatingCategory = false
+    @State private var newCategoryName: String = ""
+    @State private var newCategoryParentID: UUID?
+
+    @State private var hasTarget: Bool = true
+    @State private var targetValue: Double = 30
+    @State private var targetUnit: String = "min"
+
+    @State private var repeatType: RepeatType = .daily
+    @State private var selectedWeekdays: Set<Int> = [2, 3, 4, 5, 6]
+    @State private var occurrencesPerDay: Int = 3
+    @State private var occurrencesPerWeek: Int = 3
+    @State private var repeatIntervalMinutes: Int = 30
+    @State private var plannedStart: Date = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: .now) ?? .now
+    @State private var durationMinutes: Int = 30
+
+    private let weekdaySymbols = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+    private var profileCategories: [AppCategory] {
+        categories.filter { $0.profile?.id == profile.id && $0.isActive }
+    }
+
+    private var hasValidCategory: Bool {
+        selectedCategory != nil || (isCreatingCategory && !newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
+
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        hasValidCategory &&
+        (repeatType != .selectedWeekdays || !selectedWeekdays.isEmpty)
+    }
+
+    init(profile: Profile, initialCategory: AppCategory? = nil) {
+        self.profile = profile
+        _selectedCategory = State(initialValue: initialCategory)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Task") {
+                    TextField("What do you want to do?", text: $name)
+                    Text("Examples: High knees, batting practice, weigh in, study Swift")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Improvement Category") {
+                    if isCreatingCategory {
+                        TextField("Category name, e.g. Speed", text: $newCategoryName)
+                        Picker("Inside", selection: $newCategoryParentID) {
+                            Text("Top-level improvement area").tag(UUID?.none)
+                            ForEach(profileCategories) { category in
+                                Text(CategoryHierarchy.breadcrumbName(for: category, in: profileCategories))
+                                    .tag(UUID?.some(category.id))
+                            }
+                        }
+                        Button("Choose an existing category") { isCreatingCategory = false }
+                            .font(.caption)
+                    } else {
+                        Picker("Category", selection: $selectedCategory) {
+                            Text("Choose category").tag(AppCategory?.none)
+                            ForEach(profileCategories) { category in
+                                Text(CategoryHierarchy.breadcrumbName(for: category, in: profileCategories))
+                                    .tag(AppCategory?.some(category))
+                            }
+                        }
+                        Button {
+                            isCreatingCategory = true
+                            selectedCategory = nil
+                        } label: {
+                            Label("Quick-create a category", systemImage: "plus.circle.fill")
+                        }
+                    }
+                    Text("Every task belongs to one area you want to improve, so its progress is visible on the dashboard.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("What to Track (Optional)") {
+                    Toggle("Has a quantitative target", isOn: $hasTarget)
+                    if hasTarget {
+                        LabeledContent("Target") {
+                            HStack(spacing: 8) {
+                                TextField("30", value: $targetValue, format: .number)
+                                    .keyboardType(.decimalPad)
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(maxWidth: 90)
+                                TextField("min", text: $targetUnit)
+                                    .multilineTextAlignment(.trailing)
+                                    .frame(maxWidth: 90)
+                            }
+                        }
+                        Text("Enter the exact amount—minutes, steps, swings, pages, grams, or another useful measure.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("Repeat and Reminders") {
+                    Picker("Repeat", selection: $repeatType) {
+                        ForEach(RepeatType.allCases) { type in
+                            Text(type.rawValue).tag(type)
+                        }
+                    }
+
+                    if repeatType == .timesPerDay {
+                        integerEntry("Times each day", value: $occurrencesPerDay, range: 1...99)
+                        integerEntry("Minutes between", value: $repeatIntervalMinutes, range: 1...1439)
+                    }
+
+                    if repeatType == .timesPerWeek {
+                        integerEntry("Times each week", value: $occurrencesPerWeek, range: 1...99)
+                    }
+
+                    if repeatType == .selectedWeekdays || repeatType == .timesPerWeek {
+                        Text(repeatType == .timesPerWeek ? "Preferred days" : "Days")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        weekdayPicker
+                    }
+
+                    if repeatType == .timesPerWeek && occurrencesPerWeek > max(1, selectedWeekdays.count) {
+                        integerEntry("Minutes between same-day tasks", value: $repeatIntervalMinutes, range: 1...1439)
+                    }
+
+                    DatePicker(repeatType == .timesPerDay ? "First start time" : "Start time", selection: $plannedStart, displayedComponents: .hourAndMinute)
+                    integerEntry("Duration in minutes", value: $durationMinutes, range: 1...1440)
+
+                    Label(scheduleSummary, systemImage: "calendar.badge.clock")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("New Task")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { save() }
+                        .disabled(!canSave)
+                }
+            }
+        }
+    }
+
+    private func integerEntry(_ title: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
+        LabeledContent(title) {
+            HStack(spacing: 10) {
+                Button {
+                    value.wrappedValue = max(range.lowerBound, value.wrappedValue - 1)
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                }
+                .buttonStyle(.plain)
+
+                TextField("", value: value, format: .number)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.center)
+                    .frame(width: 58)
+
+                Button {
+                    value.wrappedValue = min(range.upperBound, value.wrappedValue + 1)
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var weekdayPicker: some View {
+        HStack {
+            ForEach(1...7, id: \.self) { day in
+                let isSelected = selectedWeekdays.contains(day)
+                Button {
+                    if isSelected { selectedWeekdays.remove(day) } else { selectedWeekdays.insert(day) }
+                } label: {
+                    Text(weekdaySymbols[day - 1])
+                        .font(.caption2)
+                        .frame(width: 32, height: 32)
+                        .background(isSelected ? Color.blue : Color(.tertiarySystemFill))
+                        .foregroundStyle(isSelected ? .white : .primary)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var scheduleSummary: String {
+        switch repeatType {
+        case .once:
+            return "One task at \(formattedStartTime)."
+        case .daily:
+            return "Every day at \(formattedStartTime)."
+        case .selectedWeekdays:
+            return "\(selectedWeekdays.count) selected day\(selectedWeekdays.count == 1 ? "" : "s") each week at \(formattedStartTime)."
+        case .timesPerDay:
+            let count = max(1, occurrencesPerDay)
+            return "\(count) time\(count == 1 ? "" : "s") per day, starting \(formattedStartTime), exactly \(max(1, repeatIntervalMinutes)) min apart."
+        case .timesPerWeek:
+            let count = max(1, occurrencesPerWeek)
+            return "\(count) time\(count == 1 ? "" : "s") per week across your preferred days."
+        }
+    }
+
+    private var formattedStartTime: String {
+        plannedStart.formatted(date: .omitted, time: .shortened)
+    }
+
+    private func save() {
+        var category = selectedCategory
+        if isCreatingCategory, !newCategoryName.trimmingCharacters(in: .whitespaces).isEmpty {
+            let newCategory = AppCategory(
+                profile: profile, name: newCategoryName,
+                symbol: "target", colorToken: "blue",
+                purpose: "Improve through consistent, measurable action."
+            )
+            newCategory.parentCategoryID = newCategoryParentID
+            modelContext.insert(newCategory)
+            category = newCategory
+        }
+
+        let calendar = Calendar.current
+        let minutesSinceMidnight = calendar.component(.hour, from: plannedStart) * 60 + calendar.component(.minute, from: plannedStart)
+
+        let activity = Activity(
+            profile: profile,
+            category: category,
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            source: .manual,
+            targetValue: hasTarget ? targetValue : nil,
+            targetUnit: hasTarget ? targetUnit : nil,
+            repeatType: repeatType,
+            weekdays: Array(selectedWeekdays),
+            occurrencesPerDay: max(1, occurrencesPerDay),
+            occurrencesPerWeek: max(1, occurrencesPerWeek),
+            repeatIntervalMinutes: max(1, repeatIntervalMinutes),
+            plannedStartMinutes: minutesSinceMidnight,
+            estimatedDurationMinutes: max(1, durationMinutes)
+        )
+        modelContext.insert(activity)
+
+        // Generate today's calendar item immediately if this activity is
+        // scheduled today, so it shows up on Today without waiting for the
+        // next app-open regeneration pass.
+        let newItems = PlanningService.generateMissingCalendarItems(
+            profile: profile, date: .now, activities: [activity], existingItems: []
+        )
+        newItems.forEach { modelContext.insert($0) }
+
+        try? modelContext.save()
+        dismiss()
+    }
+}
+
+#Preview {
+    let profile = Profile(name: "Sirish", kind: .parent, colorToken: "blue")
+    AddActivityView(profile: profile)
+        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, BaseballEntry.self], inMemory: true)
+}
