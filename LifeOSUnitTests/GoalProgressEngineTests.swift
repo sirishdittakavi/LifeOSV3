@@ -75,6 +75,36 @@ final class GoalProgressEngineTests: XCTestCase {
         XCTAssertEqual(result.resultFraction ?? -1, 1, accuracy: 0.0001)
     }
 
+    func testIncreaseTargetBelowBaselineNeverReportsGoalReached() {
+        let profile = TestFixtures.profile()
+        let goal = TestFixtures.goal(profile: profile)
+        let measure = TestFixtures.measure(
+            goal: goal, direction: .increase, baseline: 100, target: 90
+        )
+        let entry = ResultEntry(profile: profile, measure: measure, numericValue: 95)
+
+        let result = TestFixtures.progress(goal: goal, measures: [measure], entries: [entry])
+
+        XCTAssertEqual(result.status, .needsAttention)
+        XCTAssertNil(result.resultFraction)
+        XCTAssertTrue(result.nextAction.contains("Correct the Result"))
+    }
+
+    func testDecreaseTargetAboveBaselineNeverReportsGoalReached() {
+        let profile = TestFixtures.profile()
+        let goal = TestFixtures.goal(profile: profile)
+        let measure = TestFixtures.measure(
+            goal: goal, direction: .decrease, baseline: 90, target: 100
+        )
+        let entry = ResultEntry(profile: profile, measure: measure, numericValue: 95)
+
+        let result = TestFixtures.progress(goal: goal, measures: [measure], entries: [entry])
+
+        XCTAssertEqual(result.status, .needsAttention)
+        XCTAssertNil(result.resultFraction)
+        XCTAssertTrue(result.nextAction.contains("Correct the Result"))
+    }
+
     func testValueInsideTargetRangeReachesGoal() {
         let profile = TestFixtures.profile()
         let goal = TestFixtures.goal(profile: profile)
@@ -148,5 +178,36 @@ final class GoalProgressEngineTests: XCTestCase {
         )
 
         XCTAssertEqual(result.contributions.first?.completedMinutes, 45)
+    }
+
+    func testUnplannedManualWorkDoesNotInflatePlannedAdherence() {
+        let profile = TestFixtures.profile()
+        let area = TestFixtures.area(profile: profile)
+        let goal = TestFixtures.goal(profile: profile)
+        let contribution = GoalAreaContribution(goal: goal, category: area)
+        let action = Activity(
+            profile: profile, category: area, name: "Practice",
+            repeatType: .daily, plannedStartMinutes: 600,
+            estimatedDurationMinutes: 30, startDate: TestFixtures.date()
+        )
+        let scheduled = CalendarItem(
+            profile: profile, activity: action, date: TestFixtures.date(2026, 1, 6),
+            plannedStart: TestFixtures.date(2026, 1, 6, hour: 10),
+            status: .done, source: .schedule
+        )
+        let unplanned = CalendarItem(
+            profile: profile, activity: action, date: TestFixtures.date(2026, 1, 6),
+            plannedStart: TestFixtures.date(2026, 1, 6, hour: 15),
+            status: .done, source: .manual
+        )
+
+        let result = TestFixtures.progress(
+            goal: goal, categories: [area], contributions: [contribution],
+            activities: [action], items: [scheduled, unplanned], period: .day
+        )
+
+        XCTAssertEqual(result.contributions.first?.plannedActions, 1)
+        XCTAssertEqual(result.contributions.first?.completedActions, 1)
+        XCTAssertEqual(result.effortFraction ?? -1, 1, accuracy: 0.0001)
     }
 }

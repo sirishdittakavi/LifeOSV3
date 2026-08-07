@@ -34,6 +34,9 @@ struct AddActivityView: View {
     @State private var repeatIntervalMinutes: Int = 30
     @State private var plannedStart: Date = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: .now) ?? .now
     @State private var durationMinutes: Int = 30
+    @State private var startDate = Calendar.current.startOfDay(for: .now)
+    @State private var hasEndDate = false
+    @State private var endDate = Calendar.current.date(byAdding: .month, value: 3, to: .now) ?? .now
 
     private let weekdaySymbols = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
@@ -48,7 +51,36 @@ struct AddActivityView: View {
     private var canSave: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         hasValidCategory &&
-        (repeatType != .selectedWeekdays || !selectedWeekdays.isEmpty)
+        (repeatType != .selectedWeekdays || !selectedWeekdays.isEmpty) &&
+        scheduleFitsWithinDay &&
+        startDateIsValid &&
+        (!hasEndDate || endDate >= startDate)
+    }
+
+    private var scheduleFitsWithinDay: Bool {
+        let calendar = Calendar.current
+        let firstStartMinute = calendar.component(.hour, from: plannedStart) * 60 +
+            calendar.component(.minute, from: plannedStart)
+        return PlanningService.scheduleFitsWithinDay(
+            repeatType: repeatType,
+            occurrencesPerDay: occurrencesPerDay,
+            occurrencesPerWeek: occurrencesPerWeek,
+            selectedWeekdayCount: selectedWeekdays.count,
+            firstStartMinute: firstStartMinute,
+            intervalMinutes: repeatIntervalMinutes
+        )
+    }
+
+    private var startDateIsValid: Bool {
+        let calendar = Calendar.current
+        let firstStartMinute = calendar.component(.hour, from: plannedStart) * 60 +
+            calendar.component(.minute, from: plannedStart)
+        return PlanningService.startDateIsValid(
+            repeatType: repeatType,
+            startDate: startDate,
+            firstStartMinute: firstStartMinute,
+            calendar: calendar
+        )
     }
 
     init(profile: Profile, initialCategory: AppCategory? = nil) {
@@ -144,8 +176,31 @@ struct AddActivityView: View {
                         integerEntry("Minutes between same-day actions", value: $repeatIntervalMinutes, range: 1...1439)
                     }
 
+                    DatePicker(
+                        repeatType == .once ? "Date" : "Start date",
+                        selection: $startDate,
+                        in: Calendar.current.startOfDay(for: .now)...,
+                        displayedComponents: .date
+                    )
+                    if repeatType != .once {
+                        Toggle("Set an end date", isOn: $hasEndDate)
+                        if hasEndDate {
+                            DatePicker("End date", selection: $endDate, in: startDate..., displayedComponents: .date)
+                        }
+                    }
                     DatePicker(repeatType == .timesPerDay ? "First start time" : "Start time", selection: $plannedStart, displayedComponents: .hourAndMinute)
                     integerEntry("Duration in minutes", value: $durationMinutes, range: 1...1440)
+
+                    if !scheduleFitsWithinDay {
+                        Label("The requested repetitions run past midnight. Choose an earlier time, shorter interval, or fewer repetitions.", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                    if !startDateIsValid {
+                        Label("Choose a future date and time for this one-time action.", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
 
                     Label(scheduleSummary, systemImage: "calendar.badge.clock")
                         .font(.caption)
@@ -264,7 +319,9 @@ struct AddActivityView: View {
             occurrencesPerWeek: max(1, occurrencesPerWeek),
             repeatIntervalMinutes: max(1, repeatIntervalMinutes),
             plannedStartMinutes: minutesSinceMidnight,
-            estimatedDurationMinutes: max(1, durationMinutes)
+            estimatedDurationMinutes: max(1, durationMinutes),
+            startDate: startDate,
+            endDate: repeatType != .once && hasEndDate ? endDate : nil
         )
         modelContext.insert(activity)
 

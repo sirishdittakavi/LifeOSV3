@@ -98,4 +98,71 @@ final class ProgressAndHierarchyTests: XCTestCase {
         XCTAssertEqual(WeightUnit.kilograms.displayValue(kilograms: kilograms), kilograms)
         XCTAssertEqual(WeightUnit.pounds.kilograms(from: pounds), kilograms, accuracy: 0.000_001)
     }
+
+    func testTargetValidationRequiresDirectionallyCorrectValues() {
+        XCTAssertTrue(ResultMeasureValidation.isValidTarget(
+            valueType: .number, direction: .increase,
+            baseline: 60, target: 70, minimum: nil, maximum: nil
+        ))
+        XCTAssertFalse(ResultMeasureValidation.isValidTarget(
+            valueType: .number, direction: .increase,
+            baseline: 60, target: 50, minimum: nil, maximum: nil
+        ))
+        XCTAssertTrue(ResultMeasureValidation.isValidTarget(
+            valueType: .number, direction: .decrease,
+            baseline: 80, target: 70, minimum: nil, maximum: nil
+        ))
+        XCTAssertFalse(ResultMeasureValidation.isValidTarget(
+            valueType: .number, direction: .decrease,
+            baseline: 80, target: 90, minimum: nil, maximum: nil
+        ))
+    }
+
+    func testRatingTargetsStayInsideFivePointScale() {
+        XCTAssertTrue(ResultMeasureValidation.isValidTarget(
+            valueType: .rating, direction: .increase,
+            baseline: 2, target: 5, minimum: nil, maximum: nil
+        ))
+        XCTAssertFalse(ResultMeasureValidation.isValidTarget(
+            valueType: .rating, direction: .increase,
+            baseline: 2, target: 6, minimum: nil, maximum: nil
+        ))
+    }
+
+    func testResultValidationDistinguishesMissingFromZero() {
+        XCTAssertFalse(ResultMeasureValidation.isValidEntry(
+            valueType: .number, numericValue: nil, textValue: ""
+        ))
+        XCTAssertTrue(ResultMeasureValidation.isValidEntry(
+            valueType: .number, numericValue: 0, textValue: ""
+        ))
+        XCTAssertFalse(ResultMeasureValidation.isValidEntry(
+            valueType: .text, numericValue: nil, textValue: "   "
+        ))
+        XCTAssertTrue(ResultMeasureValidation.isValidEntry(
+            valueType: .text, numericValue: nil, textValue: "Coach assessment"
+        ))
+        XCTAssertFalse(ResultMeasureValidation.isValidEntry(
+            valueType: .milestone, numericValue: nil, textValue: ""
+        ))
+        XCTAssertTrue(ResultMeasureValidation.isValidEntry(
+            valueType: .milestone, numericValue: 0, textValue: ""
+        ))
+    }
+
+    func testReminderPoliciesRequireActiveOwnersAndScheduledCadence() {
+        let profile = TestFixtures.profile()
+        let area = TestFixtures.area(profile: profile)
+        area.reminderEnabled = true
+        XCTAssertTrue(area.shouldScheduleReminders)
+        area.isActive = false
+        XCTAssertFalse(area.shouldScheduleReminders)
+
+        let goal = TestFixtures.goal(profile: profile)
+        let measure = TestFixtures.measure(goal: goal)
+        measure.reminderEnabled = true
+        XCTAssertTrue(measure.shouldScheduleReminder)
+        measure.cadence = .onDemand
+        XCTAssertFalse(measure.shouldScheduleReminder)
+    }
 }

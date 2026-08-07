@@ -40,7 +40,7 @@ Update this table whenever the code changes.
 | Goals and measurements | ✅ First version | Numeric, rating, milestone and written Result types; increase/decrease/range targets and scheduled/manual check-ins |
 | Notifications | ✅ First version | Profile-labelled Action reminders, weekly plan review and scheduled Goal Result check-ins |
 | JSON backup/restore | ✅ First version | Schema 2 full-family export/merge includes Goals, contributions, Result Measures, check-ins, photos and templates; schema 1 restore remains supported |
-| Automated regression tests | ✅ First version | 20 headless unit/component tests plus an iOS SwiftUI construction check; GitHub runs core tests and compiles both XCTest bundles on every change |
+| Automated regression tests | ✅ First version | 32 headless unit/component tests plus an iOS SwiftUI construction check; GitHub runs core tests and compiles both XCTest bundles on every change |
 | Repository protocol | ⚠️ Partial | Planning service separated; full persistence abstraction next |
 | Family sync and accounts | ❌ Deferred | Secure child invitations, permissions and multi-device sync require a cloud identity service |
 | Paid household management | 📐 Designed | StoreKit entitlement plus server-authoritative household/member limits; implementation deferred |
@@ -816,6 +816,10 @@ Supported Result types:
 
 Numeric Results support `increase`, `decrease`, `reach a range`, and `stay in a range`. A Goal has one primary Result and may add supporting Results with independent schedules. For example, Mathematics can use a monthly mock-test Result and a quarterly school-exam Result.
 
+Target validation is directional: an `increase` target must be above its baseline and a `decrease` target must be below it. Ratings remain inside their defined scale, and a target range requires its maximum to be greater than its minimum. Invalid or imported legacy configurations never produce a green Goal state.
+
+A Result is evidence only after the user supplies a valid typed value. An untouched number field, blank written assessment or unselected milestone cannot be saved and never advances the check-in schedule. A deliberately entered numeric zero or explicit `Not completed` milestone remains valid evidence.
+
 ### 21.3 Dashboard periods
 
 The Goals Dashboard offers:
@@ -932,7 +936,7 @@ For multiple times per day:
 occurrence n = first start + (n × interval minutes)
 ```
 
-Only occurrences whose start time is before midnight belong to that day. The form explains the resulting schedule before Save.
+Only occurrences whose start time is before midnight belong to that day. The form blocks Save when the requested count and interval would run past midnight and explains how to correct the schedule; it never silently creates fewer occurrences than requested.
 
 For times per week, the requested count is divided as evenly as possible across the selected preferred weekdays. Earlier selected days receive any remainder. When the weekly count exceeds the number of preferred days, the additional same-day occurrences use the exact interval.
 

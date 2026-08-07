@@ -453,10 +453,11 @@ private struct AddGoalView: View {
         (valueType == .text || valueType == .milestone || validNumericTarget)
     }
     private var validNumericTarget: Bool {
-        switch direction {
-        case .increase, .decrease: return baseline != target
-        case .targetRange, .maintainRange: return rangeMaximum > rangeMinimum
-        }
+        ResultMeasureValidation.isValidTarget(
+            valueType: valueType, direction: direction,
+            baseline: baseline, target: target,
+            minimum: rangeMinimum, maximum: rangeMaximum
+        )
     }
 
     var body: some View {
@@ -585,12 +586,29 @@ struct AddResultEntryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @State private var date = Date.now
-    @State private var numericValue = 0.0
+    @State private var numericValue: Double?
     @State private var ratingValue = 3
-    @State private var milestoneComplete = false
+    @State private var milestoneComplete: Bool?
     @State private var textValue = ""
     @State private var source = "Manual"
     @State private var note = ""
+
+    private var storedNumericValue: Double? {
+        switch measure.valueType {
+        case .number: return numericValue
+        case .rating: return Double(ratingValue)
+        case .milestone: return milestoneComplete.map { $0 ? 1 : 0 }
+        case .text: return nil
+        }
+    }
+
+    private var canSave: Bool {
+        ResultMeasureValidation.isValidEntry(
+            valueType: measure.valueType,
+            numericValue: storedNumericValue,
+            textValue: textValue
+        )
+    }
 
     var body: some View {
         NavigationStack {
@@ -610,7 +628,11 @@ struct AddResultEntryView: View {
                     case .rating:
                         Stepper("\(measure.name): \(ratingValue)/5", value: $ratingValue, in: 1...5)
                     case .milestone:
-                        Toggle("Completed", isOn: $milestoneComplete)
+                        Picker("Status", selection: $milestoneComplete) {
+                            Text("Choose").tag(Bool?.none)
+                            Text("Completed").tag(Bool?.some(true))
+                            Text("Not completed").tag(Bool?.some(false))
+                        }
                     case .text:
                         TextField("Assessment", text: $textValue, axis: .vertical)
                     }
@@ -624,21 +646,17 @@ struct AddResultEntryView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("Save", action: save) }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save", action: save).disabled(!canSave)
+                }
             }
         }
     }
 
     private func save() {
-        let storedNumber: Double?
-        switch measure.valueType {
-        case .number: storedNumber = numericValue
-        case .rating: storedNumber = Double(ratingValue)
-        case .milestone: storedNumber = milestoneComplete ? 1 : 0
-        case .text: storedNumber = nil
-        }
+        guard canSave else { return }
         modelContext.insert(ResultEntry(
-            profile: profile, measure: measure, date: date, numericValue: storedNumber,
+            profile: profile, measure: measure, date: date, numericValue: storedNumericValue,
             textValue: textValue.trimmingCharacters(in: .whitespacesAndNewlines),
             sourceLabel: source.trimmingCharacters(in: .whitespacesAndNewlines), note: note
         ))
@@ -660,6 +678,15 @@ private struct AddResultMeasureView: View {
     @State private var direction: ResultDirection = .increase
     @State private var cadence: ResultCheckInCadence = .monthly
     @State private var nextDate = Calendar.current.date(byAdding: .month, value: 1, to: .now) ?? .now
+    @State private var reminderEnabled = true
+    @State private var reminderTime = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: .now) ?? .now
+
+    private var validTarget: Bool {
+        ResultMeasureValidation.isValidTarget(
+            valueType: .number, direction: direction,
+            baseline: baseline, target: target, minimum: 0, maximum: 0
+        )
+    }
 
     var body: some View {
         NavigationStack {
@@ -678,6 +705,10 @@ private struct AddResultMeasureView: View {
                     }
                     if cadence != .onDemand {
                         DatePicker("Next result", selection: $nextDate, in: Date.now..., displayedComponents: .date)
+                        Toggle("Remind me", isOn: $reminderEnabled)
+                        if reminderEnabled {
+                            DatePicker("Reminder time", selection: $reminderTime, displayedComponents: .hourAndMinute)
+                        }
                     }
                 }
             }
@@ -687,7 +718,7 @@ private struct AddResultMeasureView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save", action: save)
-                        .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || baseline == target)
+                        .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !validTarget)
                 }
             }
         }
@@ -698,10 +729,14 @@ private struct AddResultMeasureView: View {
             goal: goal, name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             role: .supporting, unit: unit.trimmingCharacters(in: .whitespacesAndNewlines),
             direction: direction, baselineValue: baseline, targetValue: target,
-            cadence: cadence, nextCheckInDate: cadence == .onDemand ? nil : nextDate
+            cadence: cadence, nextCheckInDate: cadence == .onDemand ? nil : nextDate,
+            reminderEnabled: cadence != .onDemand && reminderEnabled,
+            reminderHour: Calendar.current.component(.hour, from: reminderTime),
+            reminderMinute: Calendar.current.component(.minute, from: reminderTime)
         )
         modelContext.insert(measure)
         try? modelContext.save()
+        Task { await GoalReminderService.updateReminder(for: measure) }
         dismiss()
     }
 }

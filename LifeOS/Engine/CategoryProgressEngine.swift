@@ -322,10 +322,10 @@ enum GoalProgressEngine {
                     $0 + PlanningService.scheduledStartMinutes($1, on: date, calendar: calendar).count
                 }
             }
-            let items = calendarItems.filter {
+            let items = PlanningService.plannedItems(calendarItems.filter {
                 interval.contains($0.date) &&
                 $0.activity?.category.map { includedIDs.contains($0.id) } == true
-            }
+            })
             let completed = items.filter { $0.status == .done }
             return GoalContributionProgress(
                 contribution: contribution,
@@ -362,6 +362,16 @@ enum GoalProgressEngine {
             outcomeFraction = nil
         }
         let achieved = primary.map { isAchieved(measure: $0, latest: latest) } ?? false
+        let validPrimaryTarget = primary.map { measure in
+            ResultMeasureValidation.isValidTarget(
+                valueType: measure.valueType,
+                direction: measure.direction,
+                baseline: measure.baselineValue,
+                target: measure.targetValue,
+                minimum: measure.targetMinimum,
+                maximum: measure.targetMaximum
+            )
+        } ?? false
 
         let evidenceCount = resultEntries.count + (primary?.baselineValue == nil ? 0 : 1)
         let confidence: ProgressConfidence = evidenceCount >= 3 ? .high : (evidenceCount >= 1 ? .medium : .low)
@@ -371,6 +381,9 @@ enum GoalProgressEngine {
         if primary == nil {
             status = .awaitingResult
             nextAction = "Add a measurable result so this Goal can be evaluated."
+        } else if !validPrimaryTarget {
+            status = .needsAttention
+            nextAction = "Correct the Result baseline and target before evaluating this Goal."
         } else if latest == nil {
             status = .awaitingResult
             nextAction = "Enter the first result check-in. Action completion alone cannot prove improvement."
@@ -420,12 +433,22 @@ enum GoalProgressEngine {
         case .text:
             return nil
         case .rating, .number:
+            guard ResultMeasureValidation.isValidTarget(
+                valueType: measure.valueType,
+                direction: measure.direction,
+                baseline: measure.baselineValue,
+                target: measure.targetValue,
+                minimum: measure.targetMinimum,
+                maximum: measure.targetMaximum
+            ) else { return nil }
             switch measure.direction {
             case .increase:
-                guard let baseline = measure.baselineValue, let target = measure.targetValue, target != baseline else { return nil }
+                guard let baseline = measure.baselineValue, let target = measure.targetValue,
+                      target > baseline else { return nil }
                 return min(max((value - baseline) / (target - baseline), 0), 1)
             case .decrease:
-                guard let baseline = measure.baselineValue, let target = measure.targetValue, target != baseline else { return nil }
+                guard let baseline = measure.baselineValue, let target = measure.targetValue,
+                      target < baseline else { return nil }
                 return min(max((baseline - value) / (baseline - target), 0), 1)
             case .targetRange, .maintainRange:
                 guard let minimum = measure.targetMinimum, let maximum = measure.targetMaximum else { return nil }
@@ -445,9 +468,23 @@ enum GoalProgressEngine {
         case .milestone: return value >= 1
         case .text: return false
         case .rating, .number:
+            guard ResultMeasureValidation.isValidTarget(
+                valueType: measure.valueType,
+                direction: measure.direction,
+                baseline: measure.baselineValue,
+                target: measure.targetValue,
+                minimum: measure.targetMinimum,
+                maximum: measure.targetMaximum
+            ) else { return false }
             switch measure.direction {
-            case .increase: return measure.targetValue.map { value >= $0 } ?? false
-            case .decrease: return measure.targetValue.map { value <= $0 } ?? false
+            case .increase:
+                guard let baseline = measure.baselineValue, let target = measure.targetValue,
+                      target > baseline else { return false }
+                return value >= target
+            case .decrease:
+                guard let baseline = measure.baselineValue, let target = measure.targetValue,
+                      target < baseline else { return false }
+                return value <= target
             case .targetRange, .maintainRange:
                 guard let minimum = measure.targetMinimum, let maximum = measure.targetMaximum else { return false }
                 return (minimum...maximum).contains(value)

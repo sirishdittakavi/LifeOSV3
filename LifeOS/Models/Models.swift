@@ -205,6 +205,10 @@ final class AppCategory {
         set { parentCategoryIDString = newValue?.uuidString }
     }
 
+    var shouldScheduleReminders: Bool {
+        isActive && reminderEnabled && (profile?.isActive ?? true)
+    }
+
     init(profile: Profile? = nil, name: String, symbol: String, colorToken: String,
          pillar: ImprovementPillar = .learning, purpose: String = "",
          weeklyTargetSessions: Int = 3, weeklyTargetMinutes: Int = 120) {
@@ -358,6 +362,12 @@ final class ResultMeasure {
         set { cadenceRaw = newValue.rawValue }
     }
 
+    var shouldScheduleReminder: Bool {
+        isActive && reminderEnabled && cadence != .onDemand &&
+            nextCheckInDate != nil && (goal?.isActive ?? true) &&
+            (goal?.profile?.isActive ?? true)
+    }
+
     init(
         goal: Goal?, name: String, role: ResultMeasureRole = .primary,
         valueType: ResultValueType = .number, unit: String = "",
@@ -385,6 +395,62 @@ final class ResultMeasure {
         self.reminderHour = reminderHour
         self.reminderMinute = reminderMinute
         self.isActive = true
+    }
+}
+
+enum ResultMeasureValidation {
+    static func isValidTarget(
+        valueType: ResultValueType,
+        direction: ResultDirection,
+        baseline: Double?,
+        target: Double?,
+        minimum: Double?,
+        maximum: Double?
+    ) -> Bool {
+        guard valueType == .number || valueType == .rating else { return true }
+        guard let baseline, baseline.isFinite else { return false }
+
+        if valueType == .rating {
+            let validRating = { (value: Double) in (1...5).contains(value) }
+            guard validRating(baseline) else { return false }
+            switch direction {
+            case .increase, .decrease:
+                guard let target, target.isFinite, validRating(target) else { return false }
+            case .targetRange, .maintainRange:
+                guard let minimum, let maximum, minimum.isFinite, maximum.isFinite,
+                      validRating(minimum), validRating(maximum) else { return false }
+            }
+        }
+
+        switch direction {
+        case .increase:
+            guard let target, target.isFinite else { return false }
+            return target > baseline
+        case .decrease:
+            guard let target, target.isFinite else { return false }
+            return target < baseline
+        case .targetRange, .maintainRange:
+            guard let minimum, let maximum, minimum.isFinite, maximum.isFinite else { return false }
+            return maximum > minimum
+        }
+    }
+
+    static func isValidEntry(
+        valueType: ResultValueType,
+        numericValue: Double?,
+        textValue: String
+    ) -> Bool {
+        switch valueType {
+        case .number:
+            return numericValue?.isFinite == true
+        case .rating:
+            guard let numericValue else { return false }
+            return numericValue.isFinite && (1...5).contains(numericValue)
+        case .milestone:
+            return numericValue == 0 || numericValue == 1
+        case .text:
+            return !textValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
     }
 }
 

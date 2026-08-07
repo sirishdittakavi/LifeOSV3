@@ -59,9 +59,9 @@ struct ImprovementCategoryDetailView: View {
             let plannedCount = days.reduce(0) { count, date in
                 count + PlanningService.scheduledStartMinutes(activity, on: date).count
             }
-            let existingItems = calendarItems.filter {
+            let existingItems = PlanningService.plannedItems(calendarItems.filter {
                 $0.activity?.id == activity.id && interval.contains($0.date)
-            }
+            })
             guard plannedCount > 0 || !existingItems.isEmpty else { return nil }
             return ActionPeriodSummary(
                 activity: activity,
@@ -611,6 +611,7 @@ struct EditImprovementCategoryView: View {
                             category.isActive = true
                             activities.forEach { $0.isActive = true }
                             try? modelContext.save()
+                            Task { await ReminderService.updateReminders(for: category, activities: activities) }
                             dismiss()
                         }
                     }
@@ -630,6 +631,7 @@ struct EditImprovementCategoryView: View {
                     category.isActive = false
                     activities.forEach { $0.isActive = false }
                     try? modelContext.save()
+                    Task { await ReminderService.updateReminders(for: category, activities: activities) }
                     dismiss()
                 }
                 Button("Cancel", role: .cancel) {}

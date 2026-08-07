@@ -102,6 +102,51 @@ final class GoalSystemComponentTests: XCTestCase {
         XCTAssertEqual(entries.first?.sourceLabel, "Home scale")
     }
 
+    func testPersistedManualWorkDoesNotChangePlannedGoalAdherence() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let profile = Profile(name: "Vihaan", kind: .child, colorToken: "blue")
+        let area = AppCategory(
+            profile: profile, name: "Baseball", symbol: "figure.baseball",
+            colorToken: "orange", pillar: .sport
+        )
+        let goal = Goal(profile: profile, name: "Improve throwing")
+        goal.createdAt = TestDate.make(2026, 1, 1)
+        let contribution = GoalAreaContribution(goal: goal, category: area)
+        let action = Activity(
+            profile: profile, category: area, name: "Throwing practice",
+            repeatType: .daily, plannedStartMinutes: 600,
+            estimatedDurationMinutes: 30, startDate: TestDate.make(2026, 1, 1)
+        )
+        let scheduled = CalendarItem(
+            profile: profile, activity: action, date: TestDate.make(2026, 1, 6),
+            plannedStart: TestDate.make(2026, 1, 6, hour: 10), status: .done, source: .schedule
+        )
+        let manual = CalendarItem(
+            profile: profile, activity: action, date: TestDate.make(2026, 1, 6),
+            plannedStart: TestDate.make(2026, 1, 6, hour: 15), status: .done, source: .manual
+        )
+        context.insert(profile)
+        context.insert(area)
+        context.insert(goal)
+        context.insert(contribution)
+        context.insert(action)
+        context.insert(scheduled)
+        context.insert(manual)
+        try context.save()
+
+        let storedItems = try context.fetch(FetchDescriptor<CalendarItem>())
+        let result = GoalProgressEngine.progress(
+            goal: goal, period: .day, now: TestDate.make(2026, 1, 6, hour: 20),
+            categories: [area], contributions: [contribution], measures: [], entries: [],
+            activities: [action], calendarItems: storedItems, calendar: TestDate.calendar
+        )
+
+        XCTAssertEqual(storedItems.count, 2)
+        XCTAssertEqual(result.contributions.first?.plannedActions, 1)
+        XCTAssertEqual(result.contributions.first?.completedActions, 1)
+    }
+
     #if canImport(UIKit)
     func testGoalsAndTodayComponentsConstructAgainstRealSwiftDataSchema() throws {
         let container = try makeContainer()
@@ -138,5 +183,23 @@ final class GoalSystemComponentTests: XCTestCase {
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [configuration])
+    }
+}
+
+private enum TestDate {
+    static var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }
+
+    static func make(
+        _ year: Int, _ month: Int, _ day: Int,
+        hour: Int = 0, minute: Int = 0
+    ) -> Date {
+        calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone, year: year, month: month, day: day,
+            hour: hour, minute: minute
+        ))!
     }
 }

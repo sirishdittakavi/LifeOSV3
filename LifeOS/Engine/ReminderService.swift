@@ -6,7 +6,7 @@ enum ReminderService {
         let center = UNUserNotificationCenter.current()
         let identifiers = reminderIdentifiers(category: category, activities: activities)
         center.removePendingNotificationRequests(withIdentifiers: identifiers)
-        guard category.reminderEnabled else { return }
+        guard category.shouldScheduleReminders else { return }
 
         do {
             let allowed = try await center.requestAuthorization(options: [.alert, .sound, .badge])
@@ -182,8 +182,7 @@ enum GoalReminderService {
         let identifier = "result-measure.\(measure.id.uuidString).check-in"
         center.removePendingNotificationRequests(withIdentifiers: [identifier])
 
-        guard measure.reminderEnabled,
-              measure.cadence != .onDemand,
+        guard measure.shouldScheduleReminder,
               let nextDate = measure.nextCheckInDate else { return }
 
         do {

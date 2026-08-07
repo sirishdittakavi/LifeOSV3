@@ -119,6 +119,50 @@ enum PlanningService {
         return Array(preferredOrder.prefix(min(max(1, count), preferredOrder.count))).sorted()
     }
 
+    static func scheduleFitsWithinDay(
+        repeatType: RepeatType,
+        occurrencesPerDay: Int,
+        occurrencesPerWeek: Int,
+        selectedWeekdayCount: Int,
+        firstStartMinute: Int,
+        intervalMinutes: Int
+    ) -> Bool {
+        let sameDayCount: Int
+        switch repeatType {
+        case .timesPerDay:
+            sameDayCount = max(1, occurrencesPerDay)
+        case .timesPerWeek:
+            let dayCount = max(1, min(7, selectedWeekdayCount == 0 ? occurrencesPerWeek : selectedWeekdayCount))
+            sameDayCount = Int(ceil(Double(max(1, occurrencesPerWeek)) / Double(dayCount)))
+        case .once, .daily, .selectedWeekdays:
+            sameDayCount = 1
+        }
+
+        guard firstStartMinute >= 0, firstStartMinute < 24 * 60 else { return false }
+        return firstStartMinute + ((sameDayCount - 1) * max(1, intervalMinutes)) < 24 * 60
+    }
+
+    static func startDateIsValid(
+        repeatType: RepeatType,
+        startDate: Date,
+        firstStartMinute: Int,
+        now: Date = .now,
+        calendar: Calendar = .current
+    ) -> Bool {
+        let startDay = calendar.startOfDay(for: startDate)
+        let today = calendar.startOfDay(for: now)
+        guard startDay >= today else { return false }
+        guard repeatType == .once else { return true }
+        guard let occurrence = calendar.date(
+            byAdding: .minute, value: firstStartMinute, to: startDay
+        ) else { return false }
+        return occurrence > now
+    }
+
+    static func plannedItems(_ items: [CalendarItem]) -> [CalendarItem] {
+        items.filter { $0.source == .schedule && $0.status != .unplanned }
+    }
+
     private static func occurrenceTimes(
         count: Int,
         firstStartMinute: Int,
