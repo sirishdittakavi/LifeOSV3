@@ -1,5 +1,20 @@
 # LifeOS
 
+## Tests
+
+Run the full deterministic unit and component suite without launching a simulator:
+
+```bash
+swift test --disable-sandbox
+```
+
+In Xcode, choose **Product → Test** (`⌘U`) to run the two XCTest targets:
+
+- `LifeOSUnitTests` — Goal calculations, positive/negative outcomes, recurrence, progress, hierarchy, cadence and unit conversion.
+- `LifeOSComponentTests` — in-memory SwiftData relationships, profile isolation, backup/restore idempotency and SwiftUI screen construction.
+
+GitHub Actions runs the headless suite and compiles the complete iOS test bundles on every push to `main` and every pull request.
+
 LifeOS is a local-first iPhone app for turning improvement areas into scheduled actions, recording what happened, and showing whether each area is on track today, this week, and this month. The current product specification is `DESIGN.md` Version 1.
 
 ## Current capabilities

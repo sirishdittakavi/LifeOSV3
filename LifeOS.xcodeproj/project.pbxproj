@@ -13,11 +13,11 @@
 		17C01F883F087EC6143F6A2A /* ProfileManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D4E3B744C27472F06F91DAB /* ProfileManagerView.swift */; };
 		1E91C64C0CCCE1AEFBF8447E /* PlanningService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3ADED4567B9BD9952F48311 /* PlanningService.swift */; };
 		1EBBDDA0597BD7E0612DC90A /* ImprovementTemplates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71336B7D9F2F80BB5303A4D3 /* ImprovementTemplates.swift */; };
+		20B95C947978C7DC760EF8BD /* GoalProgressEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7362C092FD349A2E60B7559 /* GoalProgressEngineTests.swift */; };
 		25626A01A87437B9D35B52C4 /* ProgressEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD82E4B5D3273000FF862511 /* ProgressEngine.swift */; };
 		26DFD94DCDFBA070AC33A146 /* ImprovementCategoriesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 236B524C8D1AD5290BDBF78D /* ImprovementCategoriesView.swift */; };
 		2E49E4BD2B649A5430D42E8C /* AddActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6005FDCC8CA7495506334E46 /* AddActivityView.swift */; };
 		3F76161965A8024182D7236B /* FoodTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4951C5CB1A500F3CED34E5 /* FoodTrackerView.swift */; };
-		457F02982A10E4958F8EB460 /* SportTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86DB7D1E90DE06C2D92494F1 /* SportTrackerView.swift */; };
 		49E7137019B8301F15777724 /* CategoryHierarchy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55F7D1F805EAE2850186A7FE /* CategoryHierarchy.swift */; };
 		511A359B9C1D3087768E746B /* AddImprovementCategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3089E1119EF3FEC41AE8B48 /* AddImprovementCategoryView.swift */; };
 		6141CAE6D99C53E9E66DB09E /* LifeOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF29D3EFDCB9336FED403538 /* LifeOSApp.swift */; };
@@ -25,21 +25,44 @@
 		64BD1CB168BD83CFEDCEE578 /* BackupCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27E775220D569D469F979936 /* BackupCenterView.swift */; };
 		7A24F57F33DE6A4FE45D5B29 /* DailyProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53549BD50EE3E8885AB9ECF9 /* DailyProgressView.swift */; };
 		91FCDF8AFE7A6B213D60E987 /* ImprovementCategoryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62420F22B16B7E6D9597D2CC /* ImprovementCategoryDetailView.swift */; };
+		9AB213881EABF49C81A2E471 /* GoalSystemComponentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1EDE1219CF03BE2D0BD6CA /* GoalSystemComponentTests.swift */; };
 		9C777A54A21460DFD68995AF /* WeeklyScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 819A9C738D6E1A4BD64EA744 /* WeeklyScheduleView.swift */; };
+		9E1A24913BE710E920A9C98D /* TestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71D1F8FD38D6E699FE50FBC3 /* TestFixtures.swift */; };
 		A316D2657BC81A428479FCDE /* WeightTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46AC7BCC0343BDFD1C809C3B /* WeightTrackerView.swift */; };
 		A43A08B6DE4301A6DA5A8890 /* SeedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD50DB9C010E97A4DD88F5A /* SeedData.swift */; };
+		A6BD99DDA99A2C934BDDD789 /* SportTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEADFA7666774116F5750CE0 /* SportTrackerView.swift */; };
 		A7B033185885CD71F1FA768F /* ProfilePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12478936D140093B18A81E4C /* ProfilePicker.swift */; };
 		B81953C3320806B779E6011A /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 499BF422BE2A1E261CED49CF /* RootTabView.swift */; };
+		BBB781998C08FBFA80ED7AAD /* PlanningServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9893C70F313744DD079BA597 /* PlanningServiceTests.swift */; };
 		BE651337EF518EAB4A766D74 /* RecordActualView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73B48145494B4301A179594D /* RecordActualView.swift */; };
 		C42B22F16BD3D1E6D55D2FF6 /* CategoryProgressEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78943876F88DB77027A69003 /* CategoryProgressEngine.swift */; };
 		CE9C7EC7EC71B6F09AF868BD /* LifeOSBackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDDCC3A1F13B93070395E397 /* LifeOSBackupService.swift */; };
 		D2F6740EF079027D82CD1BEB /* FoodCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A663322A791BA2B3E365376D /* FoodCaptureService.swift */; };
 		D3110A8487A6D40D35338712 /* ColorToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84489496ECECED00233A0050 /* ColorToken.swift */; };
 		F20B0CC3F213D901E11187B4 /* AddWhatHappenedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFAF5CF2A126324576CB407 /* AddWhatHappenedView.swift */; };
+		FC2EA2AA95DB24C0A8D641E1 /* ProgressAndHierarchyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6706225FC9F05BDD4511CA8 /* ProgressAndHierarchyTests.swift */; };
 		FCCB7CFB039353917E4E9B3B /* ReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435730B566CC4241E3E8EFBB /* ReminderService.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		2DF5045004F210554FAF54D2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98645262B9197BD6057E1C1C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AD5DB9344CDCD6867ABB9D4E;
+			remoteInfo = LifeOS;
+		};
+		5220F1EB7368DDFB4A528AFE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98645262B9197BD6057E1C1C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AD5DB9344CDCD6867ABB9D4E;
+			remoteInfo = LifeOS;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		034D9080C0B31279987A0CD7 /* LifeOSComponentTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LifeOSComponentTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		12478936D140093B18A81E4C /* ProfilePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePicker.swift; sourceTree = "<group>"; };
 		1DFCE9143795B69EB5748B5D /* TodayTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayTimelineView.swift; sourceTree = "<group>"; };
 		236B524C8D1AD5290BDBF78D /* ImprovementCategoriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImprovementCategoriesView.swift; sourceTree = "<group>"; };
@@ -55,21 +78,27 @@
 		6005FDCC8CA7495506334E46 /* AddActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddActivityView.swift; sourceTree = "<group>"; };
 		62420F22B16B7E6D9597D2CC /* ImprovementCategoryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImprovementCategoryDetailView.swift; sourceTree = "<group>"; };
 		71336B7D9F2F80BB5303A4D3 /* ImprovementTemplates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImprovementTemplates.swift; sourceTree = "<group>"; };
+		71D1F8FD38D6E699FE50FBC3 /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
+		728DCA23C0F156C88D04362A /* LifeOSUnitTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LifeOSUnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		73B48145494B4301A179594D /* RecordActualView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordActualView.swift; sourceTree = "<group>"; };
 		78943876F88DB77027A69003 /* CategoryProgressEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryProgressEngine.swift; sourceTree = "<group>"; };
 		7BFAF5CF2A126324576CB407 /* AddWhatHappenedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddWhatHappenedView.swift; sourceTree = "<group>"; };
 		819A9C738D6E1A4BD64EA744 /* WeeklyScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyScheduleView.swift; sourceTree = "<group>"; };
 		84489496ECECED00233A0050 /* ColorToken.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorToken.swift; sourceTree = "<group>"; };
-		86DB7D1E90DE06C2D92494F1 /* SportTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportTrackerView.swift; sourceTree = "<group>"; };
+		9893C70F313744DD079BA597 /* PlanningServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanningServiceTests.swift; sourceTree = "<group>"; };
 		A663322A791BA2B3E365376D /* FoodCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodCaptureService.swift; sourceTree = "<group>"; };
+		A6706225FC9F05BDD4511CA8 /* ProgressAndHierarchyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressAndHierarchyTests.swift; sourceTree = "<group>"; };
 		A9F621BE905857FEB3E0B267 /* ProfileGoalsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileGoalsView.swift; sourceTree = "<group>"; };
 		BD82E4B5D3273000FF862511 /* ProgressEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressEngine.swift; sourceTree = "<group>"; };
 		C9AAA0DFB09417257C7322E2 /* ImprovementDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImprovementDashboardView.swift; sourceTree = "<group>"; };
 		CDDCC3A1F13B93070395E397 /* LifeOSBackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeOSBackupService.swift; sourceTree = "<group>"; };
+		CE1EDE1219CF03BE2D0BD6CA /* GoalSystemComponentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalSystemComponentTests.swift; sourceTree = "<group>"; };
 		E3ADED4567B9BD9952F48311 /* PlanningService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanningService.swift; sourceTree = "<group>"; };
-		E865D330E9C7C91599A676D7 /* LifeOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LifeOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E865D330E9C7C91599A676D7 /* LifeOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = LifeOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EEADFA7666774116F5750CE0 /* SportTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportTrackerView.swift; sourceTree = "<group>"; };
 		EF29D3EFDCB9336FED403538 /* LifeOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeOSApp.swift; sourceTree = "<group>"; };
 		F3089E1119EF3FEC41AE8B48 /* AddImprovementCategoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddImprovementCategoryView.swift; sourceTree = "<group>"; };
+		F7362C092FD349A2E60B7559 /* GoalProgressEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalProgressEngineTests.swift; sourceTree = "<group>"; };
 		FF4951C5CB1A500F3CED34E5 /* FoodTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodTrackerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -89,10 +118,20 @@
 			path = Engine;
 			sourceTree = "<group>";
 		};
+		62810B1E68C934A897BD92F2 /* LifeOSComponentTests */ = {
+			isa = PBXGroup;
+			children = (
+				CE1EDE1219CF03BE2D0BD6CA /* GoalSystemComponentTests.swift */,
+			);
+			path = LifeOSComponentTests;
+			sourceTree = "<group>";
+		};
 		6BBD885734BE07D038423D8A /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				E865D330E9C7C91599A676D7 /* LifeOS.app */,
+				034D9080C0B31279987A0CD7 /* LifeOSComponentTests.xctest */,
+				728DCA23C0F156C88D04362A /* LifeOSUnitTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -108,6 +147,17 @@
 			path = LifeOS;
 			sourceTree = "<group>";
 		};
+		BA6E4ED4299E08545F6548D3 /* LifeOSUnitTests */ = {
+			isa = PBXGroup;
+			children = (
+				F7362C092FD349A2E60B7559 /* GoalProgressEngineTests.swift */,
+				9893C70F313744DD079BA597 /* PlanningServiceTests.swift */,
+				A6706225FC9F05BDD4511CA8 /* ProgressAndHierarchyTests.swift */,
+				71D1F8FD38D6E699FE50FBC3 /* TestFixtures.swift */,
+			);
+			path = LifeOSUnitTests;
+			sourceTree = "<group>";
+		};
 		CD8B0955CBBCE60E5B77F25E /* Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -115,7 +165,6 @@
 				F3089E1119EF3FEC41AE8B48 /* AddImprovementCategoryView.swift */,
 				7BFAF5CF2A126324576CB407 /* AddWhatHappenedView.swift */,
 				27E775220D569D469F979936 /* BackupCenterView.swift */,
-				86DB7D1E90DE06C2D92494F1 /* SportTrackerView.swift */,
 				84489496ECECED00233A0050 /* ColorToken.swift */,
 				53549BD50EE3E8885AB9ECF9 /* DailyProgressView.swift */,
 				FF4951C5CB1A500F3CED34E5 /* FoodTrackerView.swift */,
@@ -127,6 +176,7 @@
 				12478936D140093B18A81E4C /* ProfilePicker.swift */,
 				73B48145494B4301A179594D /* RecordActualView.swift */,
 				499BF422BE2A1E261CED49CF /* RootTabView.swift */,
+				EEADFA7666774116F5750CE0 /* SportTrackerView.swift */,
 				1DFCE9143795B69EB5748B5D /* TodayTimelineView.swift */,
 				819A9C738D6E1A4BD64EA744 /* WeeklyScheduleView.swift */,
 				46AC7BCC0343BDFD1C809C3B /* WeightTrackerView.swift */,
@@ -147,6 +197,8 @@
 			isa = PBXGroup;
 			children = (
 				B89422FB6DE20924CDA8C2E2 /* LifeOS */,
+				62810B1E68C934A897BD92F2 /* LifeOSComponentTests */,
+				BA6E4ED4299E08545F6548D3 /* LifeOSUnitTests */,
 				6BBD885734BE07D038423D8A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -154,6 +206,42 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		014CD19C415DDEF3B9081E4D /* LifeOSComponentTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9BF4B307849E850B56FCC3AF /* Build configuration list for PBXNativeTarget "LifeOSComponentTests" */;
+			buildPhases = (
+				1988456EAE5E4B6A4F696B76 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				ECE2259AAB3E40841270CC01 /* PBXTargetDependency */,
+			);
+			name = LifeOSComponentTests;
+			packageProductDependencies = (
+			);
+			productName = LifeOSComponentTests;
+			productReference = 034D9080C0B31279987A0CD7 /* LifeOSComponentTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		3D8F66BC07EADA6380A8A49C /* LifeOSUnitTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 653BCC250ED64F7B3D007B3B /* Build configuration list for PBXNativeTarget "LifeOSUnitTests" */;
+			buildPhases = (
+				A63661208D7498D734181622 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D6F1B3407AA589B0D62E90B8 /* PBXTargetDependency */,
+			);
+			name = LifeOSUnitTests;
+			packageProductDependencies = (
+			);
+			productName = LifeOSUnitTests;
+			productReference = 728DCA23C0F156C88D04362A /* LifeOSUnitTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		AD5DB9344CDCD6867ABB9D4E /* LifeOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = CF739040176A16175E0B5AE2 /* Build configuration list for PBXNativeTarget "LifeOS" */;
@@ -200,11 +288,32 @@
 			projectRoot = "";
 			targets = (
 				AD5DB9344CDCD6867ABB9D4E /* LifeOS */,
+				3D8F66BC07EADA6380A8A49C /* LifeOSUnitTests */,
+				014CD19C415DDEF3B9081E4D /* LifeOSComponentTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1988456EAE5E4B6A4F696B76 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9AB213881EABF49C81A2E471 /* GoalSystemComponentTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A63661208D7498D734181622 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				20B95C947978C7DC760EF8BD /* GoalProgressEngineTests.swift in Sources */,
+				BBB781998C08FBFA80ED7AAD /* PlanningServiceTests.swift in Sources */,
+				FC2EA2AA95DB24C0A8D641E1 /* ProgressAndHierarchyTests.swift in Sources */,
+				9E1A24913BE710E920A9C98D /* TestFixtures.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FC4407E4CCF14240FD08AF3D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -213,7 +322,6 @@
 				511A359B9C1D3087768E746B /* AddImprovementCategoryView.swift in Sources */,
 				F20B0CC3F213D901E11187B4 /* AddWhatHappenedView.swift in Sources */,
 				64BD1CB168BD83CFEDCEE578 /* BackupCenterView.swift in Sources */,
-				457F02982A10E4958F8EB460 /* SportTrackerView.swift in Sources */,
 				49E7137019B8301F15777724 /* CategoryHierarchy.swift in Sources */,
 				C42B22F16BD3D1E6D55D2FF6 /* CategoryProgressEngine.swift in Sources */,
 				D3110A8487A6D40D35338712 /* ColorToken.swift in Sources */,
@@ -236,6 +344,7 @@
 				FCCB7CFB039353917E4E9B3B /* ReminderService.swift in Sources */,
 				B81953C3320806B779E6011A /* RootTabView.swift in Sources */,
 				A43A08B6DE4301A6DA5A8890 /* SeedData.swift in Sources */,
+				A6BD99DDA99A2C934BDDD789 /* SportTrackerView.swift in Sources */,
 				6453F529D2E10A6C1979536B /* TodayTimelineView.swift in Sources */,
 				9C777A54A21460DFD68995AF /* WeeklyScheduleView.swift in Sources */,
 				A316D2657BC81A428479FCDE /* WeightTrackerView.swift in Sources */,
@@ -243,6 +352,19 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D6F1B3407AA589B0D62E90B8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AD5DB9344CDCD6867ABB9D4E /* LifeOS */;
+			targetProxy = 2DF5045004F210554FAF54D2 /* PBXContainerItemProxy */;
+		};
+		ECE2259AAB3E40841270CC01 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AD5DB9344CDCD6867ABB9D4E /* LifeOS */;
+			targetProxy = 5220F1EB7368DDFB4A528AFE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		092C4502900BF23E2898CB24 /* Debug */ = {
@@ -270,11 +392,82 @@
 			};
 			name = Debug;
 		};
+		116717CD09A94A0A9D21A61F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sirishdittakavi.lifeos.component-tests";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LifeOS.app/LifeOS";
+			};
+			name = Debug;
+		};
+		1B16C05E96F633E5ABD5F132 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sirishdittakavi.lifeos.unit-tests";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LifeOS.app/LifeOS";
+			};
+			name = Debug;
+		};
+		638CB2BEA98A6A86E03D5743 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sirishdittakavi.lifeos.unit-tests";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LifeOS.app/LifeOS";
+			};
+			name = Release;
+		};
+		962C27FBE20D14AA877FC3FF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sirishdittakavi.lifeos.component-tests";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LifeOS.app/LifeOS";
+			};
+			name = Release;
+		};
 		C61B578950EC2ABCE012D94B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -306,10 +499,8 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = 74WQCZFJFM;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -323,7 +514,6 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -334,7 +524,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -366,10 +555,8 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 74WQCZFJFM;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -390,7 +577,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -430,6 +616,24 @@
 			buildConfigurations = (
 				D82250F72DA7A5A6BB14E9FF /* Debug */,
 				C61B578950EC2ABCE012D94B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		653BCC250ED64F7B3D007B3B /* Build configuration list for PBXNativeTarget "LifeOSUnitTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1B16C05E96F633E5ABD5F132 /* Debug */,
+				638CB2BEA98A6A86E03D5743 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9BF4B307849E850B56FCC3AF /* Build configuration list for PBXNativeTarget "LifeOSComponentTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				116717CD09A94A0A9D21A61F /* Debug */,
+				962C27FBE20D14AA877FC3FF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

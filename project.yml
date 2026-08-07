@@ -2,6 +2,7 @@ name: LifeOS
 
 options:
   bundleIdPrefix: com.sirishdittakavi
+  xcodeVersion: "26.6"
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -27,6 +28,32 @@ targets:
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_NSCameraUsageDescription: Scan food barcodes and photograph nutrition labels.
 
+  LifeOSUnitTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: LifeOSUnitTests
+    dependencies:
+      - target: LifeOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sirishdittakavi.lifeos.unit-tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: 5.0
+
+  LifeOSComponentTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: LifeOSComponentTests
+    dependencies:
+      - target: LifeOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sirishdittakavi.lifeos.component-tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: 5.0
+
 schemes:
   LifeOS:
     build:
@@ -34,3 +61,9 @@ schemes:
         LifeOS: all
     run:
       config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - LifeOSUnitTests
+        - LifeOSComponentTests
