@@ -112,7 +112,7 @@ struct LifeOSInlineButtonStyle: ButtonStyle {
         configuration.label
             .font(.caption.weight(.semibold))
             .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity, minHeight: 40, alignment: .center)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .center)
             .foregroundStyle(filled ? Color.white : tint)
             .background(filled ? tint.opacity(configuration.isPressed ? 0.78 : 1) : tint.opacity(configuration.isPressed ? 0.18 : 0.10))
             .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
@@ -124,5 +124,47 @@ extension View {
         padding(16)
             .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+
+    func lifeOSGlassCard(tint: Color = .blue, cornerRadius: CGFloat = 20) -> some View {
+        modifier(LifeOSGlassCardModifier(tint: tint, cornerRadius: cornerRadius))
+    }
+}
+
+private struct LifeOSGlassCardModifier: ViewModifier {
+    let tint: Color
+    let cornerRadius: CGFloat
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content
+            .padding(16)
+            .background(
+                .regularMaterial,
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(colorScheme == .dark ? 0.18 : 0.72),
+                                tint.opacity(0.14),
+                                .white.opacity(0.04)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.8
+                    )
+            }
+            .shadow(
+                color: tint.opacity(colorScheme == .dark ? 0.08 : 0.06),
+                radius: 18, x: 0, y: 9
+            )
+            .shadow(
+                color: .black.opacity(colorScheme == .dark ? 0.18 : 0.035),
+                radius: 8, x: 0, y: 3
+            )
     }
 }

@@ -28,6 +28,7 @@ let package = Package(
                 "Engine/CategoryHierarchy.swift",
                 "Engine/CategoryProgressEngine.swift",
                 "Engine/LifeOSBackupService.swift",
+                "Engine/PortableMetricService.swift",
                 "Engine/PlanningService.swift",
                 "Engine/ProgressEngine.swift"
             ]

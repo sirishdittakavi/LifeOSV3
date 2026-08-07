@@ -2,10 +2,8 @@
 //  TodayTimelineView.swift
 //  LifeOS
 //
-//  Implements DESIGN.md Section 12 (Today Screen — Priority Mockup).
-//  "The first screen should feel like a useful daily calendar, not a
-//  statistics dashboard" — so this stays a chronological list with
-//  direct actions, no charts here (those live in DailyProgressView).
+//  The execution surface for a selected Profile. Every number comes from
+//  real plan and evidence records; presentation never invents progress.
 //
 
 import SwiftUI
@@ -27,6 +25,7 @@ struct TodayTimelineView: View {
     @State private var showingAddWhatHappened = false
     @State private var recordingItem: CalendarItem?
     @State private var resultMeasureToRecord: ResultMeasure?
+    @State private var feedbackTrigger = 0
 
     private var todayItems: [CalendarItem] {
         guard let profile = selection.profile else { return [] }
@@ -55,59 +54,54 @@ struct TodayTimelineView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                header
-                summaryBar
-                dailySignals
-                dueResults
+            ZStack {
+                TodayAtmosphericBackground()
 
-                if todayItems.isEmpty {
-                    ContentUnavailableView(
-                        "Nothing Scheduled",
-                        systemImage: "calendar.badge.plus",
-                        description: Text("Add an action or log something that happened.")
-                    )
-                    .frame(maxHeight: .infinity)
-                } else {
-                    List {
-                        ForEach(todayItems) { item in
-                            CalendarItemRow(item: item,
-                                             onStart: { start(item) },
-                                             onDone: { recordingItem = item },
-                                             onSkip: { skip(item) })
-                        }
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(spacing: 16) {
+                        dayHeading
+                        TodayProgressHero(summary: summary)
+                        dailySignals
+                        dueResults
+                        journey
                     }
-                    .listStyle(.plain)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 28)
                 }
-
-                addWhatHappenedButton
             }
-            .navigationTitle("")
+            .navigationTitle("Today")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     ProfilePicker(selection: selection)
+                        .frame(minHeight: 44)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingAddActivity = true } label: {
+                    Button {
+                        feedbackTrigger += 1
+                        showingAddActivity = true
+                    } label: {
                         Image(systemName: "plus")
+                            .font(.body.weight(.semibold))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .accessibilityLabel("Add action")
+                    .accessibilityHint("Opens the new action form")
                 }
             }
-            .onAppear {
-                generateTodayItemsIfNeeded()
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                addWhatHappenedButton
             }
-            .onChange(of: selection.profile?.id) {
-                generateTodayItemsIfNeeded()
-            }
+            .sensoryFeedback(.selection, trigger: feedbackTrigger)
+            .onAppear { generateTodayItemsIfNeeded() }
+            .onChange(of: selection.profile?.id) { generateTodayItemsIfNeeded() }
             .sheet(isPresented: $showingAddActivity) {
-                if let profile = selection.profile {
-                    AddActivityView(profile: profile)
-                }
+                if let profile = selection.profile { AddActivityView(profile: profile) }
             }
             .sheet(isPresented: $showingAddWhatHappened) {
-                if let profile = selection.profile {
-                    AddWhatHappenedView(profile: profile)
-                }
+                if let profile = selection.profile { AddWhatHappenedView(profile: profile) }
             }
             .sheet(item: $recordingItem) { item in
                 RecordActualView(item: item)
@@ -120,49 +114,39 @@ struct TodayTimelineView: View {
         }
     }
 
-    private var header: some View {
-        HStack {
-            if let profile = selection.profile {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(profile.name).font(.title2).bold()
-                    Text(Date.now.formatted(.dateTime.weekday(.wide).month().day()))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+    private var dayHeading: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                    .font(.title2.weight(.bold))
+                Text(summary.remaining == 0 && summary.total > 0
+                     ? "Your plan is complete."
+                     : "One clear action at a time.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-            Spacer()
+            Spacer(minLength: 12)
+            Image(systemName: summary.remaining == 0 && summary.total > 0
+                  ? "checkmark.seal.fill" : "sun.max.fill")
+                .font(.title2)
+                .foregroundStyle(summary.remaining == 0 && summary.total > 0 ? .green : .orange)
+                .accessibilityHidden(true)
         }
-        .padding(.horizontal)
-        .padding(.top, 8)
-    }
-
-    private var summaryBar: some View {
-        VStack(spacing: 6) {
-            HStack {
-                Text("TODAY'S PLAN").font(.caption).bold().foregroundStyle(.secondary)
-                Spacer()
-                Text("\(Int(summary.percentComplete * 100))%").font(.caption).bold()
-            }
-            ProgressView(value: summary.percentComplete).tint(.green)
-            Text("\(summary.done) done · \(summary.skipped) skipped · \(summary.remaining) remaining")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal)
-        .padding(.top, 8)
+        .padding(.horizontal, 4)
     }
 
     private var addWhatHappenedButton: some View {
         Button {
+            feedbackTrigger += 1
             showingAddWhatHappened = true
         } label: {
-            Label("Add What Happened", systemImage: "plus.circle.fill")
+            Label("Log What Happened", systemImage: "plus.circle.fill")
         }
         .buttonStyle(LifeOSPrimaryButtonStyle())
-        .padding()
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+        .accessibilityHint("Record an unscheduled action, meal, weight, or sport session")
     }
 
     private var dailySignals: some View {
@@ -179,88 +163,127 @@ struct TodayTimelineView: View {
         let profileSportCategories = categories.filter {
             $0.profile?.id == profile?.id && $0.pillar == .sport && $0.isActive
         }
-        let loggedSportNames = Set(todaySportEntries.compactMap { entry -> String? in
-            entry.category?.name
-        })
+        let loggedSportNames = Set(todaySportEntries.compactMap { $0.category?.name })
         let sportName = loggedSportNames.count == 1
             ? (loggedSportNames.first ?? "Sport")
             : (loggedSportNames.isEmpty && profileSportCategories.count == 1
                 ? profileSportCategories[0].name : "Sport")
         let sportSymbol = profileSportCategories.first { $0.name == sportName }?.symbol ?? "figure.run"
 
-        return HStack(spacing: 8) {
-            DailySignalCard(
-                title: "Protein",
-                value: "\(Int(protein))/\(Int(profile?.proteinGoalGrams ?? 0))g",
-                symbol: "fork.knife",
-                color: .green
-            )
-            DailySignalCard(
-                title: "Weight",
-                value: latestWeight.map {
-                    let unit = profile?.weightUnit ?? .kilograms
-                    return "\(unit.displayValue(kilograms: $0.kilograms).formatted(.number.precision(.fractionLength(1))))\(unit.rawValue)"
-                } ?? "—",
-                symbol: "scalemass",
-                color: .blue
-            )
-            DailySignalCard(
-                title: sportName,
-                value: "\(sportMinutes) min",
-                symbol: sportSymbol,
-                color: .orange
-            )
+        return VStack(alignment: .leading, spacing: 10) {
+            sectionLabel("DAILY SIGNALS", symbol: "waveform.path.ecg")
+            HStack(spacing: 10) {
+                DailySignalCard(
+                    title: "Protein",
+                    value: "\(Int(protein))/\(Int(profile?.proteinGoalGrams ?? 0))g",
+                    symbol: "fork.knife", color: .green
+                )
+                DailySignalCard(
+                    title: "Weight",
+                    value: latestWeight.map {
+                        let unit = profile?.weightUnit ?? .kilograms
+                        return "\(unit.displayValue(kilograms: $0.kilograms).formatted(.number.precision(.fractionLength(1))))\(unit.rawValue)"
+                    } ?? "—",
+                    symbol: "scalemass.fill", color: .blue
+                )
+                DailySignalCard(
+                    title: sportName, value: "\(sportMinutes) min",
+                    symbol: sportSymbol, color: .orange
+                )
+            }
         }
-        .padding(.horizontal)
-        .padding(.top, 8)
     }
 
     @ViewBuilder
     private var dueResults: some View {
         if !dueResultMeasures.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label("RESULT CHECK-INS", systemImage: "target")
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
+                    sectionLabel("RESULT CHECK-INS", symbol: "scope")
                     Spacer()
                     Text("\(dueResultMeasures.count) due")
-                        .font(.caption.bold())
+                        .font(.caption.weight(.bold))
                         .foregroundStyle(.orange)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(.orange.opacity(0.12), in: Capsule())
                 }
 
                 ForEach(dueResultMeasures.prefix(3)) { measure in
                     Button {
+                        feedbackTrigger += 1
                         resultMeasureToRecord = measure
                     } label: {
-                        HStack(spacing: 10) {
+                        HStack(spacing: 12) {
                             Image(systemName: "chart.line.uptrend.xyaxis")
+                                .font(.body.weight(.semibold))
                                 .foregroundStyle(.blue)
+                                .frame(width: 36, height: 36)
+                                .background(.blue.opacity(0.10), in: Circle())
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(measure.name).font(.subheadline.bold())
+                                Text(measure.name)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.primary)
                                 Text(measure.goal?.name ?? "Goal")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
-                            Spacer()
-                            Text("Enter Result")
-                                .font(.caption.bold())
+                            Spacer(minLength: 8)
+                            Text("Enter")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.blue)
                             Image(systemName: "chevron.right")
-                                .font(.caption.bold())
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.tertiary)
                         }
+                        .frame(minHeight: 44)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Enter \(measure.name) result for \(measure.goal?.name ?? "goal")")
                 }
             }
-            .padding(12)
-            .background(Color.orange.opacity(0.09))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .padding(.horizontal)
-            .padding(.top, 8)
+            .lifeOSGlassCard(tint: .orange)
         }
     }
 
-    // MARK: - Actions
+    private var journey: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                sectionLabel("TODAY'S JOURNEY", symbol: "calendar.day.timeline.left")
+                Spacer()
+                Text("\(todayItems.count) \(todayItems.count == 1 ? "action" : "actions")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if todayItems.isEmpty {
+                ContentUnavailableView(
+                    "Nothing Scheduled",
+                    systemImage: "calendar.badge.plus",
+                    description: Text("Add an action or log something that happened.")
+                )
+                .frame(maxWidth: .infinity, minHeight: 230)
+                .lifeOSGlassCard(tint: .blue)
+            } else {
+                ForEach(todayItems) { item in
+                    CalendarItemRow(
+                        item: item,
+                        onStart: { feedbackTrigger += 1; start(item) },
+                        onDone: { feedbackTrigger += 1; recordingItem = item },
+                        onSkip: { feedbackTrigger += 1; skip(item) }
+                    )
+                }
+            }
+        }
+    }
+
+    private func sectionLabel(_ title: String, symbol: String) -> some View {
+        Label(title, systemImage: symbol)
+            .font(.caption.weight(.bold))
+            .tracking(0.7)
+            .foregroundStyle(.secondary)
+    }
 
     private func generateTodayItemsIfNeeded() {
         guard let profile = selection.profile else { return }
@@ -284,6 +307,98 @@ struct TodayTimelineView: View {
     }
 }
 
+private struct TodayAtmosphericBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            Color(.systemGroupedBackground)
+            LinearGradient(
+                colors: colorScheme == .dark
+                    ? [.indigo.opacity(0.18), .clear, .blue.opacity(0.08)]
+                    : [.blue.opacity(0.10), .clear, .mint.opacity(0.08)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Circle()
+                .fill(.blue.opacity(colorScheme == .dark ? 0.10 : 0.08))
+                .frame(width: 280, height: 280)
+                .blur(radius: 80)
+                .offset(x: 160, y: -280)
+        }
+        .ignoresSafeArea()
+        .accessibilityHidden(true)
+    }
+}
+
+private struct TodayProgressHero: View {
+    let summary: CompletionSummary
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var percent: Int { Int((summary.percentComplete * 100).rounded()) }
+
+    var body: some View {
+        HStack(spacing: 18) {
+            ZStack {
+                Circle().stroke(.primary.opacity(0.08), lineWidth: 8)
+                Circle()
+                    .trim(from: 0, to: summary.percentComplete)
+                    .stroke(
+                        AngularGradient(colors: [.blue, .cyan, .green], center: .center),
+                        style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .animation(reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.82),
+                               value: summary.percentComplete)
+                VStack(spacing: 0) {
+                    Text("\(percent)%")
+                        .font(.title3.weight(.bold).monospacedDigit())
+                    Text("done").font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 88, height: 88)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Daily plan \(percent) percent complete")
+
+            VStack(alignment: .leading, spacing: 9) {
+                Text("Daily plan").font(.title3.weight(.bold))
+                Text(summary.total == 0
+                     ? "Build your day with one meaningful action."
+                     : "\(summary.done) of \(summary.total) planned actions complete")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 7) {
+                    SummaryPill(value: summary.done, label: "done", color: .green)
+                    SummaryPill(value: summary.remaining, label: "left", color: .blue)
+                    if summary.skipped > 0 {
+                        SummaryPill(value: summary.skipped, label: "skipped", color: .secondary)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .lifeOSGlassCard(tint: summary.remaining == 0 && summary.total > 0 ? .green : .blue,
+                         cornerRadius: 26)
+    }
+}
+
+private struct SummaryPill: View {
+    let value: Int
+    let label: String
+    let color: Color
+
+    var body: some View {
+        Text("\(value) \(label)")
+            .font(.caption2.weight(.semibold).monospacedDigit())
+            .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(color.opacity(0.10), in: Capsule())
+    }
+}
+
 private struct DailySignalCard: View {
     let title: String
     let value: String
@@ -291,19 +406,32 @@ private struct DailySignalCard: View {
     let color: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Image(systemName: symbol).foregroundStyle(color)
-            Text(value).font(.subheadline).bold().lineLimit(1).minimumScaleFactor(0.7)
-            Text(title).font(.caption2).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 6) {
+            Image(systemName: symbol)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(color)
+                .frame(width: 30, height: 30)
+                .background(color.opacity(0.10), in: Circle())
+            Text(value)
+                .font(.subheadline.weight(.bold).monospacedDigit())
+                .lineLimit(1)
+                .minimumScaleFactor(0.68)
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .frame(maxWidth: .infinity, minHeight: 82, alignment: .leading)
+        .padding(12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 0.75)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), \(value)")
     }
 }
-
-// MARK: - Row
 
 private struct CalendarItemRow: View {
     let item: CalendarItem
@@ -311,45 +439,52 @@ private struct CalendarItemRow: View {
     let onDone: () -> Void
     let onSkip: () -> Void
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top) {
-                Text(item.plannedStart?.formatted(date: .omitted, time: .shortened) ?? "--:--")
-                    .font(.subheadline).bold()
-                    .frame(width: 64, alignment: .leading)
+    private var categoryColor: Color {
+        item.activity?.category.map { ColorToken.color(for: $0.colorToken) } ?? .blue
+    }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.activity?.name ?? "Activity")
-                        .font(.subheadline).bold()
+    var body: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(spacing: 5) {
+                    Image(systemName: item.activity?.category?.symbol ?? "circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(categoryColor)
+                        .frame(width: 42, height: 42)
+                        .background(categoryColor.opacity(0.11), in: Circle())
+                    Text(item.plannedStart?.formatted(date: .omitted, time: .shortened) ?? "Any time")
+                        .font(.caption2.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .frame(width: 64)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(item.activity?.name ?? "Action")
+                        .font(.headline)
+                        .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 6) {
                         if let category = item.activity?.category {
-                            Image(systemName: category.symbol)
-                                .font(.caption2)
-                                .foregroundStyle(ColorToken.color(for: category.colorToken))
                             Text(category.name)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
-                        Text("· \(item.status.rawValue)")
-                            .font(.caption)
-                            .foregroundStyle(statusColor)
+                        StatusBadge(status: item.status)
+                    }
+                    if let duration = item.activity?.estimatedDurationMinutes, duration > 0 {
+                        Label("\(duration) min", systemImage: "clock")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
                     }
                 }
-                Spacer()
+                Spacer(minLength: 0)
             }
 
             actionButtons
         }
-        .padding(.vertical, 6)
-    }
-
-    private var statusColor: Color {
-        switch item.status {
-        case .done: return .green
-        case .skipped: return .secondary
-        case .inProgress: return .blue
-        default: return .secondary
-        }
+        .lifeOSGlassCard(tint: categoryColor, cornerRadius: 22)
+        .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
@@ -359,27 +494,62 @@ private struct CalendarItemRow: View {
             HStack(spacing: 8) {
                 Button("Start", action: onStart)
                     .buttonStyle(LifeOSInlineButtonStyle(tint: .blue))
+                    .accessibilityHint("Marks this action in progress")
                 Button("Done", action: onDone)
                     .buttonStyle(LifeOSInlineButtonStyle(tint: .green, filled: true))
+                    .accessibilityHint("Opens the result and notes form")
                 Button("Skip", action: onSkip)
                     .buttonStyle(LifeOSInlineButtonStyle(tint: .secondary))
+                    .accessibilityHint("Marks this action skipped")
             }
         case .inProgress:
             HStack(spacing: 8) {
                 Button("Finish", action: onDone)
                     .buttonStyle(LifeOSInlineButtonStyle(tint: .green, filled: true))
+                    .accessibilityHint("Opens the result and notes form")
                 Button("Skip", action: onSkip)
                     .buttonStyle(LifeOSInlineButtonStyle(tint: .secondary))
+                    .accessibilityHint("Marks this action skipped")
             }
         case .done:
-            if let target = item.activity?.targetValue, let unit = item.activity?.targetUnit {
-                Text("Target: \(Int(target)) \(unit)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                Text(completionText).font(.caption).foregroundStyle(.secondary)
             }
+            .frame(minHeight: 44)
         case .skipped, .rescheduled, .unplanned:
             EmptyView()
         }
+    }
+
+    private var completionText: String {
+        guard let target = item.activity?.targetValue,
+              let unit = item.activity?.targetUnit else { return "Completed" }
+        return "Completed · target \(target.formatted(.number.precision(.fractionLength(0...1)))) \(unit)"
+    }
+}
+
+private struct StatusBadge: View {
+    let status: CalendarItemStatus
+
+    private var color: Color {
+        switch status {
+        case .done: return .green
+        case .inProgress: return .blue
+        case .skipped: return .secondary
+        case .rescheduled: return .orange
+        case .unplanned: return .purple
+        case .planned: return .secondary
+        }
+    }
+
+    var body: some View {
+        Text(status.rawValue)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.10), in: Capsule())
     }
 }
 

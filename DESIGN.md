@@ -27,7 +27,7 @@ Update this table whenever the code changes.
 | Activity model | ✅ First version | Manual/template/AI-approved source |
 | Schedule rule | ✅ First version | Once, daily, selected weekdays, any count per day/week, exact minute intervals |
 | Calendar item | ✅ First version | Every calendar entry originates from an Activity |
-| Today timeline | ✅ First version | Planned day in chronological order plus due Goal Result check-ins |
+| Today timeline | ✅ First version | Real-data progress ring, daily signals, due Goal Result check-ins and chronological glass depth cards with accessible 44pt controls and haptics |
 | Mobile schedule | ✅ First version | Seven-day strip, focused daily agenda, graphical date jump and interactive action cards |
 | Mark Done / Skip | ✅ First version | Status and actual timestamps retained |
 | Add task manually | ✅ First version | Fast task + inline category creation, exact numeric targets, time, duration and flexible repeat |
@@ -40,7 +40,8 @@ Update this table whenever the code changes.
 | Goals and measurements | ✅ First version | Numeric, rating, milestone and written Result types; increase/decrease/range targets and scheduled/manual check-ins |
 | Notifications | ✅ First version | Profile-labelled Action reminders, weekly plan review and scheduled Goal Result check-ins |
 | JSON backup/restore | ✅ First version | Schema 2 full-family export/merge includes Goals, contributions, Result Measures, check-ins, photos and templates; schema 1 restore remains supported |
-| Automated regression tests | ✅ First version | 32 headless unit/component tests plus an iOS SwiftUI construction check; GitHub runs core tests and compiles both XCTest bundles on every change |
+| Portable metric contract | ✅ First version | Versioned JSON event envelope maps Action Sessions, Goal Results, nutrition, weight and generic sport evidence for Android/integrations without storing derived progress |
+| Automated regression tests | ✅ First version | 38 headless unit/component tests plus an iOS SwiftUI construction check; GitHub runs core tests and compiles both XCTest bundles on every change |
 | Repository protocol | ⚠️ Partial | Planning service separated; full persistence abstraction next |
 | Family sync and accounts | ❌ Deferred | Secure child invitations, permissions and multi-device sync require a cloud identity service |
 | Paid household management | 📐 Designed | StoreKit entitlement plus server-authoritative household/member limits; implementation deferred |
@@ -478,7 +479,9 @@ A one-time entry creates a one-time Activity rather than an unstructured event.
 └────────────────────────────────────────┘
 ```
 
-The first screen should feel like a useful daily calendar, not a statistics dashboard.
+The first screen should feel like a useful daily calendar, not a statistics dashboard. Its progress hero must use the real planned-action completion summary; it must never show invented points, sample records or a hard-coded percentage. Daily signals remain supporting context below that honest plan summary.
+
+The visual system uses restrained adaptive material, category-tinted depth and semantic status badges. All interactive controls provide at least a 44 × 44pt hit region, support Dynamic Type and VoiceOver labels/hints, preserve contrast in light and dark appearances, respect Reduce Motion, and use subtle selection feedback for direct actions. Decorative glass effects must never reduce legibility or become more prominent than the schedule.
 
 ---
 
@@ -564,8 +567,8 @@ Planning Service + Progress Engine
 Repository Protocol                    [next refactor]
       ↓
 SwiftData Repository
-      ↓
-JSON Export / Restore                  [next milestone]
+      ├── Full-family JSON Backup / Restore
+      └── Portable Metric JSON         [Android, analytics, integrations]
 ```
 
 Rules:
@@ -578,6 +581,26 @@ Rules:
 - New categories and activities are configuration, not new screens.
 - Business logic must be unit-testable.
 - JSON schemas are versioned.
+
+### 14.1 Portable metric contract
+
+SwiftData remains the iPhone persistence model because typed relationships protect Profile isolation and the Goal → Area → Action → Result graph. A second, Foundation-only contract exposes dated evidence without depending on SwiftData or SwiftUI:
+
+```text
+PortableMetricEnvelope (schema version + export date)
+  └── PortableMetric
+       ├── stable event ID and Profile ID
+       ├── optional Area, Goal and definition IDs
+       ├── event kind and occurrence date
+       ├── title and note
+       └── JSON-native typed fields
+```
+
+Version 1 event kinds are `action_session`, `goal_result`, `nutrition`, `weight` and `sport`. Flexible fields may contain strings, finite numbers, integers, booleans, arrays, objects or null. They use an explicit `{ type, value }` representation so a whole-number measurement is not silently decoded as an integer, and they must not reduce all values to strings. Canonical dates use ISO-8601 and canonical body weight uses kilograms.
+
+The contract deliberately does **not** persist `progress`, status or confidence. Those values are derived from raw evidence, targets and the current Progress Engine so an algorithm update cannot leave stale values in storage. Every exported metric requires a Profile ID, duplicate event IDs are rejected, unknown future schema versions fail safely, and deterministic JSON round-trip tests protect the contract.
+
+This event envelope is suitable for Android ingestion, analytics and future API boundaries. It does not replace the full-family backup, which also preserves Profiles, relationships, schedules, templates and photos. An Android client should implement equivalent typed domain entities with Room (or another local store), then map its evidence records to the same JSON contract; it should not attempt to run Swift protocols.
 
 ---
 
@@ -628,7 +651,7 @@ Not yet included:
 - Multiple custom tracking fields
 - Additional custom biometrics beyond weight
 - Weekly planning distribution
-- JSON export/restore
+- Portable metric import UI and external integrations
 - Face ID/PIN
 - Cloud sync
 - AI API
