@@ -6,105 +6,80 @@ struct WeeklyScheduleView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var activities: [Activity]
     @Query private var allItems: [CalendarItem]
-    @Query private var categories: [AppCategory]
 
     @State private var weekOffset = 0
-    @State private var dayRange: WeekDayRange = .workWeek
+    @State private var selectedDate = Date.now
     @State private var showingAddTask = false
+    @State private var showingDatePicker = false
     @State private var selectedItem: CalendarItem?
 
     private let calendar = Calendar.current
-    private let timeGutterWidth: CGFloat = 62
-    private let dayColumnWidth: CGFloat = 138
-    private let dayHeaderHeight: CGFloat = 54
-    private let hourHeight: CGFloat = 76
+
+    private var currentWeekStart: Date {
+        monday(containing: .now)
+    }
 
     private var weekStart: Date {
-        let today = calendar.startOfDay(for: .now)
-        let weekday = calendar.component(.weekday, from: today)
-        let daysSinceMonday = (weekday + 5) % 7
-        let currentMonday = calendar.date(byAdding: .day, value: -daysSinceMonday, to: today) ?? today
-        return calendar.date(byAdding: .weekOfYear, value: weekOffset, to: currentMonday) ?? currentMonday
+        calendar.date(byAdding: .weekOfYear, value: weekOffset, to: currentWeekStart) ?? currentWeekStart
     }
 
     private var visibleDates: [Date] {
-        (0..<dayRange.dayCount).compactMap {
-            calendar.date(byAdding: .day, value: $0, to: weekStart)
-        }
+        (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: weekStart) }
     }
 
     private var visibleItems: [CalendarItem] {
         guard let profile = selection.profile else { return [] }
         return allItems.filter { item in
-            item.profile?.id == profile.id && visibleDates.contains { calendar.isSameDay($0, as: item.date) }
+            item.profile?.id == profile.id
+                && visibleDates.contains { calendar.isSameDay($0, as: item.date) }
         }
     }
 
-    private var startMinute: Int {
-        let earliest = visibleItems.compactMap(\.plannedStart).map {
-            calendar.component(.hour, from: $0) * 60 + calendar.component(.minute, from: $0)
-        }.min() ?? 6 * 60
-        return max(0, (earliest / 60) * 60)
-    }
-
-    private var endMinute: Int {
-        let latest = visibleItems.compactMap { item -> Int? in
-            guard let end = item.plannedEnd ?? item.plannedStart else { return nil }
-            return calendar.component(.hour, from: end) * 60 + calendar.component(.minute, from: end)
-        }.max() ?? 21 * 60
-        let rounded = ((latest + 59) / 60) * 60
-        return min(24 * 60, max(rounded, startMinute + 6 * 60))
-    }
-
-    private var timelineHeight: CGFloat {
-        CGFloat(endMinute - startMinute) / 60 * hourHeight
-    }
-
-    private var legendCategories: [AppCategory] {
-        var seen: Set<UUID> = []
-        return visibleItems.compactMap { $0.activity?.category }.filter { seen.insert($0.id).inserted }
-            .sorted { $0.name < $1.name }
+    private var selectedDayItems: [CalendarItem] {
+        visibleItems
+            .filter { calendar.isSameDay($0.date, as: selectedDate) }
+            .sorted { ($0.plannedStart ?? $0.date) < ($1.plannedStart ?? $1.date) }
     }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 10) {
-                weekControls
+            VStack(spacing: 0) {
+                calendarHeader
+                weekStrip
 
-                Picker("Days", selection: $dayRange) {
-                    ForEach(WeekDayRange.allCases) { range in
-                        Text(range.rawValue).tag(range)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-
-                if visibleItems.isEmpty {
-                    ContentUnavailableView(
-                        "Nothing Scheduled This Week",
-                        systemImage: "calendar.badge.plus",
-                        description: Text("Add an action with a start time and repeat schedule.")
-                    )
+                if selectedDayItems.isEmpty {
+                    emptyDay
                 } else {
-                    scheduleGrid
-                    categoryLegend
+                    dayAgenda
                 }
             }
-            .navigationTitle("Weekly Schedule")
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("Schedule")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { ProfilePicker(selection: selection) }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingAddTask = true } label: { Image(systemName: "plus") }
-                        .disabled(selection.profile == nil)
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button { showingDatePicker = true } label: {
+                        Image(systemName: "calendar")
+                    }
+                    .accessibilityLabel("Choose date")
+                    Button { showingAddTask = true } label: {
+                        Image(systemName: "plus")
+                    }
+                    .disabled(selection.profile == nil)
                 }
             }
-            .onAppear { generateVisibleWeek() }
+            .onAppear {
+                selectedDate = calendar.startOfDay(for: .now)
+                generateVisibleWeek()
+            }
             .onChange(of: selection.profile?.id) { generateVisibleWeek() }
             .onChange(of: weekOffset) { generateVisibleWeek() }
-            .onChange(of: dayRange) { generateVisibleWeek() }
             .sheet(isPresented: $showingAddTask) {
                 if let profile = selection.profile { AddActivityView(profile: profile) }
+            }
+            .sheet(isPresented: $showingDatePicker) {
+                datePickerSheet
             }
             .sheet(item: $selectedItem) { item in
                 WeekItemDetailView(item: item)
@@ -112,177 +87,196 @@ struct WeeklyScheduleView: View {
         }
     }
 
-    private var weekControls: some View {
-        HStack(spacing: 12) {
-            Button { weekOffset -= 1 } label: { Image(systemName: "chevron.left") }
-            Spacer()
-            VStack(spacing: 2) {
-                Text(weekRangeTitle).font(.headline)
-                if weekOffset != 0 {
-                    Button("Return to this week") { weekOffset = 0 }
-                        .font(.caption)
+    @ViewBuilder
+    private var calendarHeader: some View {
+        HStack(spacing: 10) {
+            Button { moveWeek(-1) } label: {
+                Image(systemName: "chevron.left")
+            }
+            .buttonStyle(LifeOSCompactButtonStyle())
+            .accessibilityLabel("Previous week")
+
+            Button { showingDatePicker = true } label: {
+                VStack(spacing: 2) {
+                    Text(weekRangeTitle)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(weekOffset == 0 ? "This week" : "Tap to choose a date")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button { moveWeek(1) } label: {
+                Image(systemName: "chevron.right")
+            }
+            .buttonStyle(LifeOSCompactButtonStyle())
+            .accessibilityLabel("Next week")
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+
+        if weekOffset != 0 {
+            Button { jump(to: .now) } label: {
+                Label("Return to today", systemImage: "arrow.uturn.backward")
+            }
+            .buttonStyle(LifeOSCompactButtonStyle(tint: .blue))
+            .padding(.top, 8)
+        }
+    }
+
+    private var weekStrip: some View {
+        HStack(spacing: 5) {
+            ForEach(visibleDates, id: \.self) { date in
+                let selected = calendar.isSameDay(date, as: selectedDate)
+                let itemCount = items(on: date).count
+                Button {
+                    selectedDate = date
+                } label: {
+                    VStack(spacing: 5) {
+                        Text(date.formatted(.dateTime.weekday(.narrow)))
+                            .font(.caption2.weight(.semibold))
+                        Text(date.formatted(.dateTime.day()))
+                            .font(.headline)
+                        if itemCount > 0 {
+                            Text("\(itemCount)")
+                                .font(.caption2.weight(.bold))
+                                .frame(minWidth: 18, minHeight: 18)
+                                .background(selected ? Color.white.opacity(0.22) : Color.blue.opacity(0.12))
+                                .clipShape(Capsule())
+                        } else {
+                            Circle().fill(Color.clear).frame(width: 18, height: 18)
+                        }
+                    }
+                    .foregroundStyle(selected ? .white : (calendar.isDateInToday(date) ? Color.blue : Color.primary))
+                    .frame(maxWidth: .infinity, minHeight: 76)
+                    .background(selected ? Color.blue : Color(.secondarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay {
+                        if calendar.isDateInToday(date) && !selected {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.blue.opacity(0.55), lineWidth: 1.5)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(date.formatted(date: .complete, time: .omitted)), \(itemCount) actions")
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+    }
+
+    private var dayAgenda: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                DayScheduleSummary(date: selectedDate, items: selectedDayItems)
+
+                ForEach(DayPart.allCases) { part in
+                    let partItems = selectedDayItems.filter { part.contains($0.plannedStart ?? $0.date, calendar: calendar) }
+                    if !partItems.isEmpty {
+                        Text(part.rawValue.uppercased())
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 4)
+
+                        ForEach(partItems) { item in
+                            Button { selectedItem = item } label: {
+                                AgendaEventCard(item: item, isCurrent: isCurrent(item))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
             }
-            Spacer()
-            Button { weekOffset += 1 } label: { Image(systemName: "chevron.right") }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 24)
         }
-        .buttonStyle(.bordered)
-        .padding(.horizontal)
+    }
+
+    private var emptyDay: some View {
+        VStack(spacing: 18) {
+            Spacer()
+            Image(systemName: "calendar.badge.plus")
+                .font(.system(size: 42))
+                .foregroundStyle(.blue)
+            VStack(spacing: 6) {
+                Text("No actions on \(selectedDate.formatted(.dateTime.weekday(.wide)))")
+                    .font(.title3.weight(.semibold))
+                Text("Enjoy the open space, or add something you want to work on.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            Button { showingAddTask = true } label: {
+                Label("Add an Action", systemImage: "plus")
+            }
+            .buttonStyle(LifeOSPrimaryButtonStyle())
+            .padding(.horizontal, 32)
+            Spacer()
+        }
+    }
+
+    private var datePickerSheet: some View {
+        NavigationStack {
+            DatePicker(
+                "Choose a date",
+                selection: Binding(get: { selectedDate }, set: { jump(to: $0) }),
+                displayedComponents: .date
+            )
+            .datePickerStyle(.graphical)
+            .padding()
+            .navigationTitle("Choose Date")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showingDatePicker = false }
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 
     private var weekRangeTitle: String {
-        guard let last = visibleDates.last else { return "This Week" }
+        guard let last = visibleDates.last else { return "Schedule" }
+        if calendar.component(.month, from: weekStart) == calendar.component(.month, from: last) {
+            return "\(weekStart.formatted(.dateTime.month(.wide))) \(weekStart.formatted(.dateTime.day()))–\(last.formatted(.dateTime.day()))"
+        }
         return "\(weekStart.formatted(.dateTime.month(.abbreviated).day())) – \(last.formatted(.dateTime.month(.abbreviated).day()))"
     }
 
-    private var scheduleGrid: some View {
-        ScrollView([.horizontal, .vertical]) {
-            HStack(alignment: .top, spacing: 0) {
-                timeRuler
-                ForEach(visibleDates, id: \.self) { date in
-                    dayColumn(date)
-                }
-            }
-            .background(Color(.systemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(.separator).opacity(0.45)))
-            .padding(.horizontal)
-        }
+    private func items(on date: Date) -> [CalendarItem] {
+        visibleItems.filter { calendar.isSameDay($0.date, as: date) }
     }
 
-    private var timeRuler: some View {
-        VStack(spacing: 0) {
-            Text("TIME")
-                .font(.caption).bold().foregroundStyle(.secondary)
-                .frame(width: timeGutterWidth, height: dayHeaderHeight)
-                .background(Color(.secondarySystemBackground))
-            ZStack(alignment: .topTrailing) {
-                ForEach(hourMarks, id: \.self) { minute in
-                    Text(timeLabel(minute))
-                        .font(.caption2).bold()
-                        .foregroundStyle(.secondary)
-                        .frame(width: timeGutterWidth - 8, alignment: .trailing)
-                        .offset(y: yOffset(for: minute) - 7)
-                }
-            }
-            .frame(width: timeGutterWidth, height: timelineHeight, alignment: .top)
-            .background(Color(.secondarySystemBackground).opacity(0.72))
-        }
+    private func monday(containing date: Date) -> Date {
+        let day = calendar.startOfDay(for: date)
+        let weekday = calendar.component(.weekday, from: day)
+        return calendar.date(byAdding: .day, value: -((weekday + 5) % 7), to: day) ?? day
     }
 
-    private func dayColumn(_ date: Date) -> some View {
-        let items = visibleItems.filter { calendar.isSameDay($0.date, as: date) }
-        return VStack(spacing: 0) {
-            VStack(spacing: 2) {
-                Text(date.formatted(.dateTime.weekday(.abbreviated)).uppercased())
-                    .font(.caption).bold()
-                Text(date.formatted(.dateTime.day()))
-                    .font(.title3).bold()
-            }
-            .foregroundStyle(calendar.isDateInToday(date) ? .white : .primary)
-            .frame(width: dayColumnWidth, height: dayHeaderHeight)
-            .background(calendar.isDateInToday(date) ? Color.blue : Color(.secondarySystemBackground))
-
-            ZStack(alignment: .topLeading) {
-                ForEach(halfHourMarks, id: \.self) { minute in
-                    Rectangle()
-                        .fill(Color(.separator).opacity(minute % 60 == 0 ? 0.35 : 0.16))
-                        .frame(width: dayColumnWidth, height: 0.5)
-                        .offset(y: yOffset(for: minute))
-                }
-
-                if calendar.isDateInToday(date) {
-                    let nowMinute = calendar.component(.hour, from: .now) * 60 + calendar.component(.minute, from: .now)
-                    if nowMinute >= startMinute && nowMinute <= endMinute {
-                        HStack(spacing: 3) {
-                            Circle().fill(.red).frame(width: 7, height: 7)
-                            Rectangle().fill(.red).frame(height: 1.5)
-                        }
-                        .offset(x: 1, y: yOffset(for: nowMinute) - 3)
-                        .zIndex(4)
-                    }
-                }
-
-                ForEach(items) { item in
-                    weekEvent(item)
-                }
-            }
-            .frame(width: dayColumnWidth, height: timelineHeight, alignment: .topLeading)
-            .overlay(alignment: .leading) { Divider() }
-        }
+    private func moveWeek(_ amount: Int) {
+        weekOffset += amount
+        selectedDate = calendar.date(byAdding: .weekOfYear, value: amount, to: selectedDate) ?? weekStart
     }
 
-    private func weekEvent(_ item: CalendarItem) -> some View {
-        let start = item.plannedStart ?? item.date
-        let minute = calendar.component(.hour, from: start) * 60 + calendar.component(.minute, from: start)
-        let duration = max(15, item.activity?.estimatedDurationMinutes ?? 30)
-        let height = max(30, CGFloat(duration) / 60 * hourHeight)
-        let color = ColorToken.color(for: item.activity?.category?.colorToken ?? "gray")
-
-        return Button {
-            selectedItem = item
-        } label: {
-            HStack(spacing: 5) {
-                Rectangle().fill(color).frame(width: 4)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.activity?.name ?? "Action")
-                        .font(.caption).bold().lineLimit(2)
-                    if height >= 48 {
-                        Text(start.formatted(date: .omitted, time: .shortened))
-                            .font(.caption2).foregroundStyle(.secondary)
-                        if let category = item.activity?.category, height >= 66 {
-                            Text(category.name).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                    }
-                }
-                Spacer(minLength: 1)
-                if item.status == .done {
-                    Image(systemName: "checkmark.circle.fill").font(.caption2).foregroundStyle(.green)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .padding(.trailing, 5)
-        .frame(width: dayColumnWidth - 8, height: height, alignment: .leading)
-        .background(color.opacity(0.16))
-        .clipShape(RoundedRectangle(cornerRadius: 7))
-        .overlay(RoundedRectangle(cornerRadius: 7).stroke(color.opacity(0.32)))
-        .offset(x: 4, y: yOffset(for: minute))
+    private func jump(to date: Date) {
+        let day = calendar.startOfDay(for: date)
+        let targetWeek = monday(containing: day)
+        let days = calendar.dateComponents([.day], from: currentWeekStart, to: targetWeek).day ?? 0
+        weekOffset = days / 7
+        selectedDate = day
     }
 
-    private var categoryLegend: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(legendCategories) { category in
-                    Label(category.name, systemImage: category.symbol)
-                        .font(.caption).bold()
-                        .foregroundStyle(ColorToken.color(for: category.colorToken))
-                        .padding(.horizontal, 9).padding(.vertical, 6)
-                        .background(ColorToken.color(for: category.colorToken).opacity(0.12))
-                        .clipShape(Capsule())
-                }
-            }
-            .padding(.horizontal)
-        }
-        .padding(.bottom, 6)
-    }
-
-    private var hourMarks: [Int] {
-        Array(stride(from: startMinute, through: endMinute, by: 60))
-    }
-
-    private var halfHourMarks: [Int] {
-        Array(stride(from: startMinute, through: endMinute, by: 30))
-    }
-
-    private func yOffset(for minute: Int) -> CGFloat {
-        CGFloat(minute - startMinute) / 60 * hourHeight
-    }
-
-    private func timeLabel(_ minute: Int) -> String {
-        let day = calendar.startOfDay(for: .now)
-        let date = calendar.date(byAdding: .minute, value: minute, to: day) ?? day
-        return date.formatted(date: .omitted, time: .shortened)
+    private func isCurrent(_ item: CalendarItem) -> Bool {
+        guard calendar.isDateInToday(item.date), let start = item.plannedStart else { return false }
+        let end = item.plannedEnd
+            ?? calendar.date(byAdding: .minute, value: item.activity?.estimatedDurationMinutes ?? 30, to: start)
+            ?? start
+        return Date.now >= start && Date.now <= end
     }
 
     private func generateVisibleWeek() {
@@ -292,12 +286,126 @@ struct WeeklyScheduleView: View {
             let newItems = PlanningService.generateMissingCalendarItems(
                 profile: profile, date: date, activities: activities, existingItems: allItems
             )
-            for item in newItems {
-                modelContext.insert(item)
+            newItems.forEach {
+                modelContext.insert($0)
                 inserted = true
             }
         }
         if inserted { try? modelContext.save() }
+    }
+}
+
+private struct DayScheduleSummary: View {
+    let date: Date
+    let items: [CalendarItem]
+
+    private var done: Int { items.filter { $0.status == .done }.count }
+    private var minutes: Int { items.reduce(0) { $0 + ($1.activity?.estimatedDurationMinutes ?? 0) } }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(date.formatted(.dateTime.weekday(.wide)))
+                        .font(.title2.weight(.bold))
+                    Text(date.formatted(.dateTime.month(.wide).day()))
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text("\(done)/\(items.count) done")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(done == items.count ? .green : .blue)
+            }
+            ProgressView(value: items.isEmpty ? 0 : Double(done) / Double(items.count))
+                .tint(done == items.count ? .green : .blue)
+            Text("\(items.count) actions · \(minutes) planned minutes")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .lifeOSCard()
+    }
+}
+
+private struct AgendaEventCard: View {
+    let item: CalendarItem
+    let isCurrent: Bool
+
+    private var categoryColor: Color {
+        ColorToken.color(for: item.activity?.category?.colorToken ?? "gray")
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.plannedStart?.formatted(date: .omitted, time: .shortened) ?? "Any time")
+                    .font(.subheadline.weight(.bold))
+                Text("\(item.activity?.estimatedDurationMinutes ?? 0) min")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            .frame(width: 68, alignment: .leading)
+
+            RoundedRectangle(cornerRadius: 2)
+                .fill(categoryColor)
+                .frame(width: 4, height: 54)
+
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 6) {
+                    Text(item.activity?.name ?? "Action")
+                        .font(.headline).foregroundStyle(.primary).lineLimit(2)
+                    if isCurrent {
+                        Text("NOW")
+                            .font(.caption2.weight(.bold)).foregroundStyle(.red)
+                    }
+                }
+                if let category = item.activity?.category {
+                    Label(category.name, systemImage: category.symbol)
+                        .font(.caption).foregroundStyle(categoryColor)
+                }
+            }
+
+            Spacer(minLength: 6)
+            StatusBadge(status: item.status)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+        }
+        .lifeOSCard(cornerRadius: 16)
+    }
+}
+
+private struct StatusBadge: View {
+    let status: CalendarItemStatus
+
+    private var color: Color {
+        switch status {
+        case .done: return .green
+        case .inProgress: return .blue
+        case .skipped: return .gray
+        case .rescheduled: return .orange
+        case .planned, .unplanned: return .secondary
+        }
+    }
+
+    var body: some View {
+        Image(systemName: status == .done ? "checkmark.circle.fill" : "circle.fill")
+            .font(status == .done ? Font.body : Font.system(size: 8))
+            .foregroundStyle(color)
+            .accessibilityLabel(status.rawValue)
+    }
+}
+
+private enum DayPart: String, CaseIterable, Identifiable {
+    case morning = "Morning"
+    case afternoon = "Afternoon"
+    case evening = "Evening"
+
+    var id: String { rawValue }
+
+    func contains(_ date: Date, calendar: Calendar) -> Bool {
+        let hour = calendar.component(.hour, from: date)
+        switch self {
+        case .morning: return hour < 12
+        case .afternoon: return hour >= 12 && hour < 17
+        case .evening: return hour >= 17
+        }
     }
 }
 
@@ -311,36 +419,46 @@ private struct WeekItemDetailView: View {
         NavigationStack {
             List {
                 Section {
-                    Text(item.activity?.name ?? "Action").font(.title2).bold()
-                    if let category = item.activity?.category {
-                        Label(category.name, systemImage: category.symbol)
-                            .foregroundStyle(ColorToken.color(for: category.colorToken))
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(item.activity?.name ?? "Action").font(.title2.weight(.bold))
+                        if let category = item.activity?.category {
+                            Label(category.name, systemImage: category.symbol)
+                                .foregroundStyle(ColorToken.color(for: category.colorToken))
+                        }
                     }
+                    .padding(.vertical, 4)
                 }
                 Section("Schedule") {
                     LabeledContent("Date", value: item.date.formatted(date: .abbreviated, time: .omitted))
-                    LabeledContent("Starts", value: item.plannedStart?.formatted(date: .omitted, time: .shortened) ?? "Not set")
+                    LabeledContent("Starts", value: item.plannedStart?.formatted(date: .omitted, time: .shortened) ?? "Any time")
                     LabeledContent("Duration", value: "\(item.activity?.estimatedDurationMinutes ?? 0) min")
                     LabeledContent("Status", value: item.status.rawValue)
                 }
-                Section("Actions") {
+                Section("What happened?") {
                     if item.status != .done {
-                        Button { recording = true } label: {
-                            Label("Record as Done", systemImage: "checkmark.circle.fill")
+                        VStack(spacing: 10) {
+                            Button { recording = true } label: {
+                                Label("Record as Done", systemImage: "checkmark")
+                            }
+                            .buttonStyle(LifeOSPrimaryButtonStyle())
+
+                            Button {
+                                item.status = .skipped
+                                try? modelContext.save()
+                                dismiss()
+                            } label: {
+                                Label("Skip This Occurrence", systemImage: "forward.end")
+                            }
+                            .buttonStyle(LifeOSSecondaryButtonStyle())
                         }
-                        Button(role: .destructive) {
-                            item.status = .skipped
-                            try? modelContext.save()
-                            dismiss()
-                        } label: {
-                            Label("Skip This Occurrence", systemImage: "forward.end")
-                        }
+                        .padding(.vertical, 4)
                     } else {
-                        Label("Completed", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                        Label("Completed", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
                     }
                 }
             }
-            .navigationTitle("Schedule Item")
+            .navigationTitle("Action Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Close") { dismiss() } }
@@ -348,14 +466,6 @@ private struct WeekItemDetailView: View {
             .sheet(isPresented: $recording) { RecordActualView(item: item) }
         }
     }
-}
-
-private enum WeekDayRange: String, CaseIterable, Identifiable {
-    case workWeek = "Mon–Fri"
-    case fullWeek = "7 Days"
-
-    var id: String { rawValue }
-    var dayCount: Int { self == .workWeek ? 5 : 7 }
 }
 
 #Preview {

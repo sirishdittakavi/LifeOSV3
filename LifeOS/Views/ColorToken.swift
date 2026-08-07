@@ -52,3 +52,77 @@ enum CategoryAppearanceOptions {
         CategoryIconOption(name: "Weight", symbol: "scalemass.fill")
     ]
 }
+
+// MARK: - Shared controls
+
+struct LifeOSPrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, minHeight: 48, alignment: .center)
+            .padding(.horizontal, 16)
+            .foregroundStyle(.white)
+            .background(Color.accentColor.opacity(configuration.isPressed ? 0.78 : 1))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+struct LifeOSSecondaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, minHeight: 46, alignment: .center)
+            .padding(.horizontal, 14)
+            .foregroundStyle(.primary)
+            .background(Color(.secondarySystemBackground).opacity(configuration.isPressed ? 0.7 : 1))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color(.separator).opacity(0.35), lineWidth: 1)
+            }
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+struct LifeOSCompactButtonStyle: ButtonStyle {
+    var tint: Color = .accentColor
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .multilineTextAlignment(.center)
+            .frame(minWidth: 44, minHeight: 44, alignment: .center)
+            .padding(.horizontal, 10)
+            .foregroundStyle(tint)
+            .background(tint.opacity(configuration.isPressed ? 0.18 : 0.10))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+struct LifeOSInlineButtonStyle: ButtonStyle {
+    var tint: Color = .accentColor
+    var filled = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.caption.weight(.semibold))
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, minHeight: 40, alignment: .center)
+            .foregroundStyle(filled ? Color.white : tint)
+            .background(filled ? tint.opacity(configuration.isPressed ? 0.78 : 1) : tint.opacity(configuration.isPressed ? 0.18 : 0.10))
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+    }
+}
+
+extension View {
+    func lifeOSCard(cornerRadius: CGFloat = 18) -> some View {
+        padding(16)
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}

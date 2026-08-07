@@ -27,7 +27,7 @@ Update this table whenever the code changes.
 | Schedule rule | ✅ First version | Once, daily, selected weekdays, any count per day/week, exact minute intervals |
 | Calendar item | ✅ First version | Every calendar entry originates from an Activity |
 | Today timeline | ✅ First version | Planned day in chronological order |
-| Weekly schedule grid | ✅ First version | Mon-Fri or seven-day grid, coloured interactive blocks, current-time line, navigation and legend |
+| Mobile schedule | ✅ First version | Seven-day strip, focused daily agenda, graphical date jump and interactive action cards |
 | Mark Done / Skip | ✅ First version | Status and actual timestamps retained |
 | Add task manually | ✅ First version | Fast task + inline category creation, exact numeric targets, time, duration and flexible repeat |
 | Daily nutrition log | ✅ First version | Barcode lookup, label-photo OCR, saved photos, manual editing, macros, water and daily totals |
@@ -992,9 +992,24 @@ Baseball dashboard progress
 
 The parent uses its own approved weekly target for the aggregate status. Opening a child shows that child's own target and evidence. A task is stored under exactly one category and counted once in any single rollup.
 
-The Categories screen exposes the full tree with indentation and direct navigation. A parent detail screen lists its immediate children, aggregated tasks, and a fast **Add Subcategory or Program** action.
+The Categories screen exposes the full tree with direct navigation. A parent detail screen lists its immediate children and aggregates their actions once into the parent result.
 
-### 23.4 Fast generic creation
+### 23.4 Period-driven Area screen
+
+An Area is not a second dashboard and it is not a settings form. It is the simplest answer to **“Am I doing enough for this Area?”**
+
+The Area screen has one Day / Week / Month control. That single selection updates all content below it:
+
+1. aggregate progress and confidence,
+2. the status of contained Focus Areas,
+3. actions scheduled in the selected period,
+4. completed versus planned occurrences for each action.
+
+The primary tracking action is named for the user's Area: for example **Log Cricket Training**, **Log Weight**, or **Log Food or Nutrition**. Generic Areas without a special measurement log are tracked by completing their scheduled actions. A secondary **Add an Action** button is always available.
+
+This avoids separate, competing “Progress”, “Tracking”, and “Tasks” destinations. Focus Areas remain optional and subordinate; they are never required just to create an action.
+
+### 23.5 Fast generic creation
 
 Both category creation and task creation include an optional **Inside** picker:
 
@@ -1005,13 +1020,13 @@ This keeps the common case simple while supporting schedules organised by coach,
 
 ---
 
-## 24. Weekly Schedule Grid
+## 24. Mobile Schedule
 
-The supplied schedule establishes a second planning surface in addition to Today: days run horizontally, time runs vertically, and scheduled tasks appear as coloured blocks. This visual pattern is generic; the example's labels and names are not built into the product.
+The supplied schedule establishes a second planning surface in addition to Today. Its category names remain examples rather than built-in domains. On iPhone, legibility and fast action take priority over reproducing a desktop-sized timetable grid.
 
 ### 24.1 Purpose
 
-Today remains the execution view. Week is the planning and balance view. It must answer:
+Today remains the execution view. Schedule is the planning and balance view. It must answer:
 
 - Where are the fixed commitments and available gaps?
 - Is training, learning, work, recovery, and leisure distributed realistically?
@@ -1020,19 +1035,25 @@ Today remains the execution view. Week is the planning and balance view. It must
 
 ### 24.2 Interaction and layout
 
-- A dedicated **Week** tab provides the schedule grid.
-- The default range is Monday-Friday; the user can switch to all seven days.
-- Previous and next controls move one week at a time.
-- Time uses a proportional vertical scale with 30-minute guide lines.
-- Each event's height represents its estimated duration.
-- Each event uses its category colour as a border and tinted background.
-- The event shows task name, start time, category, and completion mark when space permits.
-- A horizontally scrolling legend explains the categories visible in that week.
-- The grid scrolls in both directions so it remains readable on iPhone without compressing five columns into illegible text.
+- The dedicated **Week** tab opens the Schedule with the current week and today selected.
+- A seven-day strip shows weekday, date, and action count without compressing event text into narrow columns.
+- Previous and next controls move one week at a time; tapping the date range opens a graphical date picker.
+- Selecting a date reveals one chronological agenda grouped into Morning, Afternoon, and Evening.
+- Each action card shows time, duration, action name, Area identity, current status, and a clear disclosure affordance.
+- Tapping an action opens its details and full-width **Record as Done** and **Skip** controls.
+- Empty days offer one centred, full-width **Add an Action** control.
+- The view generates missing Calendar Items using the same `PlanningService` used by Today. It does not create a parallel scheduling model.
 
-The Week view generates missing Calendar Items using the same `PlanningService` used by Today. It does not create a parallel scheduling model.
+### 24.3 Shared interaction quality
 
-### 24.3 Physical-device readiness
+- Every tappable control has a minimum 44-point hit target.
+- The primary action in a screen or sheet is full-width, visually dominant, and has centred text.
+- Secondary actions use the same geometry and alignment, with quieter colour.
+- Adjacent compact actions have equal flexible widths so labels do not look misaligned.
+- Icons support a clear label; they do not replace essential wording.
+- Cards use consistent corner radii, internal spacing, and semantic system colours.
+
+### 24.4 Physical-device readiness
 
 The generated Xcode project uses automatic code signing. It must not set `CODE_SIGNING_ALLOWED = NO`, because that prevents installation on a physical iPhone. The developer still chooses their Apple Account team in Xcode; team identity is personal configuration and is never hard-coded in the repository.
 

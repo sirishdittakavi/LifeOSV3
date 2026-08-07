@@ -51,42 +51,40 @@ struct ImprovementCategoryDetailView: View {
         )
     }
 
+    private var periodActionSummaries: [ActionPeriodSummary] {
+        let interval = period.interval(containing: .now)
+        let days = dates(in: interval)
+
+        return categoryActivities.compactMap { activity in
+            let plannedCount = days.reduce(0) { count, date in
+                count + PlanningService.scheduledStartMinutes(activity, on: date).count
+            }
+            let existingItems = calendarItems.filter {
+                $0.activity?.id == activity.id && interval.contains($0.date)
+            }
+            guard plannedCount > 0 || !existingItems.isEmpty else { return nil }
+            return ActionPeriodSummary(
+                activity: activity,
+                plannedCount: max(plannedCount, existingItems.count),
+                completedCount: existingItems.filter { $0.status == .done }.count,
+                decidedCount: existingItems.filter {
+                    $0.status == .done || $0.status == .skipped || $0.status == .rescheduled
+                }.count
+            )
+        }
+        .sorted { $0.activity.plannedStartMinutes < $1.activity.plannedStartMinutes }
+    }
+
     var body: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label(category.pillar.rawValue, systemImage: category.symbol)
-                        .font(.caption).bold()
-                        .foregroundStyle(ColorToken.color(for: category.colorToken))
-                    Text(category.purpose.isEmpty ? "Improve through consistent, measurable action." : category.purpose)
-                        .font(.body)
-                    Text("Weekly goal: \(category.weeklyTargetSessions) times · \(category.weeklyTargetMinutes) minutes")
-                        .font(.caption).foregroundStyle(.secondary)
-                    Button { showingAddTask = true } label: {
-                        Label("Add an Action", systemImage: "checkmark.circle.badge.plus")
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                .padding(.vertical, 4)
-            }
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 18) {
+                areaHeader
 
-            if !childCategories.isEmpty {
-                Section("Focus Areas") {
-                    ForEach(childCategories) { child in
-                        NavigationLink {
-                            ImprovementCategoryDetailView(selection: selection, category: child)
-                        } label: {
-                            Label(child.name, systemImage: child.symbol)
-                        }
-                    }
-                }
-            }
-
-            Section("Progress") {
                 Picker("Period", selection: $period) {
                     ForEach(DashboardPeriod.allCases) { Text($0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented)
+
                 if let progress {
                     Button { showingProgressDetails = true } label: {
                         CategoryProgressCard(progress: progress)
@@ -95,44 +93,54 @@ struct ImprovementCategoryDetailView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Open \(category.name) progress details")
                 }
-            }
 
-            if let tool = categoryTool {
-                Section("Tracking") {
-                    Button { activeTool = tool } label: {
-                        Label(
-                            tool == .sport ? "Open \(category.name) Training Log" : tool.buttonTitle,
-                            systemImage: tool == .sport ? category.symbol : tool.symbol
-                        )
+                VStack(spacing: 10) {
+                    if let tool = categoryTool {
+                        Button { activeTool = tool } label: {
+                            Label(trackingButtonTitle(for: tool), systemImage: tool == .sport ? category.symbol : tool.symbol)
+                        }
+                        .buttonStyle(LifeOSPrimaryButtonStyle())
+                    }
+
+                    if categoryTool == nil {
+                        Button { showingAddTask = true } label: {
+                            Label("Add an Action", systemImage: "plus")
+                        }
+                        .buttonStyle(LifeOSPrimaryButtonStyle())
+                    } else {
+                        Button { showingAddTask = true } label: {
+                            Label("Add an Action", systemImage: "plus")
+                        }
+                        .buttonStyle(LifeOSSecondaryButtonStyle())
                     }
                 }
-            }
 
-            Section("Actions") {
-                if categoryActivities.isEmpty {
-                    Text("No actions yet. Add one small thing you can repeat and complete.")
-                        .font(.caption).foregroundStyle(.secondary)
-                } else {
-                    ForEach(categoryActivities) { activity in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(activity.name).font(.headline)
-                            if let activityCategory = activity.category, activityCategory.id != category.id {
-                                Text(CategoryHierarchy.breadcrumbName(for: activityCategory, in: profileCategories))
-                                    .font(.caption2).bold()
-                                    .foregroundStyle(ColorToken.color(for: activityCategory.colorToken))
+                if !childCategories.isEmpty {
+                    sectionTitle("Focus Areas", detail: "Included in the progress above")
+                    VStack(spacing: 0) {
+                        ForEach(Array(childCategories.enumerated()), id: \.element.id) { index, child in
+                            NavigationLink {
+                                ImprovementCategoryDetailView(selection: selection, category: child)
+                            } label: {
+                                focusAreaRow(child)
                             }
-                            Text(scheduleDescription(activity))
-                                .font(.caption).foregroundStyle(.secondary)
-                            if let target = activity.targetValue, let unit = activity.targetUnit {
-                                Text("Target: \(target.formatted(.number.precision(.fractionLength(0...1)))) \(unit)")
-                                    .font(.caption2).foregroundStyle(.secondary)
-                            }
+                            .buttonStyle(.plain)
+                            if index < childCategories.count - 1 { Divider().padding(.leading, 54) }
                         }
                     }
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
+
+                sectionTitle(periodActionsTitle, detail: "Only actions planned in this period")
+                actionList
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 28)
         }
+        .background(Color(.systemGroupedBackground))
         .navigationTitle(category.name)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showingAddTask = true } label: {
@@ -192,6 +200,144 @@ struct ImprovementCategoryDetailView: View {
         }
     }
 
+    private var areaHeader: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: category.symbol)
+                .font(.title2)
+                .frame(width: 48, height: 48)
+                .foregroundStyle(ColorToken.color(for: category.colorToken))
+                .background(ColorToken.color(for: category.colorToken).opacity(0.14))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(category.pillar.rawValue.uppercased())
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(ColorToken.color(for: category.colorToken))
+                Text(category.purpose.isEmpty ? "Improve through consistent, measurable action." : category.purpose)
+                    .font(.subheadline)
+                Text("Weekly goal · \(category.weeklyTargetSessions) times · \(category.weeklyTargetMinutes) min")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .lifeOSCard()
+    }
+
+    @ViewBuilder
+    private var actionList: some View {
+        if categoryActivities.isEmpty {
+            emptyActions(
+                title: "No actions yet",
+                message: "Add one small repeatable action. It will appear here and on the Schedule."
+            )
+        } else if periodActionSummaries.isEmpty {
+            emptyActions(
+                title: "Nothing planned for this \(period.emptyPeriodName)",
+                message: "Your actions are safe. Change the period above or add an action for this time."
+            )
+        } else {
+            VStack(spacing: 12) {
+                ForEach(periodActionSummaries) { summary in
+                    ActionPeriodCard(
+                        summary: summary,
+                        category: category,
+                        profileCategories: profileCategories,
+                        scheduleText: scheduleDescription(summary.activity)
+                    )
+                }
+            }
+        }
+    }
+
+    private func emptyActions(title: String, message: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: "calendar.badge.plus")
+                .font(.title2)
+                .foregroundStyle(ColorToken.color(for: category.colorToken))
+            Text(title).font(.headline)
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .lifeOSCard()
+    }
+
+    private func sectionTitle(_ title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.title3.weight(.bold))
+            Text(detail).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func focusAreaRow(_ child: AppCategory) -> some View {
+        let childProgress = progress(for: child)
+        return HStack(spacing: 12) {
+            Image(systemName: child.symbol)
+                .frame(width: 38, height: 38)
+                .foregroundStyle(ColorToken.color(for: child.colorToken))
+                .background(ColorToken.color(for: child.colorToken).opacity(0.14))
+                .clipShape(Circle())
+            VStack(alignment: .leading, spacing: 3) {
+                Text(child.name).font(.headline).foregroundStyle(.primary)
+                Text(childProgress?.progressText ?? "No target configured")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(childProgress?.status.rawValue ?? "")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+        }
+        .padding(14)
+        .contentShape(Rectangle())
+    }
+
+    private func progress(for child: AppCategory) -> CategoryProgress? {
+        guard let profile = selection.profile else { return nil }
+        return CategoryProgressEngine.progress(
+            profile: profile,
+            category: child,
+            includedCategoryIDs: CategoryHierarchy.idsIncludingDescendants(of: child, in: profileCategories),
+            period: period,
+            activities: activities,
+            calendarItems: calendarItems,
+            foodEntries: foodEntries,
+            weightEntries: weightEntries,
+            sportEntries: sportEntries
+        )
+    }
+
+    private var periodActionsTitle: String {
+        switch period {
+        case .day: return "Today's Actions"
+        case .week: return "This Week's Actions"
+        case .month: return "This Month's Actions"
+        }
+    }
+
+    private func trackingButtonTitle(for tool: CategoryTool) -> String {
+        switch tool {
+        case .food: return "Log Food or Nutrition"
+        case .weight: return "Log Weight"
+        case .sport: return "Log \(category.name) Training"
+        }
+    }
+
+    private func dates(in interval: DateInterval) -> [Date] {
+        var result: [Date] = []
+        var date = Calendar.current.startOfDay(for: interval.start)
+        while date < interval.end {
+            result.append(date)
+            guard let next = Calendar.current.date(byAdding: .day, value: 1, to: date) else { break }
+            date = next
+        }
+        return result
+    }
+
     private var categoryTool: CategoryTool? {
         let name = ([category] + CategoryHierarchy.ancestors(of: category, in: profileCategories))
             .map(\.name).joined(separator: " ").lowercased()
@@ -219,6 +365,63 @@ struct ImprovementCategoryDetailView: View {
             repeatText = "\(activity.occurrencesPerWeek)× weekly"
         }
         return "\(repeatText) · \(activity.estimatedDurationMinutes) min · \(time)"
+    }
+}
+
+private struct ActionPeriodSummary: Identifiable {
+    let activity: Activity
+    let plannedCount: Int
+    let completedCount: Int
+    let decidedCount: Int
+
+    var id: UUID { activity.id }
+    var fraction: Double {
+        guard plannedCount > 0 else { return 0 }
+        return min(Double(completedCount) / Double(plannedCount), 1)
+    }
+}
+
+private struct ActionPeriodCard: View {
+    let summary: ActionPeriodSummary
+    let category: AppCategory
+    let profileCategories: [AppCategory]
+    let scheduleText: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(summary.activity.name).font(.headline)
+                    if let actionCategory = summary.activity.category, actionCategory.id != category.id {
+                        Text(CategoryHierarchy.breadcrumbName(for: actionCategory, in: profileCategories))
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(ColorToken.color(for: actionCategory.colorToken))
+                    }
+                    Text(scheduleText).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                Text("\(summary.completedCount)/\(summary.plannedCount)")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(summary.completedCount >= summary.plannedCount ? .green : .blue)
+            }
+            ProgressView(value: summary.fraction)
+                .tint(summary.completedCount >= summary.plannedCount ? .green : .blue)
+            Text(summary.decidedCount == summary.plannedCount
+                 ? "All planned occurrences decided"
+                 : "\(summary.plannedCount - summary.decidedCount) still to do or decide")
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+        .lifeOSCard(cornerRadius: 16)
+    }
+}
+
+private extension DashboardPeriod {
+    var emptyPeriodName: String {
+        switch self {
+        case .day: return "day"
+        case .week: return "week"
+        case .month: return "month"
+        }
     }
 }
 

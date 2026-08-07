@@ -139,10 +139,8 @@ struct TodayTimelineView: View {
             showingAddWhatHappened = true
         } label: {
             Label("Add What Happened", systemImage: "plus.circle.fill")
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(LifeOSPrimaryButtonStyle())
         .padding()
     }
 
@@ -293,17 +291,20 @@ private struct CalendarItemRow: View {
         switch item.status {
         case .planned:
             HStack(spacing: 8) {
-                Button("Start", action: onStart).buttonStyle(.bordered)
-                Button("Done", action: onDone).buttonStyle(.borderedProminent)
-                Button("Skip", action: onSkip).buttonStyle(.bordered).tint(.secondary)
+                Button("Start", action: onStart)
+                    .buttonStyle(LifeOSInlineButtonStyle(tint: .blue))
+                Button("Done", action: onDone)
+                    .buttonStyle(LifeOSInlineButtonStyle(tint: .green, filled: true))
+                Button("Skip", action: onSkip)
+                    .buttonStyle(LifeOSInlineButtonStyle(tint: .secondary))
             }
-            .controlSize(.small)
         case .inProgress:
             HStack(spacing: 8) {
-                Button("Finish", action: onDone).buttonStyle(.borderedProminent)
-                Button("Skip", action: onSkip).buttonStyle(.bordered).tint(.secondary)
+                Button("Finish", action: onDone)
+                    .buttonStyle(LifeOSInlineButtonStyle(tint: .green, filled: true))
+                Button("Skip", action: onSkip)
+                    .buttonStyle(LifeOSInlineButtonStyle(tint: .secondary))
             }
-            .controlSize(.small)
         case .done:
             if let target = item.activity?.targetValue, let unit = item.activity?.targetUnit {
                 Text("Target: \(Int(target)) \(unit)")

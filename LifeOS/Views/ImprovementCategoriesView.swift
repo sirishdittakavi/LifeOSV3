@@ -30,13 +30,13 @@ struct ImprovementCategoriesView: View {
                         Text("Areas are the parts of life you want to improve. Actions are the repeatable things you do for each area.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        HStack {
+                        VStack(spacing: 10) {
                             Button {
                                 showingAddAction = true
                             } label: {
                                 Label("Add Action", systemImage: "checkmark.circle.badge.plus")
                             }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(LifeOSPrimaryButtonStyle())
                             .disabled(profileCategories.isEmpty)
 
                             Button {
@@ -44,7 +44,7 @@ struct ImprovementCategoriesView: View {
                             } label: {
                                 Label("Add Area", systemImage: "plus.square")
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(LifeOSSecondaryButtonStyle())
                         }
                     }
                     .padding(.vertical, 4)
@@ -58,7 +58,7 @@ struct ImprovementCategoriesView: View {
                             description: Text("Start with something meaningful such as Baseball, School, Health or Software Development.")
                         )
                         Button("Create My First Area") { addRoute = .custom }
-                            .frame(maxWidth: .infinity)
+                            .buttonStyle(LifeOSPrimaryButtonStyle())
                     }
                 }
 
