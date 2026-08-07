@@ -37,7 +37,7 @@ Update this table whenever the code changes.
 | Timer session | ⬜ Next | Basic data model present; dedicated timer screen next |
 | Multiple tracking fields | ⬜ Next | Activity supports primary unit in first code version |
 | Goals and measurements | ⬜ Next | Domain decision retained, UI deferred |
-| Notifications | ✅ First version | Approved category enables task-time reminders and a Sunday weekly review |
+| Notifications | ✅ First version | Approved Area enables profile-labelled action reminders, immediate refresh after Action creation, and a Sunday weekly review |
 | JSON backup/restore | ✅ First version | Full-family portable export and stable-ID merge restore, including photos and templates |
 | Repository protocol | ⚠️ Partial | Planning service separated; full persistence abstraction next |
 | Family sync and accounts | ❌ Deferred | Secure child invitations, permissions and multi-device sync require a cloud identity service |
@@ -857,6 +857,8 @@ Reminders require explicit approval at category setup or edit time.
 - Times-per-week activities divide the requested count across preferred days; if a day receives multiple occurrences, the exact minute interval is used.
 - One-time activities notify only if their fire date is still in the future.
 - An enabled category receives a Sunday weekly-review reminder.
+- Every notification identifies the Profile and Area so a parent managing multiple people can tell who the reminder belongs to.
+- Adding an Action inside a reminder-enabled Area or Focus Area refreshes its notifications immediately; saving the Area again is never required.
 - Disabling reminders removes pending requests for the category and its activities.
 - Notification denial never blocks local planning or tracking.
 

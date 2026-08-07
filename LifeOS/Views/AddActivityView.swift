@@ -15,6 +15,7 @@ struct AddActivityView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \AppCategory.name) private var categories: [AppCategory]
+    @Query private var activities: [Activity]
 
     @State private var name: String = ""
     @State private var selectedCategory: AppCategory?
@@ -276,7 +277,30 @@ struct AddActivityView: View {
         newItems.forEach { modelContext.insert($0) }
 
         try? modelContext.save()
+        refreshReminders(afterAdding: activity, to: category)
         dismiss()
+    }
+
+    /// A parent Area's reminder setting applies to Actions inside its Focus Areas too.
+    /// Refresh every enabled Area that contains the new Action so the notification
+    /// is ready immediately, without requiring the user to edit and save the Area.
+    private func refreshReminders(afterAdding activity: Activity, to category: AppCategory?) {
+        guard let category else { return }
+        let profileCategories = categories.filter { $0.profile?.id == profile.id && $0.isActive }
+        let reminderAreas = ([category] + CategoryHierarchy.ancestors(of: category, in: profileCategories))
+            .filter { $0.reminderEnabled && $0.isActive }
+        guard !reminderAreas.isEmpty else { return }
+
+        let profileActivities = activities.filter { $0.profile?.id == profile.id && $0.id != activity.id } + [activity]
+        Task {
+            for reminderArea in reminderAreas {
+                let includedIDs = CategoryHierarchy.idsIncludingDescendants(of: reminderArea, in: profileCategories)
+                let reminderActivities = profileActivities.filter {
+                    $0.category.map { includedIDs.contains($0.id) } == true
+                }
+                await ReminderService.updateReminders(for: reminderArea, activities: reminderActivities)
+            }
+        }
     }
 }
 

@@ -18,6 +18,9 @@ enum ReminderService {
 
             let reviewContent = UNMutableNotificationContent()
             reviewContent.title = "Review \(category.name)"
+            if let profileName = category.profile?.name {
+                reviewContent.subtitle = profileName
+            }
             reviewContent.body = "Check whether this week's target is complete, on track, or needs rescheduling."
             reviewContent.sound = .default
             let reviewComponents = DateComponents(
@@ -43,8 +46,12 @@ enum ReminderService {
         center: UNUserNotificationCenter
     ) async throws {
         let content = UNMutableNotificationContent()
+        let actionCategory = activity.category ?? category
         content.title = activity.name
-        content.body = "This action supports \(category.name)'s weekly improvement target."
+        if let profileName = activity.profile?.name ?? category.profile?.name {
+            content.subtitle = profileName
+        }
+        content.body = "\(actionCategory.name) · This action supports the weekly improvement target."
         content.sound = .default
 
         switch activity.repeatType {
