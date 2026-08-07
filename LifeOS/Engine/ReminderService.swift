@@ -175,3 +175,41 @@ enum ReminderService {
         return identifiers
     }
 }
+
+enum GoalReminderService {
+    static func updateReminder(for measure: ResultMeasure) async {
+        let center = UNUserNotificationCenter.current()
+        let identifier = "result-measure.\(measure.id.uuidString).check-in"
+        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+
+        guard measure.reminderEnabled,
+              measure.cadence != .onDemand,
+              let nextDate = measure.nextCheckInDate else { return }
+
+        do {
+            let allowed = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+            guard allowed else { return }
+
+            let content = UNMutableNotificationContent()
+            content.title = "Result check-in: \(measure.name)"
+            if let profileName = measure.goal?.profile?.name {
+                content.subtitle = profileName
+            }
+            content.body = "Enter the latest result for \(measure.goal?.name ?? "this Goal") to see whether the plan is working."
+            content.sound = .default
+
+            var components = Calendar.current.dateComponents([.year, .month, .day], from: nextDate)
+            components.hour = measure.reminderHour
+            components.minute = measure.reminderMinute
+            guard let fireDate = Calendar.current.date(from: components), fireDate > .now else { return }
+
+            try await center.add(UNNotificationRequest(
+                identifier: identifier,
+                content: content,
+                trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            ))
+        } catch {
+            // Result reminders never block saving a Goal or check-in.
+        }
+    }
+}

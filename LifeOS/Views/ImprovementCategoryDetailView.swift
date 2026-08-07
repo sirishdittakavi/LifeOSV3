@@ -91,7 +91,7 @@ struct ImprovementCategoryDetailView: View {
                             .contentShape(RoundedRectangle(cornerRadius: 16))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Open \(category.name) progress details")
+                    .accessibilityLabel("Open \(category.name) activity plan details")
                 }
 
                 VStack(spacing: 10) {
@@ -116,7 +116,7 @@ struct ImprovementCategoryDetailView: View {
                 }
 
                 if !childCategories.isEmpty {
-                    sectionTitle("Focus Areas", detail: "Included in the progress above")
+                    sectionTitle("Focus Areas", detail: "Included in the activity plan above")
                     VStack(spacing: 0) {
                         ForEach(Array(childCategories.enumerated()), id: \.element.id) { index, child in
                             NavigationLink {
@@ -213,9 +213,9 @@ struct ImprovementCategoryDetailView: View {
                 Text(category.pillar.rawValue.uppercased())
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(ColorToken.color(for: category.colorToken))
-                Text(category.purpose.isEmpty ? "Improve through consistent, measurable action." : category.purpose)
+                Text(category.purpose.isEmpty ? "Organise the actions that support your Goals." : category.purpose)
                     .font(.subheadline)
-                Text("Weekly goal · \(category.weeklyTargetSessions) times · \(category.weeklyTargetMinutes) min")
+                Text("Weekly activity plan · \(category.weeklyTargetSessions) times · \(category.weeklyTargetMinutes) min")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -453,7 +453,7 @@ private struct CategoryProgressDetailView: View {
                     }
                 }
 
-                Section("Plan confidence") {
+                Section("Plan adherence") {
                     LabeledContent("Status", value: progress.status.rawValue)
                     LabeledContent("Confidence", value: progress.confidence.rawValue)
                     if progress.dueTasks > 0 {
@@ -467,7 +467,7 @@ private struct CategoryProgressDetailView: View {
                     Text(progress.nextAction)
                 }
             }
-            .navigationTitle("\(progress.period.rawValue) Progress")
+            .navigationTitle("\(progress.period.rawValue) Activity Plan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -567,9 +567,11 @@ struct EditImprovementCategoryView: View {
                     TextField("Purpose", text: $category.purpose, axis: .vertical)
                 }
 
-                Section("Weekly goal") {
+                Section("Weekly activity plan") {
                     Stepper("\(category.weeklyTargetSessions) times", value: $category.weeklyTargetSessions, in: 0...21)
                     Stepper("\(category.weeklyTargetMinutes) minutes", value: $category.weeklyTargetMinutes, in: 0...1200, step: 15)
+                    Text("This is an effort target. Outcome targets belong to Goals.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
 
                 Section("Related areas (optional)") {

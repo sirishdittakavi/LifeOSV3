@@ -105,5 +105,5 @@ struct RecordActualView: View {
                              targetValue: 100, targetUnit: "swings", plannedStartMinutes: 18*60, estimatedDurationMinutes: 60)
     let item = CalendarItem(profile: profile, activity: activity, date: .now)
     RecordActualView(item: item)
-        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self], inMemory: true)
+        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Goal.self, GoalAreaContribution.self, ResultMeasure.self, ResultEntry.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self], inMemory: true)
 }

@@ -6,6 +6,10 @@ struct LifeOSBackupPayload: Codable {
     let exportedAt: Date
     let profiles: [ProfileBackup]
     let categories: [CategoryBackup]
+    let goals: [GoalBackup]?
+    let goalContributions: [GoalContributionBackup]?
+    let resultMeasures: [ResultMeasureBackup]?
+    let resultEntries: [ResultEntryBackup]?
     let activities: [ActivityBackup]
     let calendarItems: [CalendarItemBackup]
     let sessions: [SessionBackup]
@@ -28,6 +32,29 @@ struct CategoryBackup: Codable {
     let pillarRaw: String; let purpose: String; let weeklyTargetSessions: Int; let weeklyTargetMinutes: Int
     let parentCategoryIDString: String?; let relatedCategoryIDStrings: [String]
     let reminderEnabled: Bool; let reminderHour: Int; let reminderMinute: Int; let isActive: Bool
+}
+
+struct GoalBackup: Codable {
+    let id: UUID; let profileID: UUID?; let name: String; let purpose: String
+    let targetDate: Date?; let createdAt: Date; let isActive: Bool
+}
+
+struct GoalContributionBackup: Codable {
+    let id: UUID; let goalID: UUID?; let categoryID: UUID?; let statement: String
+    let weeklyTargetSessions: Int; let weeklyTargetMinutes: Int; let isActive: Bool
+}
+
+struct ResultMeasureBackup: Codable {
+    let id: UUID; let goalID: UUID?; let name: String; let roleRaw: String; let valueTypeRaw: String
+    let unit: String; let directionRaw: String; let baselineValue: Double?; let targetValue: Double?
+    let targetMinimum: Double?; let targetMaximum: Double?; let ratingLabels: [String]
+    let cadenceRaw: String; let nextCheckInDate: Date?; let reminderEnabled: Bool
+    let reminderHour: Int; let reminderMinute: Int; let isActive: Bool
+}
+
+struct ResultEntryBackup: Codable {
+    let id: UUID; let profileID: UUID?; let measureID: UUID?; let date: Date
+    let numericValue: Double?; let textValue: String; let sourceLabel: String; let note: String
 }
 
 struct ActivityBackup: Codable {
@@ -76,12 +103,14 @@ struct SavedTemplateBackup: Codable {
 enum LifeOSBackupService {
     static func make(
         profiles: [Profile], categories: [AppCategory], activities: [Activity],
+        goals: [Goal], goalContributions: [GoalAreaContribution],
+        resultMeasures: [ResultMeasure], resultEntries: [ResultEntry],
         calendarItems: [CalendarItem], sessions: [ActivitySession], foodEntries: [FoodEntry],
         weightEntries: [WeightEntry], sportEntries: [SportEntry],
         savedTemplates: [SavedCategoryTemplate]
     ) -> LifeOSBackupPayload {
         LifeOSBackupPayload(
-            schemaVersion: 1, exportedAt: .now,
+            schemaVersion: 2, exportedAt: .now,
             profiles: profiles.map {
                 ProfileBackup(id: $0.id, name: $0.name, kindRaw: $0.kindRaw, colorToken: $0.colorToken,
                     weightUnitRaw: $0.weightUnitRaw, avatarData: $0.avatarData,
@@ -100,6 +129,33 @@ enum LifeOSBackupService {
                     relatedCategoryIDStrings: $0.relatedCategoryIDStrings,
                     reminderEnabled: $0.reminderEnabled, reminderHour: $0.reminderHour,
                     reminderMinute: $0.reminderMinute, isActive: $0.isActive)
+            },
+            goals: goals.map {
+                GoalBackup(id: $0.id, profileID: $0.profile?.id, name: $0.name,
+                    purpose: $0.purpose, targetDate: $0.targetDate,
+                    createdAt: $0.createdAt, isActive: $0.isActive)
+            },
+            goalContributions: goalContributions.map {
+                GoalContributionBackup(id: $0.id, goalID: $0.goal?.id,
+                    categoryID: $0.category?.id, statement: $0.statement,
+                    weeklyTargetSessions: $0.weeklyTargetSessions,
+                    weeklyTargetMinutes: $0.weeklyTargetMinutes, isActive: $0.isActive)
+            },
+            resultMeasures: resultMeasures.map {
+                ResultMeasureBackup(id: $0.id, goalID: $0.goal?.id, name: $0.name,
+                    roleRaw: $0.roleRaw, valueTypeRaw: $0.valueTypeRaw, unit: $0.unit,
+                    directionRaw: $0.directionRaw, baselineValue: $0.baselineValue,
+                    targetValue: $0.targetValue, targetMinimum: $0.targetMinimum,
+                    targetMaximum: $0.targetMaximum, ratingLabels: $0.ratingLabels,
+                    cadenceRaw: $0.cadenceRaw, nextCheckInDate: $0.nextCheckInDate,
+                    reminderEnabled: $0.reminderEnabled, reminderHour: $0.reminderHour,
+                    reminderMinute: $0.reminderMinute, isActive: $0.isActive)
+            },
+            resultEntries: resultEntries.map {
+                ResultEntryBackup(id: $0.id, profileID: $0.profile?.id,
+                    measureID: $0.measure?.id, date: $0.date,
+                    numericValue: $0.numericValue, textValue: $0.textValue,
+                    sourceLabel: $0.sourceLabel, note: $0.note)
             },
             activities: activities.map {
                 ActivityBackup(id: $0.id, profileID: $0.profile?.id, categoryID: $0.category?.id,
@@ -149,7 +205,7 @@ enum LifeOSBackupService {
     }
 
     static func restore(_ backup: LifeOSBackupPayload, into context: ModelContext) throws {
-        guard backup.schemaVersion == 1 else { throw BackupError.unsupportedVersion }
+        guard (1...2).contains(backup.schemaVersion) else { throw BackupError.unsupportedVersion }
 
         var profileMap = Dictionary(uniqueKeysWithValues:
             (try context.fetch(FetchDescriptor<Profile>())).map { ($0.id, $0) })
@@ -184,6 +240,65 @@ enum LifeOSBackupService {
             item.reminderEnabled = record.reminderEnabled; item.reminderHour = record.reminderHour
             item.reminderMinute = record.reminderMinute; item.isActive = record.isActive
             if categoryMap[record.id] == nil { context.insert(item); categoryMap[record.id] = item }
+        }
+
+        var goalMap = Dictionary(uniqueKeysWithValues:
+            (try context.fetch(FetchDescriptor<Goal>())).map { ($0.id, $0) })
+        for record in backup.goals ?? [] {
+            let item = goalMap[record.id] ?? Goal(
+                profile: record.profileID.flatMap { profileMap[$0] }, name: record.name)
+            item.id = record.id; item.profile = record.profileID.flatMap { profileMap[$0] }
+            item.name = record.name; item.purpose = record.purpose; item.targetDate = record.targetDate
+            item.createdAt = record.createdAt; item.isActive = record.isActive
+            if goalMap[record.id] == nil { context.insert(item); goalMap[record.id] = item }
+        }
+
+        var contributionMap = Dictionary(uniqueKeysWithValues:
+            (try context.fetch(FetchDescriptor<GoalAreaContribution>())).map { ($0.id, $0) })
+        for record in backup.goalContributions ?? [] {
+            let item = contributionMap[record.id] ?? GoalAreaContribution(
+                goal: record.goalID.flatMap { goalMap[$0] },
+                category: record.categoryID.flatMap { categoryMap[$0] }, statement: record.statement,
+                weeklyTargetSessions: record.weeklyTargetSessions,
+                weeklyTargetMinutes: record.weeklyTargetMinutes
+            )
+            item.id = record.id; item.goal = record.goalID.flatMap { goalMap[$0] }
+            item.category = record.categoryID.flatMap { categoryMap[$0] }
+            item.statement = record.statement
+            item.weeklyTargetSessions = record.weeklyTargetSessions
+            item.weeklyTargetMinutes = record.weeklyTargetMinutes
+            item.isActive = record.isActive
+            if contributionMap[record.id] == nil {
+                context.insert(item); contributionMap[record.id] = item
+            }
+        }
+
+        var measureMap = Dictionary(uniqueKeysWithValues:
+            (try context.fetch(FetchDescriptor<ResultMeasure>())).map { ($0.id, $0) })
+        for record in backup.resultMeasures ?? [] {
+            let item = measureMap[record.id] ?? ResultMeasure(
+                goal: record.goalID.flatMap { goalMap[$0] }, name: record.name)
+            item.id = record.id; item.goal = record.goalID.flatMap { goalMap[$0] }
+            item.name = record.name; item.roleRaw = record.roleRaw; item.valueTypeRaw = record.valueTypeRaw
+            item.unit = record.unit; item.directionRaw = record.directionRaw
+            item.baselineValue = record.baselineValue; item.targetValue = record.targetValue
+            item.targetMinimum = record.targetMinimum; item.targetMaximum = record.targetMaximum
+            item.ratingLabels = record.ratingLabels; item.cadenceRaw = record.cadenceRaw
+            item.nextCheckInDate = record.nextCheckInDate; item.reminderEnabled = record.reminderEnabled
+            item.reminderHour = record.reminderHour; item.reminderMinute = record.reminderMinute
+            item.isActive = record.isActive
+            if measureMap[record.id] == nil { context.insert(item); measureMap[record.id] = item }
+        }
+
+        var resultEntryIDs = Set((try context.fetch(FetchDescriptor<ResultEntry>())).map(\.id))
+        for record in backup.resultEntries ?? [] where !resultEntryIDs.contains(record.id) {
+            let item = ResultEntry(
+                profile: record.profileID.flatMap { profileMap[$0] },
+                measure: record.measureID.flatMap { measureMap[$0] }, date: record.date,
+                numericValue: record.numericValue, textValue: record.textValue,
+                sourceLabel: record.sourceLabel, note: record.note
+            )
+            item.id = record.id; context.insert(item); resultEntryIDs.insert(record.id)
         }
 
         var activityMap = Dictionary(uniqueKeysWithValues:

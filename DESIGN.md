@@ -17,16 +17,17 @@ Update this table whenever the code changes.
 |---|---:|---|
 | Profile model | ✅ First version | Add/edit/switch/hide optional parent, child and individual profiles with fully separate data |
 | Profile identity | ✅ First version | Editable name, optional compressed photo, colour and parent/self-managed access intent |
-| Profile preferences and goals | ✅ First version | kg/lb display, body goal and daily nutrition targets; Area-specific goals live inside each Area |
-| Improvement category model | ✅ First version | Generic editable hierarchy, profile ownership, weekly targets, purpose, related areas and active state |
+| Profile preferences | ✅ First version | kg/lb display plus daily nutrition targets |
+| Area model | ✅ First version | Generic editable hierarchy, profile ownership, activity-plan targets, purpose, related areas and active state |
 | Category templates | ✅ First version | Built-in library, optional profile starter plans, and locally saved reusable category/task templates |
-| Confidence dashboard | ✅ First version | Today/week/month category progress, status, evidence confidence and next action |
-| Category navigation | ✅ First version | Dashboard → nested category detail; list-row edit, custom/template creation and safe deactivation |
-| Plain-language planning UX | ✅ First version | User-facing model is Areas → Actions → Today; hierarchy and tracking options are progressive, not front-loaded |
+| Goal and outcome model | ✅ First version | Goal, typed primary/supporting Result Measures, Area Contributions, dated Result Check-ins and target-date comparison |
+| Goal dashboard | ✅ First version | Separates result progress from Today/week/month supporting-plan adherence, evidence confidence and next action |
+| Area navigation | ✅ First version | Areas → nested Area detail; list-row edit, custom/template creation and safe deactivation |
+| Plain-language planning UX | ✅ First version | User-facing model is Goals + Areas → Actions → Today → Result Check-ins |
 | Activity model | ✅ First version | Manual/template/AI-approved source |
 | Schedule rule | ✅ First version | Once, daily, selected weekdays, any count per day/week, exact minute intervals |
 | Calendar item | ✅ First version | Every calendar entry originates from an Activity |
-| Today timeline | ✅ First version | Planned day in chronological order |
+| Today timeline | ✅ First version | Planned day in chronological order plus due Goal Result check-ins |
 | Mobile schedule | ✅ First version | Seven-day strip, focused daily agenda, graphical date jump and interactive action cards |
 | Mark Done / Skip | ✅ First version | Status and actual timestamps retained |
 | Add task manually | ✅ First version | Fast task + inline category creation, exact numeric targets, time, duration and flexible repeat |
@@ -36,9 +37,9 @@ Update this table whenever the code changes.
 | Seed templates | ✅ First version | Neutral single-profile start; optional starter plans for any added adult or child |
 | Timer session | ⬜ Next | Basic data model present; dedicated timer screen next |
 | Multiple tracking fields | ⬜ Next | Activity supports primary unit in first code version |
-| Goals and measurements | ⬜ Next | Domain decision retained, UI deferred |
-| Notifications | ✅ First version | Approved Area enables profile-labelled action reminders, immediate refresh after Action creation, and a Sunday weekly review |
-| JSON backup/restore | ✅ First version | Full-family portable export and stable-ID merge restore, including photos and templates |
+| Goals and measurements | ✅ First version | Numeric, rating, milestone and written Result types; increase/decrease/range targets and scheduled/manual check-ins |
+| Notifications | ✅ First version | Profile-labelled Action reminders, weekly plan review and scheduled Goal Result check-ins |
+| JSON backup/restore | ✅ First version | Schema 2 full-family export/merge includes Goals, contributions, Result Measures, check-ins, photos and templates; schema 1 restore remains supported |
 | Repository protocol | ⚠️ Partial | Planning service separated; full persistence abstraction next |
 | Family sync and accounts | ❌ Deferred | Secure child invitations, permissions and multi-device sync require a cloud identity service |
 | Paid household management | 📐 Designed | StoreKit entitlement plus server-authoritative household/member limits; implementation deferred |
@@ -47,33 +48,35 @@ Update this table whenever the code changes.
 
 ## 1. The Core Idea, in Plain Language
 
-LifeOS helps a person define what matters, prepare a realistic day, record what actually happened, and learn whether repeated effort is producing improvement.
+LifeOS helps a person define a measurable Goal, prepare a realistic plan, record what actually happened, and learn whether repeated effort is associated with a better outcome.
 
 The product is not centred on isolated activities or charts.
 
-It is centred on the person's **improvement areas expressed through the day**.
+It is centred on an honest separation between **effort** and **outcome**.
 
 ```text
-Goals and responsibilities
+Measurable Goal and target
         ↓
-Activities
+Supporting Areas and their contribution
         ↓
-Schedule rules
+Scheduled Actions
         ↓
 Today's calendar
         ↓
 Done / skipped / rescheduled / unplanned
         ↓
-Actual sessions and measurements
+Result Check-in when evidence is available
         ↓
-Weekly learning and better future planning
+Compare adherence, outcome trend and target pace
+        ↓
+Keep, adjust or replace the plan
 ```
 
 Every screen should answer:
 
 > **What should I do next to make meaningful progress?**
 
-The Dashboard answers whether improvement areas are on track. Today remains the execution surface for the next scheduled action.
+The Goals Dashboard answers whether measured outcomes are moving toward their targets. Today remains the execution surface. Area screens answer whether the supporting plan was followed; they do not claim that an Area itself improved.
 
 ---
 
@@ -85,12 +88,12 @@ The Dashboard answers whether improvement areas are on track. Today remains the 
 | 2 | **Every calendar item originates from an Activity.** No unclassified calendar-only event exists. |
 | 3 | **Each profile owns a separate calendar.** Parents and children have separate activities, plans, and history. |
 | 4 | **Activities may be created manually, selected from templates, or suggested by AI—but AI/template suggestions require approval.** |
-| 5 | **Category is mandatory for every Activity.** Tags are optional and support later analysis. |
+| 5 | **Area is mandatory for every Action.** Tags are optional and support later analysis. |
 | 6 | **Planned and actual values are stored separately.** Historical plans are never overwritten by actual results. |
 | 7 | **A one-time manual event still creates a one-time Activity plus a Calendar Item.** It may later be saved as reusable. |
 | 8 | **Complete-day tracking is supported but not forced.** LifeOS must not become surveillance or require accounting for every minute. |
 | 9 | **Daily and weekly schedules are generated from activity rules, then remain editable by the user.** |
-| 10 | **The first coding iteration prioritises the calendar/activity loop before advanced goals, AI, or cloud sync.** |
+| 10 | **Goal progress and Action adherence are separate values.** Completing tasks is evidence of effort, not proof that an outcome improved. |
 
 ---
 
@@ -132,8 +135,14 @@ The engine is identical. The starter activities differ.
 ```text
 Workspace / Family
   └── Profile
-       ├── Category
-       ├── Goal                         [next iteration]
+       ├── Areas
+       │    ├── Focus Areas
+       │    └── Actions
+       ├── Goals
+       │    ├── Area Contributions
+       │    ├── Primary Result Measure
+       │    ├── Supporting Result Measures
+       │    └── Dated Result Entries
        ├── Activity
        │    ├── Tags
        │    ├── Tracking definition
@@ -153,19 +162,30 @@ Workspace / Family
        ├── Sport Entry
        │    ├── Repetitions and duration
        │    └── Perceived effort and soreness
-       ├── Measurement                 [additional biometrics next iteration]
-       └── Progress / Insight           [next iteration]
+       └── Goal Progress / Insight
 ```
 
 ### Definitions
 
 - **Profile** — the person whose life or progress is represented.
-- **Category** — the broad grouping, such as Career, Education, Health, Nutrition, Baseball, or Software Development.
+- **Area** — where work belongs, such as School, Nutrition, Baseball, Mobility, or Software Development. An Area is organisational context; it is not itself an outcome.
+- **Goal** — the real-world change the person wants, such as increasing a score from 68% to 85%.
+- **Area Contribution** — how one Area is expected to support a Goal, with an optional weekly Action plan. Goals and Areas are many-to-many.
+- **Result Measure** — the typed definition of success: number, rating, milestone or written assessment, plus baseline, target, direction and check-in cadence.
+- **Result Entry** — dated evidence supplied by the profile, parent, coach or an eventual import.
 - **Activity** — a reusable definition of what the person may do.
 - **Schedule Rule** — when and how often the Activity should occur.
 - **Calendar Item** — one planned or unplanned occurrence on a specific day.
 - **Session** — what actually happened, including timing and measured values.
 - **Tag** — optional detail used for filtering and future analysis.
+
+The canonical relationship is:
+
+```text
+Goal → Area Contributions → Actions → Result Check-ins → Comparison
+```
+
+Actions inside a selected Area contribute by default. An advanced Action-level include/exclude override may be added later without changing this model.
 
 No calendar item may exist without an Activity reference.
 
@@ -590,15 +610,19 @@ Included in the accompanying code:
 - Connected categories such as Mobility → Baseball and Nutrition → Body Development
 - Editable category weekly session and minute commitments
 - Template or custom category setup with explicit user approval
-- Dashboard period switching: Today, Week and Month
-- Per-category Complete, On track, Needs attention, Behind, Insufficient data and No target today states
-- Separate High, Medium and Low evidence confidence
-- Category detail with purpose, task schedule, related areas and specialist tracking
-- Local task reminders and weekly category review reminders
+- Goal Dashboard with Today, Week and Month supporting-effort comparison
+- Goal, Area Contribution, primary/supporting Result Measure and dated Result Entry
+- Numeric, rating, milestone and written result capture with scheduled check-ins
+- Increase, decrease, target-range and maintain-range result evaluation
+- Separate Goal result progress, Area plan adherence and High/Medium/Low evidence confidence
+- Area detail with purpose, Action schedule, related Areas and specialist tracking
+- Local Action reminders, weekly Area-plan review reminders and Goal Result check-ins
 
 Not yet included:
 
-- General Goal entity and cross-domain goal rollups
+- Advanced statistical correlation and automatic causal inference
+- Goal editing, archiving and Action-level contribution overrides
+- Automatic imports for school scores, coaching systems and additional biometrics
 - Full timer screen
 - Multiple custom tracking fields
 - Additional custom biometrics beyond weight
@@ -614,13 +638,13 @@ Not yet included:
 
 Priority order:
 
-1. Athlete onboarding with parent/coach-set, age-appropriate goals
-2. Repeat foods, recipes, food search, and meal copy/paste
-3. Apple Health weight import/export and connected-scale interoperability
-4. Daily readiness check-in: sleep, energy, soreness, stress and notes
-5. Baseball assessments, drill templates, video attachments and structured game stats
-6. Weekly review connecting planned work, completed work, nutrition, body trend and workload
-7. JSON export, auto-snapshot, restore and repository protocol
+1. Goal editing, archiving, contribution wording and optional Action inclusion overrides
+2. Goal templates with editable examples for growth, Mathematics and sport performance
+3. Repeat foods, recipes, food search, and meal copy/paste
+4. Apple Health weight/height import and connected-scale interoperability
+5. Daily readiness check-in: sleep, energy, soreness, stress and notes
+6. Baseball assessments, drill templates, video attachments and structured game stats
+7. Weekly review connecting planned work, completed work and measured outcomes
 8. Weekly planner, authentication and permissions
 
 ---
@@ -709,7 +733,7 @@ The wedge is **cross-domain cause-and-context**, not more isolated charts. A bas
 
 1. **Canonical storage, local display.** Weight is stored in kilograms and displayed as kg or lb per profile. Conversions never mutate historical facts.
 2. **Raw facts and derived insights remain separate.** Scale weight is retained; the current transparent trend is a 7-entry moving average. Future algorithms must be versioned and explained.
-3. **Goals belong to the correct owner.** Body and nutrition goals belong to a Profile; weekly sport targets belong to each editable Sport Area.
+3. **Goals belong to a Profile, not an Area.** A Goal may have several Result Measures and several supporting Area Contributions. Weekly Area values describe plan adherence only.
 4. **Targets are editable, not medical prescriptions.** Youth nutrition, weight and workload goals require parent/coach judgment. The product must avoid shame, punitive colors and automatic restriction.
 5. **Workload needs context.** Sport load begins as duration × perceived effort, shown alongside repetitions and soreness. It is a conversation aid, not an injury predictor.
 6. **Fast capture, mandatory review.** Barcode and photo-derived nutrition must remain editable and show their source and serving basis.
@@ -729,25 +753,36 @@ The wedge is **cross-domain cause-and-context**, not more isolated charts. A bas
 
 ---
 
-## 21. Improvement Areas and Confidence Dashboard
+## 21. Goals, Results and Supporting Area Plans
 
-### 21.1 Category hierarchy
+### 21.1 Outcome architecture
 
-LifeOS uses a hierarchy plus explicit relationships:
+LifeOS does not equate task completion with improvement. It stores the desired result, supporting effort and observed evidence separately:
 
 ```text
 Profile
-└── Improvement Pillar
-    └── Improvement Category
-        ├── Purpose
-        ├── Weekly session and minute commitments
-        ├── Tasks / habits / activities
-        ├── Measurements and specialist tracker
-        ├── Related category IDs
-        └── Reminder policy
+├── Areas and Focus Areas                       where work belongs
+│   └── Actions                                 what the person does
+└── Goal                                        what should change
+    ├── Primary Result Measure                  decisive evidence
+    ├── 0–2 Supporting Result Measures          interim evidence
+    ├── Area Contributions                      how each Area supports it
+    └── Result Entries                          dated observations
 ```
 
-Pillars currently supported:
+A Goal may be supported by several Areas, and one Area may support several Goals. The Goal–Area connection is a first-class `GoalAreaContribution` with a plain-language statement and weekly effort targets. Actions inside the selected Area and its descendants contribute automatically.
+
+Example:
+
+```text
+Goal: Increase throwing velocity from 62 to 70 mph
+├── Baseball contribution: mechanics practice 3× weekly
+├── Strength contribution: power work 2× weekly
+├── Mobility contribution: shoulder/hip routine 5× weekly
+└── Primary Result: monthly measured throwing velocity
+```
+
+Areas remain grouped by editable pillars:
 
 - Physical Development
 - Sport Development
@@ -755,102 +790,91 @@ Pillars currently supported:
 - Learning & Career
 - Life & Relationships
 
-Categories are owned by exactly one Profile. Existing shared categories are upgraded non-destructively and activities retain their history.
+Goals, Result Measures, Result Entries and Areas are owned by the selected Profile. Switching Profiles never blends evidence.
 
 Relationships are not inheritance and do not duplicate facts. A Sprint Technique Session may have Speed as its primary category while Speed is shown as supporting Baseball. The Session is counted once; the relationship explains context.
 
-### 21.2 Template and custom setup
+### 21.2 Goal creation and typed Result Measures
 
-Every category begins through one of two paths:
+The Goal wizard asks natural questions rather than exposing storage types:
 
 ```text
-Choose template                    Start custom
-      ↓                                 ↓
-Review purpose, tasks, targets, schedule and reminder
-      ↓
-User / parent / coach approves
-      ↓
-Category and activities are created
+What result do you want?
+How will you measure it?
+What is the baseline and target?
+Which Areas support it?
+When is the next result available?
 ```
 
-Templates are editable defaults, never silent prescriptions. The current template library includes Baseball, Software Development, Mobility, Speed, Strength, Nutrition, Weight Improvement and Recovery.
+Supported Result types:
 
-Required configuration:
+- **Number** — percentage, kg/lb, mph, seconds, count or another unit.
+- **Rating** — a bounded ordered scale; stored numerically while displaying human labels.
+- **Milestone** — incomplete/complete.
+- **Written assessment** — evidence timeline only; it never becomes a fabricated number.
 
-- Category name and pillar
-- Purpose: why this area matters
-- Weekly target sessions and/or minutes
-- At least one task for generic categories, or a specialist logger for Nutrition, Weight and Sport Areas
-- Optional connected areas
-- Optional reminder approval
+Numeric Results support `increase`, `decrease`, `reach a range`, and `stay in a range`. A Goal has one primary Result and may add supporting Results with independent schedules. For example, Mathematics can use a monthly mock-test Result and a quarterly school-exam Result.
 
 ### 21.3 Dashboard periods
 
-The Dashboard is the first product surface and offers:
+The Goals Dashboard offers:
 
 ```text
 Today | Week | Month
 ```
 
-**Today** uses scheduled tasks due today. Nutrition counts a day with at least one food log. Flexible weekly categories with no scheduled task show `No target today` rather than a false failure.
+The period controls the **supporting effort window** only. Result history remains dated and is not reset by the selected period. Today/Week/Month shows how many supporting Actions were planned and completed during that window, aligned with the latest Outcome observations.
 
-**Week** uses the category's approved weekly session and minute commitments.
+The Dashboard never adds unrelated units together and never substitutes Action adherence for Result progress.
 
-**Month** derives a transparent target proportional to the number of days in the month:
+### 21.4 Goal status calculation
 
-```text
-monthly target = ceil(weekly target × days in month ÷ 7)
-```
+Each Goal has one result status:
 
-Monthly views are for consistency and direction. They must not imply that minutes in unrelated categories are interchangeable.
+- **Goal reached** — the latest primary Result meets the target or target range.
+- **On track** — measured progress is close to or ahead of the expected target-date pace.
+- **Needs review** — sufficient evidence exists but the Result is not moving at the expected pace.
+- **Awaiting result** — no primary Result has been entered; completed Actions cannot fill this gap.
+- **Too early to judge** — a baseline or first observation exists but there is not enough repeated evidence.
 
-### 21.4 Status calculation
-
-Each category has one status:
-
-- **Complete** — session target reached and minute target reached when configured.
-- **On track** — completed sessions are at least 85% of expected pace for the elapsed period.
-- **Needs attention** — below pace, but remaining scheduled/flexible opportunities can still meet the target.
-- **Behind** — the current remaining opportunities cannot meet the target.
-- **Insufficient data** — a period target or evidence source is missing.
-- **No target today** — the category is active but has no action scheduled today.
-
-Status never silently changes targets. `Behind` must offer a choice: complete/reschedule work or revise the commitment.
-
-### 21.5 Confidence calculation
-
-Confidence describes evidence quality, not motivation or predicted health:
-
-- **High confidence** — target is complete, or at least 80% of due tasks have an explicit Done/Skipped/Rescheduled decision.
-- **Medium confidence** — 40–79% of due tasks have a decision, or a specialist category is configured but has limited current evidence.
-- **Low confidence** — fewer than 40% of due tasks have a decision or no reliable task/evidence source exists.
-
-Status and confidence are always shown separately. `On track · Low confidence` is valid and should prompt logging, not celebration based on missing evidence.
-
-### 21.6 Dashboard presentation
-
-The top summary reports category coverage rather than a blended life score:
+For an increasing numeric Result:
 
 ```text
-4 of 6 active categories are complete or on track
-1 needs attention
-1 has insufficient data
+result progress = (latest − baseline) ÷ (target − baseline)
 ```
 
-Every category card shows:
+Decreasing Results reverse the direction. Range Results compare distance to the nearest target boundary. Values are clamped for display, while raw observations are never overwritten.
 
-- Progress ring for its own primary commitment
-- Completed/target sessions and minutes
-- Status
-- Confidence
-- One next action
-- Link to the category detail
+### 21.5 Evidence confidence
 
-The category detail shows purpose, period progress, tasks/habits, connected areas, reminder state, and the relevant specialist logger.
+Confidence describes Outcome evidence quality, not motivation, character, diagnosis or causation:
+
+- **High confidence** — at least three dated observations support a visible trend.
+- **Medium confidence** — a baseline and/or one current observation exists.
+- **Low confidence** — no usable Result observation exists.
+
+Plan adherence is displayed separately. Missing check-ins are never treated as zero, and a green Action ring cannot make an Outcome green.
+
+### 21.6 Dashboard and Goal detail presentation
+
+Every Goal card shows:
+
+- Latest primary Result and unit
+- Progress from baseline toward the target
+- Goal status and evidence confidence
+- Supporting-plan adherence for Today/Week/Month
+- One honest next action
+
+The Goal detail keeps two charts visually separate but aligned in time:
+
+1. **Outcome trend** — dated Result points plus target line/range.
+2. **Effort** — completed versus planned Actions for every supporting Area.
+
+Selecting a Result explains what happened between observations, such as: `13 study hours · 91% of planned Actions · score 74% → 79%`. The app may say the plan is associated with improvement; it must not claim that one Area caused the result.
 
 ### 21.7 Reminder policy
 
-Reminders require explicit approval at category setup or edit time.
+Reminders require explicit approval. Action reminders and Result check-ins are different:
 
 - Daily and selected-weekday activities use their planned start time.
 - Multiple-times-per-day activities notify at every occurrence that fits before midnight.
@@ -860,6 +884,10 @@ Reminders require explicit approval at category setup or edit time.
 - Every notification identifies the Profile and Area so a parent managing multiple people can tell who the reminder belongs to.
 - Adding an Action inside a reminder-enabled Area or Focus Area refreshes its notifications immediately; saving the Area again is never required.
 - Disabling reminders removes pending requests for the category and its activities.
+- A Result Measure may be weekly, monthly, every three months or entered whenever available.
+- Scheduled Result reminders identify the Profile, Goal and Result Measure. Due check-ins also appear on Today with a direct result-entry action.
+- Saving a Result advances its next check-in according to that measure's cadence and refreshes the reminder.
+- An overdue or missing Result is shown as `Awaiting result`; it is never recorded as zero.
 - Notification denial never blocks local planning or tracking.
 
 Dynamic catch-up notification timing is a later milestone because it requires reliable background progress evaluation. The current dashboard still provides the exact catch-up action whenever opened.
@@ -870,6 +898,9 @@ Dynamic catch-up notification timing is a later milestone because it requires re
 - Do not shame a child for weight, nutrition, soreness or missed work.
 - Do not call workload an injury predictor.
 - Do not infer causation from connected categories.
+- Do not judge a Goal from Action completion when Outcome evidence is missing.
+- Do not convert written assessments into numeric charts.
+- For children, weight/height trends are observations with parent/clinician-set targets, not automatic diet prescriptions.
 - Do not hide incomplete logging behind a green ring.
 - Do not duplicate one Session across related categories.
 
@@ -877,7 +908,7 @@ Dynamic catch-up notification timing is a later milestone because it requires re
 
 ## 22. Flexible Task Recurrence and Fast Creation
 
-The creation flow uses the user's language: **New Task** and **Improvement Category**. A task cannot be saved without a category because category progress is the reason for tracking it. A new category can be created inline without leaving the task form.
+The creation flow uses the user's language: **Add an Action** and **Add an Area**. An Action cannot be saved without an Area because the Area explains where that work belongs and which Goals it may support. A new Area can be created inline without leaving the Action form.
 
 ### 22.1 Exact input, not fixed jumps
 
@@ -917,7 +948,7 @@ This prevents duplicate generation while allowing the second, third, or fourth o
 `PlanningService.scheduledStartMinutes` is the single schedule calculation used by:
 
 - Today timeline generation
-- Daily/weekly/monthly category progress
+- Daily/weekly/monthly Area-plan adherence
 - Due-task and evidence-confidence counts
 - Local notification timing
 
@@ -933,7 +964,7 @@ The UI must not implement a second version of recurrence math. This keeps the da
 
 ---
 
-## 23. Generic Improvement Hierarchy
+## 23. Generic Area Hierarchy
 
 The schedule example that motivated this decision contains coloured labels such as Athletics, Driveline, Defensive/Aaron, Academics and Leisure. Those labels are **examples of grouping**, not product-defined domains. LifeOS must not assume that every person plays baseball, attends school, uses a named training provider, or defines leisure as entertainment.
 
@@ -964,58 +995,58 @@ Every label is created and editable by the user. Templates may suggest names, bu
 
 Containment answers **"what broader area is this part of?"** A program has at most one parent.
 
-Relationship answers **"what other area can this support?"** A category may relate to many categories.
+Relationship answers **"what other area is relevant?"** An Area may relate to many Areas. Goal contribution is separate and explicitly answers **"how does this Area support this Goal?"**
 
 For example, Driveline may be contained by Baseball, while Mobility is a separate improvement area related to Baseball. Moving Mobility under Baseball would be a user choice, not an inferred rule.
 
 ### 23.2 Editing rules
 
-- A category can be top-level or placed inside any category owned by the same Profile.
+- An Area can be top-level or placed inside any Area owned by the same Profile.
 - Nesting may continue beyond one level when useful.
-- A category can be moved later without rewriting activity or calendar history.
-- The category itself cannot be selected as its parent.
+- An Area can be moved later without rewriting Action or calendar history.
+- The Area itself cannot be selected as its parent.
 - Descendants cannot be selected as parents; cycles are invalid.
 - Deactivating a parent does not silently delete its children or tasks.
 - Breadcrumbs show the full path when choosing a category for a task.
-- A category's name, parent placement, pillar, icon, colour, purpose, weekly targets, reminders, and active state are editable.
-- Categories can be edited directly from the list by swiping or pressing and holding; detail also retains an Edit button.
-- The Categories add menu gives equal prominence to **Add Custom Category** and **Use a Template**.
+- An Area's name, parent placement, pillar, icon, colour, purpose, weekly activity plan, reminders, and active state are editable.
+- Areas can be edited directly from the list by swiping or pressing and holding; detail also retains an Edit button.
+- The Areas add menu gives equal prominence to **Add Custom Area** and **Use a Template**.
 - Deactivation keeps history but stops its active tasks from generating future Calendar Items.
 
-### 23.3 Progress aggregation
+### 23.3 Activity-plan aggregation
 
-The Dashboard shows top-level improvement areas so one task is not presented as several independent life goals. A top-level area's evidence includes tasks attached directly to it and tasks inside all descendants.
+An Area's adherence evidence includes Actions attached directly to it and Actions inside all descendants.
 
 ```text
-Baseball dashboard progress
+Baseball activity-plan adherence
   = direct Baseball task occurrences
   + all occurrences in every contained program/subcategory
 ```
 
-The parent uses its own approved weekly target for the aggregate status. Opening a child shows that child's own target and evidence. A task is stored under exactly one category and counted once in any single rollup.
+The parent uses its own approved weekly plan for the aggregate adherence status. Opening a child shows that child's own plan and evidence. An Action is stored under exactly one Area and counted once in any single rollup. This rollup never becomes Goal Result progress.
 
 The Categories screen exposes the full tree with direct navigation. A parent detail screen lists its immediate children and aggregates their actions once into the parent result.
 
 ### 23.4 Period-driven Area screen
 
-An Area is not a second dashboard and it is not a settings form. It is the simplest answer to **“Am I doing enough for this Area?”**
+An Area is not a second Goal dashboard and it is not a settings form. It answers **“Am I following the supporting plan in this Area?”**
 
 The Area screen has one Day / Week / Month control. That single selection updates all content below it:
 
-1. aggregate progress and confidence,
-2. the status of contained Focus Areas,
+1. aggregate Action-plan adherence,
+2. adherence of contained Focus Areas,
 3. actions scheduled in the selected period,
 4. completed versus planned occurrences for each action.
 
 The primary tracking action is named for the user's Area: for example **Log Cricket Training**, **Log Weight**, or **Log Food or Nutrition**. Generic Areas without a special measurement log are tracked by completing their scheduled actions. A secondary **Add an Action** button is always available.
 
-This avoids separate, competing “Progress”, “Tracking”, and “Tasks” destinations. Focus Areas remain optional and subordinate; they are never required just to create an action.
+Goal progress remains on the Goals surface. Area plan adherence and Action tracking remain supporting evidence. Focus Areas are optional and never required just to create an Action.
 
 ### 23.5 Fast generic creation
 
 Both category creation and task creation include an optional **Inside** picker:
 
-- `Top-level improvement area`
+- `Top-level area`
 - Any existing category path, such as `Baseball › Driveline`
 
 This keeps the common case simple while supporting schedules organised by coach, class, subject, program, project, training provider, or any other user-defined system.
@@ -1112,7 +1143,7 @@ Saved templates are visible to every Profile on the device under **My Saved Temp
 
 SwiftData persists automatically across normal app and phone restarts. Local persistence alone does not protect against app deletion, device loss, or storage corruption.
 
-**Backup & Restore** exports one versioned JSON document containing all household Profiles, categories, tasks, calendar history, Sessions, nutrition records and photos, weights, sport logs, and saved templates. Restore merges by stable UUID so importing the same file again does not duplicate records.
+**Backup & Restore** exports one versioned JSON document containing all household Profiles, Goals, Area Contributions, Result Measures, Result Entries, Areas, Actions, calendar history, Sessions, nutrition records and photos, weights, sport logs, and saved templates. Schema 2 writes the Goal system; restore accepts schema 1 and 2 and merges by stable UUID.
 
 The JSON backup is portable but not encrypted. The UI must warn the user to store it privately because it can contain child, health and family information. Cloud sync and role-based access remain later milestones; the backup format must not be described as live multi-device sync.
 
@@ -1158,16 +1189,18 @@ A downgrade must never delete Profile data. It may stop new invitations or cloud
 
 ## 26. User-Facing Mental Model
 
-The persistence model may continue to use `AppCategory` and `Activity`, but the primary interface must use only three everyday concepts:
+The persistence model may continue to use `AppCategory` and `Activity`, but the primary interface uses these everyday concepts:
 
-1. **Area** — something the person wants to improve, such as Baseball, School, Health or Software Development.
-2. **Action** — a repeatable or one-time thing the person does, such as Batting Practice, Homework or Walk.
-3. **Today** — the actions due now and the fastest place to complete or record them.
+1. **Goal** — the measurable result the person wants.
+2. **Area** — where supporting work belongs, such as Baseball, School, Health or Software Development.
+3. **Action** — a repeatable or one-time thing the person does.
+4. **Result** — evidence entered when it becomes available, such as a mock-test score, weight or throwing velocity.
+5. **Today** — Actions and Result check-ins due now.
 
 The normal creation path is therefore:
 
 ```text
-Choose or create an Area → name the Action → choose when it happens → Save
+Create Goal and Result → connect supporting Areas → schedule Actions → enter Result when due
 ```
 
 The interface must not require a user to understand category trees, domain entities, parent IDs, pillars, target schemas or template terminology before adding the first useful action. These rules apply:

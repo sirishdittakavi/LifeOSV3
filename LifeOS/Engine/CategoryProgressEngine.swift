@@ -236,3 +236,245 @@ enum CategoryProgressEngine {
         return dates
     }
 }
+
+// MARK: - Goal outcome and supporting-effort comparison
+
+enum GoalProgressStatus: String {
+    case achieved = "Goal reached"
+    case onTrack = "On track"
+    case needsAttention = "Needs review"
+    case awaitingResult = "Awaiting result"
+    case notEnoughEvidence = "Too early to judge"
+}
+
+struct GoalContributionProgress: Identifiable {
+    let contribution: GoalAreaContribution
+    let completedActions: Int
+    let plannedActions: Int
+    let completedMinutes: Int
+    let plannedMinutes: Int
+
+    var id: UUID { contribution.id }
+    var adherenceFraction: Double? {
+        guard plannedActions > 0 else { return nil }
+        return min(Double(completedActions) / Double(plannedActions), 1)
+    }
+}
+
+struct GoalProgress: Identifiable {
+    let goal: Goal
+    let primaryMeasure: ResultMeasure?
+    let latestEntry: ResultEntry?
+    let previousEntry: ResultEntry?
+    let resultFraction: Double?
+    let effortFraction: Double?
+    let status: GoalProgressStatus
+    let confidence: ProgressConfidence
+    let nextAction: String
+    let contributions: [GoalContributionProgress]
+
+    var id: UUID { goal.id }
+
+    var resultSummary: String {
+        guard let measure = primaryMeasure else { return "Add a primary result measure" }
+        guard let entry = latestEntry else {
+            if let baseline = measure.baselineValue {
+                let suffix = measure.unit.isEmpty ? "" : " \(measure.unit)"
+                return "Baseline \(format(baseline))\(suffix)"
+            }
+            return "No result entered yet"
+        }
+        let latest = entry.numericValue.map(format) ?? entry.textValue
+        let suffix = measure.unit.isEmpty ? "" : " \(measure.unit)"
+        return "Latest \(latest)\(suffix)"
+    }
+
+    private func format(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0...2)))
+    }
+}
+
+enum GoalProgressEngine {
+    static func progress(
+        goal: Goal,
+        period: DashboardPeriod,
+        now: Date = .now,
+        categories: [AppCategory],
+        contributions: [GoalAreaContribution],
+        measures: [ResultMeasure],
+        entries: [ResultEntry],
+        activities: [Activity],
+        calendarItems: [CalendarItem],
+        calendar: Calendar = .current
+    ) -> GoalProgress {
+        let goalContributions = contributions.filter { $0.goal?.id == goal.id && $0.isActive }
+        let interval = period.interval(containing: now, calendar: calendar)
+        let dates = dates(in: interval, calendar: calendar)
+
+        let contributionProgress = goalContributions.compactMap { contribution -> GoalContributionProgress? in
+            guard let category = contribution.category else { return nil }
+            let includedIDs = CategoryHierarchy.idsIncludingDescendants(of: category, in: categories)
+            let includedActivities = activities.filter {
+                $0.isActive && $0.category.map { includedIDs.contains($0.id) } == true
+            }
+            let planned = dates.reduce(0) { count, date in
+                count + includedActivities.reduce(0) {
+                    $0 + PlanningService.scheduledStartMinutes($1, on: date, calendar: calendar).count
+                }
+            }
+            let items = calendarItems.filter {
+                interval.contains($0.date) &&
+                $0.activity?.category.map { includedIDs.contains($0.id) } == true
+            }
+            let completed = items.filter { $0.status == .done }
+            return GoalContributionProgress(
+                contribution: contribution,
+                completedActions: completed.count,
+                plannedActions: max(planned, items.count),
+                completedMinutes: completed.reduce(0) { total, item in
+                    if let start = item.actualStart, let end = item.actualEnd, end > start {
+                        return total + max(1, Int(end.timeIntervalSince(start) / 60))
+                    }
+                    return total + (item.activity?.estimatedDurationMinutes ?? 0)
+                },
+                plannedMinutes: dates.reduce(0) { total, date in
+                    total + includedActivities.reduce(0) { partial, activity in
+                        partial + PlanningService.scheduledStartMinutes(activity, on: date, calendar: calendar).count
+                            * activity.estimatedDurationMinutes
+                    }
+                }
+            )
+        }
+
+        let effortValues = contributionProgress.compactMap(\.adherenceFraction)
+        let effortFraction = effortValues.isEmpty ? nil : effortValues.reduce(0, +) / Double(effortValues.count)
+        let goalMeasures = measures.filter { $0.goal?.id == goal.id && $0.isActive }
+        let primary = goalMeasures.first(where: { $0.role == .primary }) ?? goalMeasures.first
+        let resultEntries = primary.map { measure in
+            entries.filter { $0.measure?.id == measure.id }.sorted { $0.date < $1.date }
+        } ?? []
+        let latest = resultEntries.last
+        let previous = resultEntries.dropLast().last
+        let outcomeFraction: Double?
+        if let primary {
+            outcomeFraction = resultFraction(for: primary, latest: latest)
+        } else {
+            outcomeFraction = nil
+        }
+        let achieved = primary.map { isAchieved(measure: $0, latest: latest) } ?? false
+
+        let evidenceCount = resultEntries.count + (primary?.baselineValue == nil ? 0 : 1)
+        let confidence: ProgressConfidence = evidenceCount >= 3 ? .high : (evidenceCount >= 1 ? .medium : .low)
+        let status: GoalProgressStatus
+        let nextAction: String
+
+        if primary == nil {
+            status = .awaitingResult
+            nextAction = "Add a measurable result so this Goal can be evaluated."
+        } else if latest == nil {
+            status = .awaitingResult
+            nextAction = "Enter the first result check-in. Action completion alone cannot prove improvement."
+        } else if achieved {
+            status = .achieved
+            nextAction = "Target reached. Review whether to maintain it or set the next Goal."
+        } else if primary?.valueType == .text {
+            status = .notEnoughEvidence
+            nextAction = "Review the written evidence. Add a numeric, rating or milestone Result if you need an on-track comparison."
+        } else if evidenceCount < 2 {
+            status = .notEnoughEvidence
+            nextAction = "Keep following the plan and add the next scheduled result."
+        } else if let targetDate = goal.targetDate,
+                  let fraction = outcomeFraction,
+                  targetDate > goal.createdAt {
+            let elapsed = min(max(now.timeIntervalSince(goal.createdAt) / targetDate.timeIntervalSince(goal.createdAt), 0), 1)
+            if fraction + 0.10 >= elapsed {
+                status = .onTrack
+                nextAction = "The measured result is moving at a reasonable pace toward the target."
+            } else {
+                status = .needsAttention
+                nextAction = "The result is behind the target pace. Review the supporting Areas and Actions."
+            }
+        } else if let latestValue = latest?.numericValue,
+                  let baseline = primary?.baselineValue,
+                  isMovingInDesiredDirection(latestValue, from: baseline, measure: primary!) {
+            status = .onTrack
+            nextAction = "The result is moving in the desired direction. Continue until the next check-in."
+        } else {
+            status = .needsAttention
+            nextAction = "The result is not yet moving toward the target. Review the plan after more evidence."
+        }
+
+        return GoalProgress(
+            goal: goal, primaryMeasure: primary, latestEntry: latest, previousEntry: previous,
+            resultFraction: outcomeFraction, effortFraction: effortFraction,
+            status: status, confidence: confidence, nextAction: nextAction,
+            contributions: contributionProgress
+        )
+    }
+
+    private static func resultFraction(for measure: ResultMeasure, latest: ResultEntry?) -> Double? {
+        guard let value = latest?.numericValue ?? measure.baselineValue else { return nil }
+        switch measure.valueType {
+        case .milestone:
+            return value >= 1 ? 1 : 0
+        case .text:
+            return nil
+        case .rating, .number:
+            switch measure.direction {
+            case .increase:
+                guard let baseline = measure.baselineValue, let target = measure.targetValue, target != baseline else { return nil }
+                return min(max((value - baseline) / (target - baseline), 0), 1)
+            case .decrease:
+                guard let baseline = measure.baselineValue, let target = measure.targetValue, target != baseline else { return nil }
+                return min(max((baseline - value) / (baseline - target), 0), 1)
+            case .targetRange, .maintainRange:
+                guard let minimum = measure.targetMinimum, let maximum = measure.targetMaximum else { return nil }
+                if (minimum...maximum).contains(value) { return 1 }
+                guard let baseline = measure.baselineValue else { return 0 }
+                let boundary = value < minimum ? minimum : maximum
+                let initialDistance = abs(baseline - boundary)
+                guard initialDistance > 0 else { return 0 }
+                return min(max(1 - abs(value - boundary) / initialDistance, 0), 1)
+            }
+        }
+    }
+
+    private static func isAchieved(measure: ResultMeasure, latest: ResultEntry?) -> Bool {
+        guard let value = latest?.numericValue else { return false }
+        switch measure.valueType {
+        case .milestone: return value >= 1
+        case .text: return false
+        case .rating, .number:
+            switch measure.direction {
+            case .increase: return measure.targetValue.map { value >= $0 } ?? false
+            case .decrease: return measure.targetValue.map { value <= $0 } ?? false
+            case .targetRange, .maintainRange:
+                guard let minimum = measure.targetMinimum, let maximum = measure.targetMaximum else { return false }
+                return (minimum...maximum).contains(value)
+            }
+        }
+    }
+
+    private static func isMovingInDesiredDirection(_ value: Double, from baseline: Double, measure: ResultMeasure) -> Bool {
+        switch measure.direction {
+        case .increase: return value > baseline
+        case .decrease: return value < baseline
+        case .targetRange, .maintainRange:
+            guard let minimum = measure.targetMinimum, let maximum = measure.targetMaximum else { return false }
+            let baselineDistance = baseline < minimum ? minimum - baseline : (baseline > maximum ? baseline - maximum : 0)
+            let valueDistance = value < minimum ? minimum - value : (value > maximum ? value - maximum : 0)
+            return valueDistance < baselineDistance
+        }
+    }
+
+    private static func dates(in interval: DateInterval, calendar: Calendar) -> [Date] {
+        var result: [Date] = []
+        var date = calendar.startOfDay(for: interval.start)
+        while date < interval.end {
+            result.append(date)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: date) else { break }
+            date = next
+        }
+        return result
+    }
+}

@@ -103,6 +103,6 @@ enum SeedData {
     }
 
     private static func applyDefaults(to category: AppCategory) {
-        if category.purpose.isEmpty { category.purpose = "Improve through consistent, measurable action." }
+        if category.purpose.isEmpty { category.purpose = "Organise consistent actions that support measurable Goals." }
     }
 }

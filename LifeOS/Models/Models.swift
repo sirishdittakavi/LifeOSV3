@@ -221,6 +221,201 @@ final class AppCategory {
     }
 }
 
+// MARK: - Goals and measurable results
+
+/// Areas organise life; Goals describe the real-world change a person wants.
+/// A Goal may be supported by several Areas through GoalAreaContribution.
+@Model
+final class Goal {
+    var id: UUID
+    var profile: Profile?
+    var name: String
+    var purpose: String
+    var targetDate: Date?
+    var createdAt: Date
+    var isActive: Bool
+
+    init(profile: Profile?, name: String, purpose: String = "", targetDate: Date? = nil) {
+        self.id = UUID()
+        self.profile = profile
+        self.name = name
+        self.purpose = purpose
+        self.targetDate = targetDate
+        self.createdAt = .now
+        self.isActive = true
+    }
+}
+
+/// Explains how one Area supports a Goal. Weekly values measure plan adherence,
+/// not whether the Goal's outcome has been achieved.
+@Model
+final class GoalAreaContribution {
+    var id: UUID
+    var goal: Goal?
+    var category: AppCategory?
+    var statement: String
+    var weeklyTargetSessions: Int
+    var weeklyTargetMinutes: Int
+    var isActive: Bool
+
+    init(
+        goal: Goal?, category: AppCategory?, statement: String = "",
+        weeklyTargetSessions: Int = 0, weeklyTargetMinutes: Int = 0
+    ) {
+        self.id = UUID()
+        self.goal = goal
+        self.category = category
+        self.statement = statement
+        self.weeklyTargetSessions = weeklyTargetSessions
+        self.weeklyTargetMinutes = weeklyTargetMinutes
+        self.isActive = true
+    }
+}
+
+enum ResultValueType: String, Codable, CaseIterable, Identifiable {
+    case number = "Number"
+    case rating = "Rating"
+    case milestone = "Milestone"
+    case text = "Written Assessment"
+
+    var id: String { rawValue }
+}
+
+enum ResultDirection: String, Codable, CaseIterable, Identifiable {
+    case increase = "Increase"
+    case decrease = "Decrease"
+    case targetRange = "Reach a Range"
+    case maintainRange = "Stay in a Range"
+
+    var id: String { rawValue }
+}
+
+enum ResultMeasureRole: String, Codable, CaseIterable, Identifiable {
+    case primary = "Primary Result"
+    case supporting = "Supporting Result"
+
+    var id: String { rawValue }
+}
+
+enum ResultCheckInCadence: String, Codable, CaseIterable, Identifiable {
+    case weekly = "Weekly"
+    case monthly = "Monthly"
+    case quarterly = "Every 3 Months"
+    case onDemand = "When Available"
+
+    var id: String { rawValue }
+
+    func nextDate(after date: Date, calendar: Calendar = .current) -> Date? {
+        switch self {
+        case .weekly: return calendar.date(byAdding: .weekOfYear, value: 1, to: date)
+        case .monthly: return calendar.date(byAdding: .month, value: 1, to: date)
+        case .quarterly: return calendar.date(byAdding: .month, value: 3, to: date)
+        case .onDemand: return nil
+        }
+    }
+}
+
+/// Defines how success is measured. Values are typed so charts never attempt
+/// to turn arbitrary notes into misleading numbers.
+@Model
+final class ResultMeasure {
+    var id: UUID
+    var goal: Goal?
+    var name: String
+    var roleRaw: String
+    var valueTypeRaw: String
+    var unit: String
+    var directionRaw: String
+    var baselineValue: Double?
+    var targetValue: Double?
+    var targetMinimum: Double?
+    var targetMaximum: Double?
+    var ratingLabels: [String]
+    var cadenceRaw: String
+    var nextCheckInDate: Date?
+    var reminderEnabled: Bool
+    var reminderHour: Int
+    var reminderMinute: Int
+    var isActive: Bool
+
+    var role: ResultMeasureRole {
+        get { ResultMeasureRole(rawValue: roleRaw) ?? .primary }
+        set { roleRaw = newValue.rawValue }
+    }
+
+    var valueType: ResultValueType {
+        get { ResultValueType(rawValue: valueTypeRaw) ?? .number }
+        set { valueTypeRaw = newValue.rawValue }
+    }
+
+    var direction: ResultDirection {
+        get { ResultDirection(rawValue: directionRaw) ?? .increase }
+        set { directionRaw = newValue.rawValue }
+    }
+
+    var cadence: ResultCheckInCadence {
+        get { ResultCheckInCadence(rawValue: cadenceRaw) ?? .monthly }
+        set { cadenceRaw = newValue.rawValue }
+    }
+
+    init(
+        goal: Goal?, name: String, role: ResultMeasureRole = .primary,
+        valueType: ResultValueType = .number, unit: String = "",
+        direction: ResultDirection = .increase, baselineValue: Double? = nil,
+        targetValue: Double? = nil, targetMinimum: Double? = nil,
+        targetMaximum: Double? = nil, ratingLabels: [String] = [],
+        cadence: ResultCheckInCadence = .monthly, nextCheckInDate: Date? = nil,
+        reminderEnabled: Bool = false, reminderHour: Int = 18, reminderMinute: Int = 0
+    ) {
+        self.id = UUID()
+        self.goal = goal
+        self.name = name
+        self.roleRaw = role.rawValue
+        self.valueTypeRaw = valueType.rawValue
+        self.unit = unit
+        self.directionRaw = direction.rawValue
+        self.baselineValue = baselineValue
+        self.targetValue = targetValue
+        self.targetMinimum = targetMinimum
+        self.targetMaximum = targetMaximum
+        self.ratingLabels = ratingLabels
+        self.cadenceRaw = cadence.rawValue
+        self.nextCheckInDate = nextCheckInDate
+        self.reminderEnabled = reminderEnabled
+        self.reminderHour = reminderHour
+        self.reminderMinute = reminderMinute
+        self.isActive = true
+    }
+}
+
+/// A dated observation supplied by the profile, parent, coach or imported source.
+@Model
+final class ResultEntry {
+    var id: UUID
+    var profile: Profile?
+    var measure: ResultMeasure?
+    var date: Date
+    var numericValue: Double?
+    var textValue: String
+    var sourceLabel: String
+    var note: String
+
+    init(
+        profile: Profile?, measure: ResultMeasure?, date: Date = .now,
+        numericValue: Double? = nil, textValue: String = "",
+        sourceLabel: String = "Manual", note: String = ""
+    ) {
+        self.id = UUID()
+        self.profile = profile
+        self.measure = measure
+        self.date = date
+        self.numericValue = numericValue
+        self.textValue = textValue
+        self.sourceLabel = sourceLabel
+        self.note = note
+    }
+}
+
 // MARK: - Activity (ADR-016: category mandatory, tags optional)
 
 enum ActivitySource: String, Codable, CaseIterable, Identifiable {

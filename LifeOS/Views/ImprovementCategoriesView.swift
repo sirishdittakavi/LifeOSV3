@@ -159,11 +159,11 @@ struct ImprovementCategoriesView: View {
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: 3) {
                 Text(category.name).font(.headline)
-                Text("\(actionCount) action\(actionCount == 1 ? "" : "s") · \(progress?.progressText ?? "No progress yet")")
+                Text("\(actionCount) action\(actionCount == 1 ? "" : "s") · \(progress?.progressText ?? "No activity plan yet")")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            Text(progress?.status.rawValue ?? "")
+            Text(progress.map { "Plan \($0.status.rawValue.lowercased())" } ?? "")
                 .font(.caption2).foregroundStyle(.secondary)
         }
     }

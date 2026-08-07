@@ -148,7 +148,7 @@ private struct ConfigureImprovementCategoryView: View {
     var body: some View {
         Form {
             Section("Area") {
-                TextField("What do you want to improve?", text: $name)
+                TextField("Area name, such as Baseball or School", text: $name)
                 Picker("Group", selection: $pillar) {
                     ForEach(ImprovementPillar.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -177,9 +177,11 @@ private struct ConfigureImprovementCategoryView: View {
                 }
             }
 
-            Section("Weekly goal") {
+            Section("Weekly activity plan") {
                 Stepper("\(sessions) times per week", value: $sessions, in: 0...21)
                 Stepper("\(minutes) minutes per week", value: $minutes, in: 0...1200, step: 15)
+                Text("This measures whether the plan was followed. Create a Goal to measure whether the real outcome improved.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Actions") {

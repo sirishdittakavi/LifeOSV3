@@ -40,7 +40,7 @@ struct DailyProgressView: View {
                         .padding(.top, 40)
                     } else {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("TODAY'S PROGRESS").font(.caption).bold().foregroundStyle(.secondary)
+                            Text("TODAY'S ACTION TRACKING").font(.caption).bold().foregroundStyle(.secondary)
                             Text("Target vs. actual — separate from completion status on Today.")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
@@ -68,7 +68,7 @@ struct DailyProgressView: View {
                 }
                 .padding(.vertical)
             }
-            .navigationTitle("Progress")
+            .navigationTitle("Action Tracking")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { ProfilePicker(selection: selection) }
             }
@@ -141,5 +141,5 @@ private struct TrendRow: View {
 
 #Preview {
     RootTabView()
-        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self], inMemory: true)
+        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Goal.self, GoalAreaContribution.self, ResultMeasure.self, ResultEntry.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self], inMemory: true)
 }

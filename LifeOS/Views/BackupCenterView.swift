@@ -6,6 +6,10 @@ struct BackupCenterView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var profiles: [Profile]
     @Query private var categories: [AppCategory]
+    @Query private var goals: [Goal]
+    @Query private var goalContributions: [GoalAreaContribution]
+    @Query private var resultMeasures: [ResultMeasure]
+    @Query private var resultEntries: [ResultEntry]
     @Query private var activities: [Activity]
     @Query private var calendarItems: [CalendarItem]
     @Query private var sessions: [ActivitySession]
@@ -45,6 +49,9 @@ struct BackupCenterView: View {
             Section("Current Backup Contents") {
                 countRow("Profiles", profiles.count)
                 countRow("Areas", categories.count)
+                countRow("Goals", goals.count)
+                countRow("Result measures", resultMeasures.count)
+                countRow("Result check-ins", resultEntries.count)
                 countRow("Actions", activities.count)
                 countRow("Calendar items", calendarItems.count)
                 countRow("Recorded sessions", sessions.count)
@@ -85,6 +92,8 @@ struct BackupCenterView: View {
     private func prepareExport() {
         let payload = LifeOSBackupService.make(
             profiles: profiles, categories: categories, activities: activities,
+            goals: goals, goalContributions: goalContributions,
+            resultMeasures: resultMeasures, resultEntries: resultEntries,
             calendarItems: calendarItems, sessions: sessions, foodEntries: foodEntries,
             weightEntries: weightEntries, sportEntries: sportEntries,
             savedTemplates: savedTemplates

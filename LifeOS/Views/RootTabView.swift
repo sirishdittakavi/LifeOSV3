@@ -30,7 +30,7 @@ struct RootTabView: View {
     var body: some View {
         TabView {
             ImprovementDashboardView(selection: selection)
-                .tabItem { Label("Dashboard", systemImage: "gauge.with.dots.needle.67percent") }
+                .tabItem { Label("Goals", systemImage: "scope") }
 
             TodayTimelineView(selection: selection)
                 .tabItem { Label("Today", systemImage: "calendar") }
@@ -42,12 +42,12 @@ struct RootTabView: View {
                 .tabItem { Label("Areas", systemImage: "target") }
 
             DailyProgressView(selection: selection)
-                .tabItem { Label("Progress", systemImage: "chart.bar.fill") }
+                .tabItem { Label("Tracking", systemImage: "chart.bar.fill") }
         }
     }
 }
 
 #Preview {
     RootTabView()
-        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self], inMemory: true)
+        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Goal.self, GoalAreaContribution.self, ResultMeasure.self, ResultEntry.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self], inMemory: true)
 }

@@ -21,10 +21,12 @@ struct TodayTimelineView: View {
     @Query(sort: \WeightEntry.date, order: .reverse) private var weightEntries: [WeightEntry]
     @Query private var sportEntries: [SportEntry]
     @Query private var categories: [AppCategory]
+    @Query private var resultMeasures: [ResultMeasure]
 
     @State private var showingAddActivity = false
     @State private var showingAddWhatHappened = false
     @State private var recordingItem: CalendarItem?
+    @State private var resultMeasureToRecord: ResultMeasure?
 
     private var todayItems: [CalendarItem] {
         guard let profile = selection.profile else { return [] }
@@ -38,12 +40,26 @@ struct TodayTimelineView: View {
         ProgressEngine.completionSummary(items: todayItems)
     }
 
+    private var dueResultMeasures: [ResultMeasure] {
+        guard let profile = selection.profile else { return [] }
+        let startOfToday = Calendar.current.startOfDay(for: .now)
+        return resultMeasures
+            .filter { measure in
+                guard measure.isActive,
+                      measure.goal?.profile?.id == profile.id,
+                      let nextDate = measure.nextCheckInDate else { return false }
+                return Calendar.current.startOfDay(for: nextDate) <= startOfToday
+            }
+            .sorted { ($0.nextCheckInDate ?? .distantFuture) < ($1.nextCheckInDate ?? .distantFuture) }
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
                 summaryBar
                 dailySignals
+                dueResults
 
                 if todayItems.isEmpty {
                     ContentUnavailableView(
@@ -95,6 +111,11 @@ struct TodayTimelineView: View {
             }
             .sheet(item: $recordingItem) { item in
                 RecordActualView(item: item)
+            }
+            .sheet(item: $resultMeasureToRecord) { measure in
+                if let profile = selection.profile {
+                    AddResultEntryView(profile: profile, measure: measure)
+                }
             }
         }
     }
@@ -192,6 +213,51 @@ struct TodayTimelineView: View {
         }
         .padding(.horizontal)
         .padding(.top, 8)
+    }
+
+    @ViewBuilder
+    private var dueResults: some View {
+        if !dueResultMeasures.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("RESULT CHECK-INS", systemImage: "target")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(dueResultMeasures.count) due")
+                        .font(.caption.bold())
+                        .foregroundStyle(.orange)
+                }
+
+                ForEach(dueResultMeasures.prefix(3)) { measure in
+                    Button {
+                        resultMeasureToRecord = measure
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "chart.line.uptrend.xyaxis")
+                                .foregroundStyle(.blue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(measure.name).font(.subheadline.bold())
+                                Text(measure.goal?.name ?? "Goal")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text("Enter Result")
+                                .font(.caption.bold())
+                            Image(systemName: "chevron.right")
+                                .font(.caption.bold())
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(12)
+            .background(Color.orange.opacity(0.09))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .padding(.horizontal)
+            .padding(.top, 8)
+        }
     }
 
     // MARK: - Actions
@@ -319,5 +385,5 @@ private struct CalendarItemRow: View {
 
 #Preview {
     RootTabView()
-        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self], inMemory: true)
+        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Goal.self, GoalAreaContribution.self, ResultMeasure.self, ResultEntry.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self], inMemory: true)
 }
