@@ -2,7 +2,7 @@
 //  Models.swift
 //  LifeOS
 //
-//  Domain model per DESIGN.md v1.11 Section 5. Activity -> Calendar Item ->
+//  Domain model per DESIGN.md Version 1 Section 5. Activity -> Calendar Item ->
 //  Session. Every Calendar Item originates from an Activity (ADR-011).
 //  Planned and actual values are stored separately and never overwrite
 //  each other (ADR-013).
@@ -66,7 +66,6 @@ final class Profile {
     var carbohydrateGoalGrams: Double = 250
     var fatGoalGrams: Double = 70
     var waterGoalMilliliters: Double = 2500
-    var weeklyBaseballMinutesGoal: Int = 240
     var isActive: Bool = true
 
     var kind: ProfileKind {
@@ -253,7 +252,7 @@ final class Activity {
     var targetUnit: String?
 
     // Schedule rule (DESIGN.md Section 8) — flattened onto Activity rather
-    // than a separate model, matching v1.3's "first code version" scope.
+    // than a separate model, matching the Version 1 scope.
     var repeatTypeRaw: String
     var weekdays: [Int]              // Calendar weekday numbers: Sun=1...Sat=7
     var occurrencesPerDay: Int = 1
@@ -461,58 +460,34 @@ final class WeightEntry {
     }
 }
 
-// MARK: - Baseball training
-
-enum BaseballSessionType: String, Codable, CaseIterable, Identifiable {
-    case hitting = "Hitting"
-    case throwing = "Throwing"
-    case pitching = "Pitching"
-    case fielding = "Fielding"
-    case game = "Game"
-    case strength = "Strength"
-    case recovery = "Recovery"
-
-    var id: String { rawValue }
-}
+// MARK: - Sport training
 
 @Model
-final class BaseballEntry {
+final class SportEntry {
     var id: UUID
     var profile: Profile?
+    var category: AppCategory?
     var date: Date
-    var sessionTypeRaw: String
-    var swings: Int
-    var hits: Int
-    var throwCount: Int
-    var pitches: Int
-    var fieldingRepetitions: Int
+    var sessionName: String
+    var repetitions: Int
     var durationMinutes: Int
     var note: String
-    var perceivedEffort: Int = 5
-    var armSoreness: Int = 0
+    var perceivedEffort: Int
+    var soreness: Int
 
-    var sessionType: BaseballSessionType {
-        get { BaseballSessionType(rawValue: sessionTypeRaw) ?? .hitting }
-        set { sessionTypeRaw = newValue.rawValue }
-    }
-
-    init(profile: Profile?, date: Date = .now, sessionType: BaseballSessionType,
-         swings: Int = 0, hits: Int = 0, throwCount: Int = 0, pitches: Int = 0,
-         fieldingRepetitions: Int = 0, durationMinutes: Int = 0, note: String = "",
-         perceivedEffort: Int = 5, armSoreness: Int = 0) {
+    init(profile: Profile?, category: AppCategory, date: Date = .now,
+         sessionName: String, repetitions: Int = 0, durationMinutes: Int = 0,
+         note: String = "", perceivedEffort: Int = 5, soreness: Int = 0) {
         self.id = UUID()
         self.profile = profile
+        self.category = category
         self.date = date
-        self.sessionTypeRaw = sessionType.rawValue
-        self.swings = swings
-        self.hits = hits
-        self.throwCount = throwCount
-        self.pitches = pitches
-        self.fieldingRepetitions = fieldingRepetitions
+        self.sessionName = sessionName
+        self.repetitions = repetitions
         self.durationMinutes = durationMinutes
         self.note = note
         self.perceivedEffort = perceivedEffort
-        self.armSoreness = armSoreness
+        self.soreness = soreness
     }
 }
 

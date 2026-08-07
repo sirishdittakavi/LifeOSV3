@@ -11,7 +11,7 @@ struct LifeOSBackupPayload: Codable {
     let sessions: [SessionBackup]
     let foodEntries: [FoodBackup]
     let weightEntries: [WeightBackup]
-    let baseballEntries: [BaseballBackup]
+    let sportEntries: [SportBackup]
     let savedTemplates: [SavedTemplateBackup]
 }
 
@@ -20,7 +20,7 @@ struct ProfileBackup: Codable {
     let avatarData: Data?; let managementModeRaw: String?
     let weightGoalKilograms: Double?; let calorieGoal: Double; let proteinGoalGrams: Double
     let carbohydrateGoalGrams: Double; let fatGoalGrams: Double; let waterGoalMilliliters: Double
-    let weeklyBaseballMinutesGoal: Int; let isActive: Bool
+    let isActive: Bool
 }
 
 struct CategoryBackup: Codable {
@@ -61,10 +61,10 @@ struct WeightBackup: Codable {
     let id: UUID; let profileID: UUID?; let date: Date; let kilograms: Double; let note: String
 }
 
-struct BaseballBackup: Codable {
-    let id: UUID; let profileID: UUID?; let date: Date; let sessionTypeRaw: String
-    let swings: Int; let hits: Int; let throwCount: Int; let pitches: Int; let fieldingRepetitions: Int
-    let durationMinutes: Int; let note: String; let perceivedEffort: Int; let armSoreness: Int
+struct SportBackup: Codable {
+    let id: UUID; let profileID: UUID?; let categoryID: UUID?; let date: Date
+    let sessionName: String; let repetitions: Int; let durationMinutes: Int
+    let note: String; let perceivedEffort: Int; let soreness: Int
 }
 
 struct SavedTemplateBackup: Codable {
@@ -77,7 +77,7 @@ enum LifeOSBackupService {
     static func make(
         profiles: [Profile], categories: [AppCategory], activities: [Activity],
         calendarItems: [CalendarItem], sessions: [ActivitySession], foodEntries: [FoodEntry],
-        weightEntries: [WeightEntry], baseballEntries: [BaseballEntry],
+        weightEntries: [WeightEntry], sportEntries: [SportEntry],
         savedTemplates: [SavedCategoryTemplate]
     ) -> LifeOSBackupPayload {
         LifeOSBackupPayload(
@@ -90,7 +90,7 @@ enum LifeOSBackupService {
                     calorieGoal: $0.calorieGoal, proteinGoalGrams: $0.proteinGoalGrams,
                     carbohydrateGoalGrams: $0.carbohydrateGoalGrams, fatGoalGrams: $0.fatGoalGrams,
                     waterGoalMilliliters: $0.waterGoalMilliliters,
-                    weeklyBaseballMinutesGoal: $0.weeklyBaseballMinutesGoal, isActive: $0.isActive)
+                    isActive: $0.isActive)
             },
             categories: categories.map {
                 CategoryBackup(id: $0.id, profileID: $0.profile?.id, name: $0.name, symbol: $0.symbol,
@@ -133,12 +133,11 @@ enum LifeOSBackupService {
                 WeightBackup(id: $0.id, profileID: $0.profile?.id, date: $0.date,
                     kilograms: $0.kilograms, note: $0.note)
             },
-            baseballEntries: baseballEntries.map {
-                BaseballBackup(id: $0.id, profileID: $0.profile?.id, date: $0.date,
-                    sessionTypeRaw: $0.sessionTypeRaw, swings: $0.swings, hits: $0.hits,
-                    throwCount: $0.throwCount, pitches: $0.pitches,
-                    fieldingRepetitions: $0.fieldingRepetitions, durationMinutes: $0.durationMinutes,
-                    note: $0.note, perceivedEffort: $0.perceivedEffort, armSoreness: $0.armSoreness)
+            sportEntries: sportEntries.map {
+                SportBackup(id: $0.id, profileID: $0.profile?.id, categoryID: $0.category?.id,
+                    date: $0.date, sessionName: $0.sessionName, repetitions: $0.repetitions,
+                    durationMinutes: $0.durationMinutes, note: $0.note,
+                    perceivedEffort: $0.perceivedEffort, soreness: $0.soreness)
             },
             savedTemplates: savedTemplates.map {
                 SavedTemplateBackup(id: $0.id, name: $0.name, pillarRaw: $0.pillarRaw,
@@ -166,7 +165,7 @@ enum LifeOSBackupService {
             item.weightGoalKilograms = record.weightGoalKilograms; item.calorieGoal = record.calorieGoal
             item.proteinGoalGrams = record.proteinGoalGrams; item.carbohydrateGoalGrams = record.carbohydrateGoalGrams
             item.fatGoalGrams = record.fatGoalGrams; item.waterGoalMilliliters = record.waterGoalMilliliters
-            item.weeklyBaseballMinutesGoal = record.weeklyBaseballMinutesGoal; item.isActive = record.isActive
+            item.isActive = record.isActive
             if profileMap[record.id] == nil { context.insert(item); profileMap[record.id] = item }
         }
 
@@ -247,15 +246,16 @@ enum LifeOSBackupService {
             item.id = record.id; context.insert(item); weightIDs.insert(record.id)
         }
 
-        var baseballIDs = Set((try context.fetch(FetchDescriptor<BaseballEntry>())).map(\.id))
-        for record in backup.baseballEntries where !baseballIDs.contains(record.id) {
-            let item = BaseballEntry(profile: record.profileID.flatMap { profileMap[$0] }, date: record.date,
-                sessionType: BaseballSessionType(rawValue: record.sessionTypeRaw) ?? .hitting,
-                swings: record.swings, hits: record.hits, throwCount: record.throwCount,
-                pitches: record.pitches, fieldingRepetitions: record.fieldingRepetitions,
-                durationMinutes: record.durationMinutes, note: record.note,
-                perceivedEffort: record.perceivedEffort, armSoreness: record.armSoreness)
-            item.id = record.id; context.insert(item); baseballIDs.insert(record.id)
+        var sportIDs = Set((try context.fetch(FetchDescriptor<SportEntry>())).map(\.id))
+        for record in backup.sportEntries where !sportIDs.contains(record.id) {
+            guard let category = record.categoryID.flatMap({ categoryMap[$0] }) else { continue }
+            let item = SportEntry(profile: record.profileID.flatMap { profileMap[$0] },
+                category: category, date: record.date, sessionName: record.sessionName,
+                repetitions: record.repetitions, durationMinutes: record.durationMinutes,
+                note: record.note, perceivedEffort: record.perceivedEffort,
+                soreness: record.soreness)
+            item.id = record.id
+            context.insert(item); sportIDs.insert(record.id)
         }
 
         var templateIDs = Set((try context.fetch(FetchDescriptor<SavedCategoryTemplate>())).map(\.id))

@@ -47,13 +47,8 @@ struct ProfileGoalsView: View {
                     goalField("Water", value: $profile.waterGoalMilliliters, unit: "ml")
                 }
 
-                Section("Weekly baseball goal") {
-                    Stepper("\(profile.weeklyBaseballMinutesGoal) training minutes",
-                            value: $profile.weeklyBaseballMinutesGoal, in: 0...1200, step: 15)
-                }
-
                 Section {
-                    Text("Targets are set by you, a parent, or a qualified coach. LifeOS tracks progress but does not prescribe medical or youth-training targets.")
+                    Text("Sport and other Area targets are edited inside that Area. Targets are set by you, a parent, or a qualified coach. LifeOS tracks progress but does not prescribe medical or youth-training targets.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

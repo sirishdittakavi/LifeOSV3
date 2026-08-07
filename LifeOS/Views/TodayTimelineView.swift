@@ -19,7 +19,8 @@ struct TodayTimelineView: View {
     @Query private var allItems: [CalendarItem]
     @Query private var foodEntries: [FoodEntry]
     @Query(sort: \WeightEntry.date, order: .reverse) private var weightEntries: [WeightEntry]
-    @Query private var baseballEntries: [BaseballEntry]
+    @Query private var sportEntries: [SportEntry]
+    @Query private var categories: [AppCategory]
 
     @State private var showingAddActivity = false
     @State private var showingAddWhatHappened = false
@@ -152,9 +153,21 @@ struct TodayTimelineView: View {
         }
         let protein = todayFood.reduce(0.0) { $0 + $1.proteinGrams }
         let latestWeight = weightEntries.first { $0.profile?.id == profile?.id }
-        let baseballMinutes = baseballEntries.filter {
+        let todaySportEntries = sportEntries.filter {
             $0.profile?.id == profile?.id && Calendar.current.isDateInToday($0.date)
-        }.reduce(0) { $0 + $1.durationMinutes }
+        }
+        let sportMinutes = todaySportEntries.reduce(0) { $0 + $1.durationMinutes }
+        let profileSportCategories = categories.filter {
+            $0.profile?.id == profile?.id && $0.pillar == .sport && $0.isActive
+        }
+        let loggedSportNames = Set(todaySportEntries.compactMap { entry -> String? in
+            entry.category?.name
+        })
+        let sportName = loggedSportNames.count == 1
+            ? (loggedSportNames.first ?? "Sport")
+            : (loggedSportNames.isEmpty && profileSportCategories.count == 1
+                ? profileSportCategories[0].name : "Sport")
+        let sportSymbol = profileSportCategories.first { $0.name == sportName }?.symbol ?? "figure.run"
 
         return HStack(spacing: 8) {
             DailySignalCard(
@@ -173,9 +186,9 @@ struct TodayTimelineView: View {
                 color: .blue
             )
             DailySignalCard(
-                title: "Baseball",
-                value: "\(baseballMinutes) min",
-                symbol: "figure.baseball",
+                title: sportName,
+                value: "\(sportMinutes) min",
+                symbol: sportSymbol,
                 color: .orange
             )
         }
@@ -305,5 +318,5 @@ private struct CalendarItemRow: View {
 
 #Preview {
     RootTabView()
-        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, BaseballEntry.self], inMemory: true)
+        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self], inMemory: true)
 }

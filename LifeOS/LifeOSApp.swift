@@ -22,7 +22,7 @@ struct LifeOSApp: App {
             ActivitySession.self,
             FoodEntry.self,
             WeightEntry.self,
-            BaseballEntry.self
+            SportEntry.self
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

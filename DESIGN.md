@@ -1,4 +1,4 @@
-# LifeOS — Product Specification v1.13
+# LifeOS — Product Specification — Version 1
 
 **Status:** Living product and engineering specification  
 **Primary platform:** iPhone first (SwiftUI)  
@@ -17,7 +17,7 @@ Update this table whenever the code changes.
 |---|---:|---|
 | Profile model | ✅ First version | Add/edit/switch/hide optional parent, child and individual profiles with fully separate data |
 | Profile identity | ✅ First version | Editable name, optional compressed photo, colour and parent/self-managed access intent |
-| Profile preferences and goals | ✅ First version | kg/lb display, body goal, daily nutrition targets, weekly baseball minutes |
+| Profile preferences and goals | ✅ First version | kg/lb display, body goal and daily nutrition targets; Area-specific goals live inside each Area |
 | Improvement category model | ✅ First version | Generic editable hierarchy, profile ownership, weekly targets, purpose, related areas and active state |
 | Category templates | ✅ First version | Built-in library, optional profile starter plans, and locally saved reusable category/task templates |
 | Confidence dashboard | ✅ First version | Today/week/month category progress, status, evidence confidence and next action |
@@ -32,7 +32,7 @@ Update this table whenever the code changes.
 | Add task manually | ✅ First version | Fast task + inline category creation, exact numeric targets, time, duration and flexible repeat |
 | Daily nutrition log | ✅ First version | Barcode lookup, label-photo OCR, saved photos, manual editing, macros, water and daily totals |
 | Body-weight log | ✅ First version | Canonical kg storage, kg/lb display, goal distance, raw scale data and transparent 7-entry trend |
-| Baseball training log | ✅ First version | Hitting, throwing, pitching, fielding, duration × effort workload and soreness trend |
+| Sport training log | ✅ First version | Uses the user's Sport Area name; generic sessions, repetitions, duration × effort workload and soreness trend |
 | Seed templates | ✅ First version | Neutral single-profile start; optional starter plans for any added adult or child |
 | Timer session | ⬜ Next | Basic data model present; dedicated timer screen next |
 | Multiple tracking fields | ⬜ Next | Activity supports primary unit in first code version |
@@ -77,7 +77,7 @@ The Dashboard answers whether improvement areas are on track. Today remains the 
 
 ---
 
-## 2. Decisions Added in v1.3
+## 2. Core Product Decisions
 
 | # | Decision |
 |---:|---|
@@ -150,7 +150,7 @@ Workspace / Family
        │    └── Calories, macros, water, servings
        ├── Weight Entry
        │    └── Canonical kilograms; profile chooses kg or lb display
-       ├── Baseball Entry
+       ├── Sport Entry
        │    ├── Repetitions and duration
        │    └── Perceived effort and soreness
        ├── Measurement                 [additional biometrics next iteration]
@@ -368,7 +368,7 @@ LifeOS must describe correlation carefully and never claim causation without evi
 
 ## 10a. Daily Progress Tracking vs Actual (Aggregate View)
 
-Section 10 preserves planned-vs-actual **per calendar item**. This section adds the piece v1.3 was missing: a **daily rollup** that answers, at a glance, *"How much of what I actually meant to do today, did I actually do — in real numbers, not just checkmarks?"*
+Section 10 preserves planned-vs-actual **per calendar item**. This section adds a **daily rollup** that answers, at a glance, *"How much of what I actually meant to do today, did I actually do — in real numbers, not just checkmarks?"*
 
 Two different questions, both needed, both shown, never merged into one misleading number:
 
@@ -386,13 +386,13 @@ Sleep                    —  (no target set)         —
 Overall today: 3 of 4 tracked targets have logged progress
 ```
 
-**Rules, consistent with the guardrails carried over from v1.2:**
+**Rules:**
 - An activity with no `targetValue` simply doesn't appear in this view — it's tracked by completion status only (Section 10), not penalized for lacking a number.
 - Progress is **capped at 100% for any score/color coding**, but the real number (e.g. "120/100 swings") is always shown, never hidden — same non-negotiable rule as the old Daily Momentum guardrail.
 - This view reads directly from `Session.values` rolled up by `activityId` for the day — it does not require a calendar item to be marked "Done" first. A person can log 80 swings against Hitting Practice while that calendar item still shows "In Progress," and this view reflects it immediately.
-- A 7-day version of this same view (planned target vs. actual, per activity, per day) is the natural home for what v1.2 called "Weekly Review" — reintroduced here as a trend, not as a separate scoring system.
+- A 7-day version of this same view (planned target vs. actual, per activity, per day) is the natural home for Weekly Review—as a trend, not a separate scoring system.
 
-This section does not reintroduce a single blended "Momentum score" — v1.3's instinct to separate completion-tracking from number-tracking was correct instead of collapsing both into one score. Keep them as two honest, separate views.
+This section does not introduce a single blended "Momentum score." Completion tracking and number tracking remain two honest, separate views.
 
 ---
 
@@ -584,8 +584,8 @@ Included in the accompanying code:
 - Food logging by manual entry, barcode lookup, or nutrition-label photo
 - Saved food photos, serving quantities, daily nutrition targets and progress
 - Weight logging in kg or lb with canonical kg storage, goal distance and 7-entry trend
-- Baseball session logging with repetitions, workload, effort and soreness
-- Cross-domain Today signals for protein, latest weight and baseball minutes
+- Generic sport session logging with repetitions, workload, effort and soreness
+- Cross-domain Today signals for protein, latest weight and sport minutes
 - Profile-owned improvement pillars and categories
 - Connected categories such as Mobility → Baseball and Nutrition → Body Development
 - Editable category weekly session and minute commitments
@@ -696,7 +696,7 @@ LifeOS will not initially beat nutrition leaders at food-database breadth, GameC
 Today's plan
     + nutrition against personal targets
     + body trend in the person's preferred unit
-    + baseball work, effort and soreness
+    + sport work, effort and soreness
         ↓
 One honest weekly review
         ↓
@@ -705,19 +705,19 @@ User / parent / coach approves next week's adjustment
 
 The wedge is **cross-domain cause-and-context**, not more isolated charts. A baseball athlete should be able to see that throwing workload rose, soreness rose, sleep or nutrition logging was incomplete, and performance changed—without the app claiming that correlation proves causation.
 
-### Product principles added in v1.5
+### Product principles
 
 1. **Canonical storage, local display.** Weight is stored in kilograms and displayed as kg or lb per profile. Conversions never mutate historical facts.
 2. **Raw facts and derived insights remain separate.** Scale weight is retained; the current transparent trend is a 7-entry moving average. Future algorithms must be versioned and explained.
-3. **Goals belong to a profile.** A parent and child may use different units, nutrition targets, body goals and baseball workload goals.
+3. **Goals belong to the correct owner.** Body and nutrition goals belong to a Profile; weekly sport targets belong to each editable Sport Area.
 4. **Targets are editable, not medical prescriptions.** Youth nutrition, weight and workload goals require parent/coach judgment. The product must avoid shame, punitive colors and automatic restriction.
-5. **Workload needs context.** Baseball load begins as duration × perceived effort, shown alongside repetitions and soreness. It is a conversation aid, not an injury predictor.
+5. **Workload needs context.** Sport load begins as duration × perceived effort, shown alongside repetitions and soreness. It is a conversation aid, not an injury predictor.
 6. **Fast capture, mandatory review.** Barcode and photo-derived nutrition must remain editable and show their source and serving basis.
 7. **Approval before adaptation.** Future weekly coaching may recommend changes, but never silently changes a person's targets or schedule.
 
 ### Roadmap gates
 
-**Foundation — implemented:** profile-specific kg/lb, targets, barcode/label/manual food capture, serving quantities, body trend, baseball workload and Today cross-domain signals.
+**Foundation — implemented:** profile-specific kg/lb, targets, barcode/label/manual food capture, serving quantities, body trend, generic sport workload and Today cross-domain signals.
 
 **Logging depth:** repeat foods and meals, recipes, search, micronutrients, body measurements, readiness check-in, baseball drill templates, assessment metrics and video.
 
@@ -729,7 +729,7 @@ The wedge is **cross-domain cause-and-context**, not more isolated charts. A bas
 
 ---
 
-## 21. Improvement Categories and Confidence Dashboard (v1.6)
+## 21. Improvement Areas and Confidence Dashboard
 
 ### 21.1 Category hierarchy
 
@@ -780,7 +780,7 @@ Required configuration:
 - Category name and pillar
 - Purpose: why this area matters
 - Weekly target sessions and/or minutes
-- At least one task for generic categories, or a specialist logger for Nutrition, Weight and Baseball
+- At least one task for generic categories, or a specialist logger for Nutrition, Weight and Sport Areas
 - Optional connected areas
 - Optional reminder approval
 
@@ -1158,6 +1158,12 @@ The interface must not require a user to understand category trees, domain entit
 - Empty states teach with real examples rather than exposing implementation language.
 
 The UI should make the common case fast while preserving advanced recurrence, relationships and hierarchy for people who need them.
+
+## 27. Generic Sport Tracking
+
+Baseball is an optional starter Plan, never a product-level assumption. Any Area in the **Sport Development** group—such as Cricket, Soccer, Tennis, Swimming or Baseball—receives the same sport log using that Area's editable name, icon and weekly target.
+
+Sport records belong to both a Profile and a Sport Area. The first generic logger records session type, duration, optional repetitions, perceived effort, soreness and notes. Sport-specific measurements may be added later as user-defined fields; they must not be forced onto unrelated sports.
 
 ---
 

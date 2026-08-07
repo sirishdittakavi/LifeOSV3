@@ -64,7 +64,7 @@ enum SeedData {
         return item
     }
 
-    /// Moves older shared-label categories into the v1.6 profile-owned
+    /// Moves shared-label categories into the profile-owned
     /// improvement-area model without deleting activities or history.
     private static func upgradeImprovementCategoriesIfNeeded(context: ModelContext) {
         let profiles = (try? context.fetch(FetchDescriptor<Profile>())) ?? []
@@ -102,72 +102,7 @@ enum SeedData {
         // never overwrite relationships the user has edited.
     }
 
-    private static func ensureEssentialCategories(
-        for profile: Profile, categories: inout [AppCategory], context: ModelContext
-    ) {
-        func ensure(_ name: String, symbol: String, color: String, pillar: ImprovementPillar,
-                    purpose: String, sessions: Int, minutes: Int) {
-            if categories.contains(where: { $0.profile?.id == profile.id && $0.name == name }) { return }
-            let item = AppCategory(
-                profile: profile, name: name, symbol: symbol, colorToken: color,
-                pillar: pillar, purpose: purpose,
-                weeklyTargetSessions: sessions, weeklyTargetMinutes: minutes
-            )
-            context.insert(item)
-            categories.append(item)
-        }
-
-        ensure("Nutrition", symbol: "fork.knife", color: "green", pillar: .nutrition,
-               purpose: "Fuel health, growth and performance against personal targets.", sessions: 7, minutes: 0)
-        ensure(profile.kind == .child ? "Body Development" : "Weight Improvement",
-               symbol: "scalemass.fill", color: "blue", pillar: .physical,
-               purpose: "Track body trend without reacting to daily noise.", sessions: 3, minutes: 0)
-
-        if profile.kind == .child {
-            ensure("Baseball", symbol: "figure.baseball", color: "orange", pillar: .sport,
-                   purpose: "Improve baseball through planned practice and feedback.", sessions: 5, minutes: 240)
-            ensure("Mobility", symbol: "figure.flexibility", color: "teal", pillar: .physical,
-                   purpose: "Build movement quality that supports sport.", sessions: 5, minutes: 75)
-            ensure("Speed", symbol: "figure.run", color: "blue", pillar: .physical,
-                   purpose: "Improve acceleration and running mechanics.", sessions: 3, minutes: 90)
-        }
-    }
-
     private static func applyDefaults(to category: AppCategory) {
-        let name = category.name.lowercased()
-        if name.contains("baseball") {
-            category.pillar = .sport; category.weeklyTargetSessions = 5; category.weeklyTargetMinutes = 240
-            category.purpose = "Improve baseball through planned practice and feedback."
-        } else if name.contains("health") || name.contains("gym") {
-            category.pillar = .physical; category.weeklyTargetSessions = 4; category.weeklyTargetMinutes = 240
-        } else if name.contains("nutrition") {
-            category.pillar = .nutrition; category.weeklyTargetSessions = 7; category.weeklyTargetMinutes = 0
-        } else if name.contains("family") {
-            category.pillar = .life
-        } else {
-            category.pillar = .learning
-        }
         if category.purpose.isEmpty { category.purpose = "Improve through consistent, measurable action." }
-    }
-
-    private static func connectRelatedCategories(_ categories: [AppCategory]) {
-        let byProfile = Dictionary(grouping: categories.compactMap { category in
-            category.profile.map { ($0.id, category) }
-        }, by: { $0.0 })
-
-        for (_, pairs) in byProfile {
-            let items = pairs.map(\.1)
-            func item(containing text: String) -> AppCategory? {
-                items.first { $0.name.localizedCaseInsensitiveContains(text) }
-            }
-            if let baseball = item(containing: "Baseball") {
-                baseball.relatedCategoryIDs = [item(containing: "Mobility"), item(containing: "Speed"), item(containing: "Nutrition")]
-                    .compactMap { $0?.id }
-            }
-            if let weight = item(containing: "Weight") ?? item(containing: "Body") {
-                weight.relatedCategoryIDs = [item(containing: "Nutrition"), item(containing: "Health")]
-                    .compactMap { $0?.id }
-            }
-        }
     }
 }

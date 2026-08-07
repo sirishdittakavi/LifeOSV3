@@ -8,7 +8,7 @@ struct ImprovementDashboardView: View {
     @Query private var calendarItems: [CalendarItem]
     @Query private var foodEntries: [FoodEntry]
     @Query private var weightEntries: [WeightEntry]
-    @Query private var baseballEntries: [BaseballEntry]
+    @Query private var sportEntries: [SportEntry]
     @State private var period: DashboardPeriod = .day
     @State private var showingAddAction = false
     @State private var showingAddArea = false
@@ -33,7 +33,7 @@ struct ImprovementDashboardView: View {
                 period: period,
                 activities: activities, calendarItems: calendarItems,
                 foodEntries: foodEntries, weightEntries: weightEntries,
-                baseballEntries: baseballEntries
+                sportEntries: sportEntries
             )
         }
     }

@@ -1,6 +1,6 @@
 # LifeOS
 
-LifeOS is a local-first iPhone app for turning improvement areas into scheduled actions, recording what happened, and showing whether each area is on track today, this week, and this month. The current product specification is `DESIGN.md` v1.13.
+LifeOS is a local-first iPhone app for turning improvement areas into scheduled actions, recording what happened, and showing whether each area is on track today, this week, and this month. The current product specification is `DESIGN.md` Version 1.
 
 ## Current capabilities
 
@@ -10,7 +10,7 @@ LifeOS is a local-first iPhone app for turning improvement areas into scheduled 
 - Flexible task repetition by weekday, count and exact minute interval
 - Food capture by barcode, nutrition-label photo or manual entry
 - Weight tracking in kilograms or pounds
-- Baseball training and workload tracking
+- Generic sport training and workload tracking using each user's editable Sport Area
 - Multiple separate adult, child or individual profiles
 - Optional profile photos and parent-managed/self-managed intent
 - Reusable templates plus full JSON backup and restore

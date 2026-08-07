@@ -8,7 +8,7 @@ struct ImprovementCategoriesView: View {
     @Query private var calendarItems: [CalendarItem]
     @Query private var foodEntries: [FoodEntry]
     @Query private var weightEntries: [WeightEntry]
-    @Query private var baseballEntries: [BaseballEntry]
+    @Query private var sportEntries: [SportEntry]
     @State private var addRoute: CategoryAddRoute?
     @State private var editingCategory: AppCategory?
     @State private var showingAddAction = false
@@ -148,7 +148,7 @@ struct ImprovementCategoriesView: View {
                 period: .week,
                 activities: activities, calendarItems: calendarItems,
                 foodEntries: foodEntries, weightEntries: weightEntries,
-                baseballEntries: baseballEntries
+                sportEntries: sportEntries
             )
         }
         return HStack(spacing: 12) {

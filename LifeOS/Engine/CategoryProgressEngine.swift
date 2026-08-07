@@ -84,7 +84,7 @@ enum CategoryProgressEngine {
         calendarItems: [CalendarItem],
         foodEntries: [FoodEntry],
         weightEntries: [WeightEntry],
-        baseballEntries: [BaseballEntry],
+        sportEntries: [SportEntry],
         calendar: Calendar = .current
     ) -> CategoryProgress {
         let interval = period.interval(containing: now, calendar: calendar)
@@ -120,12 +120,15 @@ enum CategoryProgressEngine {
         let lowerName = category.name.lowercased()
         let isNutrition = lowerName.contains("nutrition") || lowerName.contains("food")
         let isWeight = lowerName.contains("weight") || lowerName.contains("body development") || lowerName.contains("body composition")
-        let isBaseball = lowerName.contains("baseball")
+        let isSport = category.pillar == .sport
 
         let periodFood = foodEntries.filter { $0.profile?.id == profile.id && interval.contains($0.date) }
         let foodDays = Set(periodFood.map { calendar.startOfDay(for: $0.date) }).count
         let periodWeights = weightEntries.filter { $0.profile?.id == profile.id && interval.contains($0.date) }
-        let periodBaseball = baseballEntries.filter { $0.profile?.id == profile.id && interval.contains($0.date) }
+        let periodSport = sportEntries.filter { entry in
+            guard entry.profile?.id == profile.id && interval.contains(entry.date) else { return false }
+            return entry.category.map { categoryIDs.contains($0.id) } == true
+        }
 
         var completedSessions = completedItems.count
         var completedMinutes = completedItems.reduce(0) {
@@ -134,9 +137,9 @@ enum CategoryProgressEngine {
 
         if isNutrition { completedSessions = foodDays }
         if isWeight { completedSessions = periodWeights.count }
-        if isBaseball {
-            completedSessions = max(completedSessions, periodBaseball.count)
-            completedMinutes = max(completedMinutes, periodBaseball.reduce(0) { $0 + $1.durationMinutes })
+        if isSport {
+            completedSessions = max(completedSessions, periodSport.count)
+            completedMinutes = max(completedMinutes, periodSport.reduce(0) { $0 + $1.durationMinutes })
         }
 
         let targetSessions: Int
@@ -162,7 +165,7 @@ enum CategoryProgressEngine {
         let elapsedFraction = max(0, min(now.timeIntervalSince(interval.start) / interval.duration, 1))
         let expectedSessions = Double(targetSessions) * elapsedFraction
         let remainingDays = max(0, calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: interval.end).day ?? 0)
-        let flexibleFuture = (isNutrition || isWeight || isBaseball) ? remainingDays : 0
+        let flexibleFuture = (isNutrition || isWeight || isSport) ? remainingDays : 0
         let potentialSessions = completedSessions + max(futureScheduled, flexibleFuture)
 
         let status: ImprovementStatus
@@ -184,7 +187,7 @@ enum CategoryProgressEngine {
         } else if scheduledThroughNow > 0 {
             let completeness = Double(decidedDueTasks) / Double(scheduledThroughNow)
             confidence = completeness >= 0.8 ? .high : (completeness >= 0.4 ? .medium : .low)
-        } else if isNutrition || isWeight || isBaseball || !categoryActivities.isEmpty {
+        } else if isNutrition || isWeight || isSport || !categoryActivities.isEmpty {
             confidence = completedSessions > 0 ? .high : .medium
         } else {
             confidence = .low

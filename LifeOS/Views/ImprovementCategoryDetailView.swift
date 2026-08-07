@@ -10,7 +10,7 @@ struct ImprovementCategoryDetailView: View {
     @Query private var calendarItems: [CalendarItem]
     @Query private var foodEntries: [FoodEntry]
     @Query private var weightEntries: [WeightEntry]
-    @Query private var baseballEntries: [BaseballEntry]
+    @Query private var sportEntries: [SportEntry]
     @State private var period: DashboardPeriod = .week
     @State private var showingAddTask = false
     @State private var showingAddSubcategory = false
@@ -47,7 +47,7 @@ struct ImprovementCategoryDetailView: View {
             period: period,
             activities: activities, calendarItems: calendarItems,
             foodEntries: foodEntries, weightEntries: weightEntries,
-            baseballEntries: baseballEntries
+            sportEntries: sportEntries
         )
     }
 
@@ -100,7 +100,10 @@ struct ImprovementCategoryDetailView: View {
             if let tool = categoryTool {
                 Section("Tracking") {
                     Button { activeTool = tool } label: {
-                        Label(tool.buttonTitle, systemImage: tool.symbol)
+                        Label(
+                            tool == .sport ? "Open \(category.name) Training Log" : tool.buttonTitle,
+                            systemImage: tool == .sport ? category.symbol : tool.symbol
+                        )
                     }
                 }
             }
@@ -179,7 +182,7 @@ struct ImprovementCategoryDetailView: View {
             switch tool {
             case .food: FoodTrackerView(selection: selection)
             case .weight: WeightTrackerView(selection: selection)
-            case .baseball: BaseballTrackerView(selection: selection)
+            case .sport: SportTrackerView(selection: selection, category: category)
             }
         }
         .sheet(isPresented: $showingProgressDetails) {
@@ -194,7 +197,10 @@ struct ImprovementCategoryDetailView: View {
             .map(\.name).joined(separator: " ").lowercased()
         if name.contains("nutrition") || name.contains("food") { return .food }
         if name.contains("weight") || name.contains("body development") || name.contains("body composition") { return .weight }
-        if name.contains("baseball") { return .baseball }
+        if category.pillar == .sport
+            || CategoryHierarchy.ancestors(of: category, in: profileCategories).contains(where: { $0.pillar == .sport }) {
+            return .sport
+        }
         return nil
     }
 
@@ -270,20 +276,20 @@ private struct CategoryProgressDetailView: View {
 }
 
 private enum CategoryTool: String, Identifiable {
-    case food, weight, baseball
+    case food, weight, sport
     var id: String { rawValue }
     var buttonTitle: String {
         switch self {
         case .food: return "Open Food & Nutrition Tracker"
         case .weight: return "Open Weight & Body Trend"
-        case .baseball: return "Open Baseball Training Log"
+        case .sport: return "Open Sport Training Log"
         }
     }
     var symbol: String {
         switch self {
         case .food: return "fork.knife"
         case .weight: return "scalemass.fill"
-        case .baseball: return "figure.baseball"
+        case .sport: return "figure.run"
         }
     }
 }

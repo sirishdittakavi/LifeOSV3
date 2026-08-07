@@ -17,7 +17,7 @@
 		26DFD94DCDFBA070AC33A146 /* ImprovementCategoriesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 236B524C8D1AD5290BDBF78D /* ImprovementCategoriesView.swift */; };
 		2E49E4BD2B649A5430D42E8C /* AddActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6005FDCC8CA7495506334E46 /* AddActivityView.swift */; };
 		3F76161965A8024182D7236B /* FoodTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4951C5CB1A500F3CED34E5 /* FoodTrackerView.swift */; };
-		457F02982A10E4958F8EB460 /* BaseballTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86DB7D1E90DE06C2D92494F1 /* BaseballTrackerView.swift */; };
+		457F02982A10E4958F8EB460 /* SportTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86DB7D1E90DE06C2D92494F1 /* SportTrackerView.swift */; };
 		49E7137019B8301F15777724 /* CategoryHierarchy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55F7D1F805EAE2850186A7FE /* CategoryHierarchy.swift */; };
 		511A359B9C1D3087768E746B /* AddImprovementCategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3089E1119EF3FEC41AE8B48 /* AddImprovementCategoryView.swift */; };
 		6141CAE6D99C53E9E66DB09E /* LifeOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF29D3EFDCB9336FED403538 /* LifeOSApp.swift */; };
@@ -60,7 +60,7 @@
 		7BFAF5CF2A126324576CB407 /* AddWhatHappenedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddWhatHappenedView.swift; sourceTree = "<group>"; };
 		819A9C738D6E1A4BD64EA744 /* WeeklyScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyScheduleView.swift; sourceTree = "<group>"; };
 		84489496ECECED00233A0050 /* ColorToken.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorToken.swift; sourceTree = "<group>"; };
-		86DB7D1E90DE06C2D92494F1 /* BaseballTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseballTrackerView.swift; sourceTree = "<group>"; };
+		86DB7D1E90DE06C2D92494F1 /* SportTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportTrackerView.swift; sourceTree = "<group>"; };
 		A663322A791BA2B3E365376D /* FoodCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodCaptureService.swift; sourceTree = "<group>"; };
 		A9F621BE905857FEB3E0B267 /* ProfileGoalsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileGoalsView.swift; sourceTree = "<group>"; };
 		BD82E4B5D3273000FF862511 /* ProgressEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressEngine.swift; sourceTree = "<group>"; };
@@ -115,7 +115,7 @@
 				F3089E1119EF3FEC41AE8B48 /* AddImprovementCategoryView.swift */,
 				7BFAF5CF2A126324576CB407 /* AddWhatHappenedView.swift */,
 				27E775220D569D469F979936 /* BackupCenterView.swift */,
-				86DB7D1E90DE06C2D92494F1 /* BaseballTrackerView.swift */,
+				86DB7D1E90DE06C2D92494F1 /* SportTrackerView.swift */,
 				84489496ECECED00233A0050 /* ColorToken.swift */,
 				53549BD50EE3E8885AB9ECF9 /* DailyProgressView.swift */,
 				FF4951C5CB1A500F3CED34E5 /* FoodTrackerView.swift */,
@@ -213,7 +213,7 @@
 				511A359B9C1D3087768E746B /* AddImprovementCategoryView.swift in Sources */,
 				F20B0CC3F213D901E11187B4 /* AddWhatHappenedView.swift in Sources */,
 				64BD1CB168BD83CFEDCEE578 /* BackupCenterView.swift in Sources */,
-				457F02982A10E4958F8EB460 /* BaseballTrackerView.swift in Sources */,
+				457F02982A10E4958F8EB460 /* SportTrackerView.swift in Sources */,
 				49E7137019B8301F15777724 /* CategoryHierarchy.swift in Sources */,
 				C42B22F16BD3D1E6D55D2FF6 /* CategoryProgressEngine.swift in Sources */,
 				D3110A8487A6D40D35338712 /* ColorToken.swift in Sources */,
@@ -251,6 +251,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 74WQCZFJFM;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = LifeOS;
@@ -261,6 +262,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sirishdittakavi.lifeos;
 				PRODUCT_NAME = LifeOS;
 				SDKROOT = iphoneos;
@@ -394,6 +396,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 74WQCZFJFM;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = LifeOS;
@@ -404,6 +407,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sirishdittakavi.lifeos;
 				PRODUCT_NAME = LifeOS;
 				SDKROOT = iphoneos;

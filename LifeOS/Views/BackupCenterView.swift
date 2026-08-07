@@ -11,7 +11,7 @@ struct BackupCenterView: View {
     @Query private var sessions: [ActivitySession]
     @Query private var foodEntries: [FoodEntry]
     @Query private var weightEntries: [WeightEntry]
-    @Query private var baseballEntries: [BaseballEntry]
+    @Query private var sportEntries: [SportEntry]
     @Query private var savedTemplates: [SavedCategoryTemplate]
 
     @State private var exporting = false
@@ -50,7 +50,7 @@ struct BackupCenterView: View {
                 countRow("Recorded sessions", sessions.count)
                 countRow("Food entries", foodEntries.count)
                 countRow("Weight entries", weightEntries.count)
-                countRow("Sport entries", baseballEntries.count)
+                countRow("Sport entries", sportEntries.count)
                 countRow("Saved plans", savedTemplates.count)
             }
         }
@@ -86,7 +86,7 @@ struct BackupCenterView: View {
         let payload = LifeOSBackupService.make(
             profiles: profiles, categories: categories, activities: activities,
             calendarItems: calendarItems, sessions: sessions, foodEntries: foodEntries,
-            weightEntries: weightEntries, baseballEntries: baseballEntries,
+            weightEntries: weightEntries, sportEntries: sportEntries,
             savedTemplates: savedTemplates
         )
         do {
