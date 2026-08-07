@@ -18,25 +18,43 @@ struct ProfileManagerView: View {
 
                 Section("Family Profiles") {
                     ForEach(profiles.filter(\.isActive)) { profile in
-                        Button {
-                            selection.profile = profile
-                            dismiss()
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: profile.kind == .child ? "figure.and.child.holdinghands" : "person.crop.circle.fill")
-                                    .frame(width: 36, height: 36)
-                                    .background(ColorToken.color(for: profile.colorToken).opacity(0.15))
-                                    .foregroundStyle(ColorToken.color(for: profile.colorToken))
-                                    .clipShape(Circle())
-                                VStack(alignment: .leading) {
-                                    Text(profile.name).font(.headline).foregroundStyle(.primary)
-                                    Text(profile.kind.rawValue).font(.caption).foregroundStyle(.secondary)
+                        HStack(spacing: 12) {
+                            Button {
+                                selection.profile = profile
+                                dismiss()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: profile.kind == .child ? "figure.and.child.holdinghands" : "person.crop.circle.fill")
+                                        .frame(width: 36, height: 36)
+                                        .background(ColorToken.color(for: profile.colorToken).opacity(0.15))
+                                        .foregroundStyle(ColorToken.color(for: profile.colorToken))
+                                        .clipShape(Circle())
+                                    VStack(alignment: .leading) {
+                                        Text(profile.name).font(.headline).foregroundStyle(.primary)
+                                        Text(profile.kind.rawValue).font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    if selection.profile?.id == profile.id {
+                                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.blue)
+                                    }
                                 }
-                                Spacer()
-                                if selection.profile?.id == profile.id {
-                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.blue)
-                                }
+                                .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                editingProfile = profile
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 10)
+                                    .frame(height: 36)
+                                    .background(Color.blue.opacity(0.12))
+                                    .foregroundStyle(.blue)
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Edit \(profile.name) profile")
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button("Edit") { editingProfile = profile }.tint(.blue)
@@ -143,12 +161,27 @@ private struct EditProfileView: View {
     @Bindable var profile: Profile
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+
+    init(profile: Profile) {
+        self.profile = profile
+        _name = State(initialValue: profile.name)
+    }
+
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Person") {
-                    TextField("Name", text: $profile.name)
+                    TextField("Name", text: $name)
+                        .textInputAutocapitalization(.words)
+                        .submitLabel(.done)
+                    Text("Rename the default Junior profile to the person's real name.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Picker("Profile type", selection: Binding(
                         get: { profile.kind }, set: { profile.kind = $0 }
                     )) {
@@ -169,11 +202,16 @@ private struct EditProfileView: View {
             }
             .navigationTitle("Edit Profile")
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button("Save") {
+                        profile.name = trimmedName
                         try? modelContext.save()
                         dismiss()
                     }
+                    .disabled(trimmedName.isEmpty)
                 }
             }
         }
