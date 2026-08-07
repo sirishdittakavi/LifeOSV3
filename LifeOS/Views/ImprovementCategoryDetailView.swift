@@ -17,6 +17,7 @@ struct ImprovementCategoryDetailView: View {
     @State private var showingEdit = false
     @State private var activeTool: CategoryTool?
     @State private var showingTemplateSaved = false
+    @State private var showingProgressDetails = false
 
     private var categoryActivities: [Activity] {
         let includedIDs = CategoryHierarchy.idsIncludingDescendants(of: category, in: profileCategories)
@@ -81,12 +82,19 @@ struct ImprovementCategoryDetailView: View {
                 }
             }
 
-            Section {
+            Section("Progress") {
                 Picker("Period", selection: $period) {
                     ForEach(DashboardPeriod.allCases) { Text($0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented)
-                if let progress { CategoryProgressCard(progress: progress) }
+                if let progress {
+                    Button { showingProgressDetails = true } label: {
+                        CategoryProgressCard(progress: progress)
+                            .contentShape(RoundedRectangle(cornerRadius: 16))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Open \(category.name) progress details")
+                }
             }
 
             if let tool = categoryTool {
@@ -174,6 +182,11 @@ struct ImprovementCategoryDetailView: View {
             case .baseball: BaseballTrackerView(selection: selection)
             }
         }
+        .sheet(isPresented: $showingProgressDetails) {
+            if let progress {
+                CategoryProgressDetailView(progress: progress)
+            }
+        }
     }
 
     private var categoryTool: CategoryTool? {
@@ -200,6 +213,59 @@ struct ImprovementCategoryDetailView: View {
             repeatText = "\(activity.occurrencesPerWeek)× weekly"
         }
         return "\(repeatText) · \(activity.estimatedDurationMinutes) min · \(time)"
+    }
+}
+
+private struct CategoryProgressDetailView: View {
+    let progress: CategoryProgress
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    CategoryProgressCard(progress: progress, showsDisclosureIndicator: false)
+                }
+
+                Section("Target and actual") {
+                    if progress.targetSessions > 0 {
+                        LabeledContent("Sessions") {
+                            Text("\(progress.completedSessions) of \(progress.targetSessions)")
+                        }
+                    }
+                    if progress.targetMinutes > 0 {
+                        LabeledContent("Minutes") {
+                            Text("\(progress.completedMinutes) of \(progress.targetMinutes)")
+                        }
+                    }
+                    if progress.targetSessions == 0 && progress.targetMinutes == 0 {
+                        Text("No target is configured for this period.")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("Plan confidence") {
+                    LabeledContent("Status", value: progress.status.rawValue)
+                    LabeledContent("Confidence", value: progress.confidence.rawValue)
+                    if progress.dueTasks > 0 {
+                        LabeledContent("Due actions decided") {
+                            Text("\(progress.decidedDueTasks) of \(progress.dueTasks)")
+                        }
+                    }
+                }
+
+                Section("What to do next") {
+                    Text(progress.nextAction)
+                }
+            }
+            .navigationTitle("\(progress.period.rawValue) Progress")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 

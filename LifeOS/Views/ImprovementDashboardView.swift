@@ -71,8 +71,10 @@ struct ImprovementDashboardView: View {
                                             )
                                         } label: {
                                             CategoryProgressCard(progress: progress)
+                                                .contentShape(RoundedRectangle(cornerRadius: 16))
                                         }
                                         .buttonStyle(.plain)
+                                        .accessibilityLabel("Open \(progress.category.name)")
                                     }
                                 }
                             }
@@ -162,6 +164,7 @@ private struct CoveragePill: View {
 
 struct CategoryProgressCard: View {
     let progress: CategoryProgress
+    var showsDisclosureIndicator = true
 
     var body: some View {
         HStack(spacing: 14) {
@@ -182,7 +185,9 @@ struct CategoryProgressCard: View {
                         .font(.headline)
                         .foregroundStyle(.primary)
                     Spacer()
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                    if showsDisclosureIndicator {
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                    }
                 }
                 Text(progress.progressText).font(.caption).foregroundStyle(.secondary)
                 HStack(spacing: 6) {
@@ -195,6 +200,7 @@ struct CategoryProgressCard: View {
             }
         }
         .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
     }
