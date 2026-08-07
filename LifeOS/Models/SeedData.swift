@@ -12,106 +12,41 @@ enum SeedData {
     }
 
     private static func seedFreshWorkspace(context: ModelContext) {
-        let parent = Profile(name: "Sirish", kind: .parent, colorToken: "blue")
-        let child = Profile(name: "Junior", kind: .child, colorToken: "orange")
-        child.calorieGoal = 2000
-        child.proteinGoalGrams = 90
-        child.weeklyBaseballMinutesGoal = 240
-        context.insert(parent)
-        context.insert(child)
+        // A fresh install starts with one neutral owner profile. Children and
+        // other household members are always optional, user-created profiles.
+        let owner = Profile(name: "My Profile", kind: .individual, colorToken: "blue")
+        context.insert(owner)
 
-        let parentHealth = category(
-            parent, "Health & Fitness", "heart.fill", "red", .physical,
-            "Build strength, fitness and sustainable energy.", 4, 240, context
-        )
-        let career = category(
-            parent, "Career", "briefcase.fill", "blue", .learning,
-            "Perform meaningful professional work.", 5, 300, context
-        )
-        let family = category(
-            parent, "Family", "person.2.fill", "pink", .life,
-            "Protect consistent, present family time.", 7, 210, context
-        )
-        let software = category(
-            parent, "Software Development", "chevron.left.forwardslash.chevron.right", "purple", .learning,
-            "Improve engineering skill through deliberate practice and projects.", 5, 225, context
-        )
-        let parentNutrition = category(
-            parent, "Nutrition", "fork.knife", "green", .nutrition,
-            "Fuel health and training against personal targets.", 7, 0, context
-        )
-        let parentWeight = category(
-            parent, "Weight Improvement", "scalemass.fill", "blue", .physical,
-            "Track body trend without reacting to daily noise.", 3, 0, context
-        )
-
-        let education = category(
-            child, "Education", "book.fill", "indigo", .learning,
-            "Stay prepared for school and complete important learning work.", 5, 300, context
+        let movement = category(
+            owner, "Movement", "figure.run", "blue", .physical,
+            "Build sustainable movement, fitness and energy.", 4, 160, context
         )
         let learning = category(
-            child, "Reading & Learning", "lightbulb.fill", "yellow", .learning,
-            "Build curiosity and consistent reading practice.", 7, 140, context
+            owner, "Learning", "lightbulb.fill", "yellow", .learning,
+            "Improve through consistent, focused learning.", 5, 150, context
         )
-        let baseball = category(
-            child, "Baseball", "figure.baseball", "orange", .sport,
-            "Improve baseball skill through planned practice, feedback and recovery.", 5, 240, context
+        let nutrition = category(
+            owner, "Nutrition", "fork.knife", "green", .nutrition,
+            "Support health and performance with useful nutrition evidence.", 7, 0, context
         )
-        let mobility = category(
-            child, "Mobility", "figure.flexibility", "teal", .physical,
-            "Build usable range of motion that supports baseball and daily movement.", 5, 75, context
-        )
-        let speed = category(
-            child, "Speed", "figure.run", "blue", .physical,
-            "Improve acceleration and running mechanics progressively.", 3, 90, context
-        )
-        let childNutrition = category(
-            child, "Nutrition", "fork.knife", "green", .nutrition,
-            "Support growth, training and recovery with parent-approved targets.", 7, 0, context
-        )
-        let childWeight = category(
-            child, "Body Development", "scalemass.fill", "blue", .physical,
-            "Observe healthy body development without restrictive or punitive targets.", 3, 0, context
+        let recovery = category(
+            owner, "Recovery", "bed.double.fill", "indigo", .life,
+            "Protect sleep, recovery and sustainable effort.", 7, 0, context
         )
 
-        baseball.relatedCategoryIDs = [mobility.id, speed.id, childNutrition.id]
-        mobility.relatedCategoryIDs = [baseball.id, speed.id]
-        speed.relatedCategoryIDs = [baseball.id, mobility.id, childWeight.id]
-        parentWeight.relatedCategoryIDs = [parentNutrition.id, parentHealth.id]
-        parentNutrition.relatedCategoryIDs = [parentWeight.id, parentHealth.id]
-
-        let weekdays = [2, 3, 4, 5, 6]
-        let monWedFri = [2, 4, 6]
+        movement.relatedCategoryIDs = [nutrition.id, recovery.id]
+        nutrition.relatedCategoryIDs = [movement.id, recovery.id]
+        recovery.relatedCategoryIDs = [movement.id, nutrition.id]
 
         [
-            Activity(profile: parent, category: parentHealth, name: "Gym", source: .template,
-                     targetValue: 45, targetUnit: "min", repeatType: .selectedWeekdays, weekdays: [2, 3, 5, 6],
-                     plannedStartMinutes: 7 * 60, estimatedDurationMinutes: 60),
-            Activity(profile: parent, category: career, name: "Focused Work", source: .template,
-                     repeatType: .selectedWeekdays, weekdays: weekdays,
-                     plannedStartMinutes: 9 * 60, estimatedDurationMinutes: 60),
-            Activity(profile: parent, category: family, name: "Family Dinner", source: .template,
-                     repeatType: .daily, plannedStartMinutes: 18 * 60 + 30, estimatedDurationMinutes: 45),
-            Activity(profile: parent, category: software, name: "Software Practice", source: .template,
-                     tags: ["coding", "learning"], targetValue: 45, targetUnit: "min",
-                     repeatType: .selectedWeekdays, weekdays: weekdays,
-                     plannedStartMinutes: 20 * 60, estimatedDurationMinutes: 45),
-            Activity(profile: child, category: education, name: "Homework", source: .template,
-                     repeatType: .selectedWeekdays, weekdays: weekdays,
-                     plannedStartMinutes: 17 * 60, estimatedDurationMinutes: 45),
-            Activity(profile: child, category: baseball, name: "Hitting Practice", source: .template,
-                     tags: ["baseball", "batting"], targetValue: 100, targetUnit: "swings",
-                     repeatType: .selectedWeekdays, weekdays: [2, 3, 5, 7],
-                     plannedStartMinutes: 18 * 60, estimatedDurationMinutes: 60),
-            Activity(profile: child, category: mobility, name: "Mobility Routine", source: .template,
-                     targetValue: 15, targetUnit: "min", repeatType: .selectedWeekdays, weekdays: weekdays,
-                     plannedStartMinutes: 7 * 60 + 30, estimatedDurationMinutes: 15),
-            Activity(profile: child, category: speed, name: "Sprint Technique", source: .template,
-                     targetValue: 30, targetUnit: "min", repeatType: .selectedWeekdays, weekdays: monWedFri,
-                     plannedStartMinutes: 16 * 60 + 15, estimatedDurationMinutes: 30),
-            Activity(profile: child, category: learning, name: "Reading", source: .template,
-                     targetValue: 20, targetUnit: "min", repeatType: .daily,
-                     plannedStartMinutes: 20 * 60, estimatedDurationMinutes: 20)
+            Activity(profile: owner, category: movement, name: "Move or Train", source: .template,
+                     targetValue: 40, targetUnit: "min", repeatType: .selectedWeekdays,
+                     weekdays: [2, 4, 6, 7], plannedStartMinutes: 7 * 60,
+                     estimatedDurationMinutes: 40),
+            Activity(profile: owner, category: learning, name: "Focused Learning", source: .template,
+                     targetValue: 30, targetUnit: "min", repeatType: .selectedWeekdays,
+                     weekdays: [2, 3, 4, 5, 6], plannedStartMinutes: 19 * 60,
+                     estimatedDurationMinutes: 30)
         ].forEach { context.insert($0) }
     }
 

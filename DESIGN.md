@@ -1,4 +1,4 @@
-# LifeOS — Product Specification v1.11
+# LifeOS — Product Specification v1.12
 
 **Status:** Living product and engineering specification  
 **Primary platform:** iPhone first (SwiftUI)  
@@ -15,7 +15,8 @@ Update this table whenever the code changes.
 
 | Area | Status | Notes |
 |---|---:|---|
-| Profile model | ✅ First version | Add/edit/switch parent, child and individual profiles with fully separate data |
+| Profile model | ✅ First version | Add/edit/switch/hide optional parent, child and individual profiles with fully separate data |
+| Profile identity | ✅ First version | Editable name, optional compressed photo, colour and parent/self-managed access intent |
 | Profile preferences and goals | ✅ First version | kg/lb display, body goal, daily nutrition targets, weekly baseball minutes |
 | Improvement category model | ✅ First version | Generic editable hierarchy, profile ownership, weekly targets, purpose, related areas and active state |
 | Category templates | ✅ First version | Built-in library, optional profile starter plans, and locally saved reusable category/task templates |
@@ -31,14 +32,15 @@ Update this table whenever the code changes.
 | Daily nutrition log | ✅ First version | Barcode lookup, label-photo OCR, saved photos, manual editing, macros, water and daily totals |
 | Body-weight log | ✅ First version | Canonical kg storage, kg/lb display, goal distance, raw scale data and transparent 7-entry trend |
 | Baseball training log | ✅ First version | Hitting, throwing, pitching, fielding, duration × effort workload and soreness trend |
-| Seed templates | ✅ First version | Parent and child sample routines |
+| Seed templates | ✅ First version | Neutral single-profile start; optional starter plans for any added adult or child |
 | Timer session | ⬜ Next | Basic data model present; dedicated timer screen next |
 | Multiple tracking fields | ⬜ Next | Activity supports primary unit in first code version |
 | Goals and measurements | ⬜ Next | Domain decision retained, UI deferred |
 | Notifications | ✅ First version | Approved category enables task-time reminders and a Sunday weekly review |
 | JSON backup/restore | ✅ First version | Full-family portable export and stable-ID merge restore, including photos and templates |
 | Repository protocol | ⚠️ Partial | Planning service separated; full persistence abstraction next |
-| Cloud sync | ❌ Deferred | CloudKit or remote API after local foundation |
+| Family sync and accounts | ❌ Deferred | Secure child invitations, permissions and multi-device sync require a cloud identity service |
+| Paid household management | 📐 Designed | StoreKit entitlement plus server-authoritative household/member limits; implementation deferred |
 
 ---
 
@@ -1039,7 +1041,7 @@ The generated Xcode project uses automatic code signing. It must not set `CODE_S
 
 ### 25.1 Household profiles, not mixed users
 
-Version 1 supports multiple local household Profiles on one device. A Profile may be a Parent, Child, or Individual. This is not yet a cloud account or permission system.
+Version 1 supports multiple local household Profiles on one device. A Profile may be a Parent, Child, or Individual. Profiles are optional people, not hard-coded family slots. A child profile is never required and the product must not assume every user has a child. This is not yet a cloud account or permission system.
 
 Every Profile owns separate:
 
@@ -1050,9 +1052,11 @@ Every Profile owns separate:
 - nutrition, weight and sport logs,
 - units and goals.
 
-The selected Profile is shared across Dashboard, Today, Week, Categories and Progress, and the last selection is restored after relaunch. Every major screen exposes the same Profile picker. **Manage Profiles** creates or edits adults and children; switching never blends their results.
+The selected Profile is shared across Dashboard, Today, Week, Categories and Progress, and the last selection is restored after relaunch. Every major screen exposes the same Profile picker. **Manage Profiles** creates, edits, hides or restores adults and children; switching never blends their results. Each profile supports an editable name and optional photo. Photos are resized before storage and included in family backup.
 
 ### 25.2 Smooth first-run setup
+
+A fresh install begins with one neutral **My Profile** owner and generic basics. It does not create `Junior`, a named parent, or sport-specific family members. Existing installs retain all current profiles and history; an unwanted sample profile can be renamed or hidden rather than destructively removed.
 
 New Profile creation asks for a user-approved starter plan:
 
@@ -1091,6 +1095,42 @@ The JSON backup is portable but not encrypted. The UI must warn the user to stor
 ### 25.5 Calendar interaction
 
 The Week grid is not a static report. A user may tap a block to inspect its date, time, duration, category and status, then record it Done or Skip that occurrence. Today's column displays a current-time line. Today remains the fastest execution surface, while Week remains the planning and balance view.
+
+### 25.6 Parent-managed and self-managed profiles
+
+Every Profile records an access intent:
+
+- **Parent-managed:** a parent or guardian records plans, completions and health/sport information for the person on the parent's current device.
+- **Self-managed:** the person records and manages their own plan. In the local version this still means the current device; it must not be presented as live access from another phone.
+
+A child with no phone therefore needs no account. The parent simply uses the child Profile locally. A child with their own phone requires a later **Family Sync** capability before both devices can safely share the same Profile. That capability must include:
+
+- a household account and stable member identity distinct from a Profile,
+- parent/guardian invitation and approval,
+- explicit roles such as Owner, Guardian, Member and Child,
+- per-Profile grants for view, plan, record and sensitive-health access,
+- revocation, device removal and an audit trail for family-management changes,
+- conflict-safe synchronization and clear offline behaviour,
+- age-appropriate consent, privacy and data deletion controls.
+
+Profile photos, names and local management intent do not create an online identity. The UI must clearly label Family Sync as unavailable until its security and privacy model is implemented end to end.
+
+### 25.7 Paid household management
+
+Paid access is an entitlement attached to the household account, not a Boolean stored on a child Profile. The intended production model is:
+
+```text
+Account → Household → Membership/Role → Profile access grants
+                    ↘ Subscription entitlement → enabled limits/features
+```
+
+StoreKit 2 may sell the subscription, but a server must validate transactions and authoritatively publish the household entitlement to every device. Suggested packaging remains subject to product validation:
+
+- **Free/local:** one-device use, manual backup and a small number of locally managed Profiles.
+- **Family:** multi-device sync, invitations, parent/guardian controls, more members and shared templates.
+- **Coach/organisation later:** roster and programme workflows only after family permissions are proven safe.
+
+A downgrade must never delete Profile data. It may stop new invitations or cloud collaboration while preserving local read/export access. Billing must not be used to hold a family's existing health or child data hostage.
 
 ---
 

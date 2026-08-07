@@ -1,12 +1,18 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
+import UIKit
 
 struct ProfileManagerView: View {
     @Bindable var selection: SelectedProfile
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Profile.name) private var profiles: [Profile]
     @State private var showingAddProfile = false
     @State private var editingProfile: Profile?
+
+    private var activeProfiles: [Profile] { profiles.filter(\.isActive) }
+    private var hiddenProfiles: [Profile] { profiles.filter { !$0.isActive } }
 
     var body: some View {
         NavigationStack {
@@ -16,22 +22,19 @@ struct ProfileManagerView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
-                Section("Family Profiles") {
-                    ForEach(profiles.filter(\.isActive)) { profile in
+                Section("Profiles") {
+                    ForEach(activeProfiles) { profile in
                         HStack(spacing: 12) {
                             Button {
                                 selection.profile = profile
                                 dismiss()
                             } label: {
                                 HStack(spacing: 12) {
-                                    Image(systemName: profile.kind == .child ? "figure.and.child.holdinghands" : "person.crop.circle.fill")
-                                        .frame(width: 36, height: 36)
-                                        .background(ColorToken.color(for: profile.colorToken).opacity(0.15))
-                                        .foregroundStyle(ColorToken.color(for: profile.colorToken))
-                                        .clipShape(Circle())
+                                    ProfileAvatarView(profile: profile, size: 38)
                                     VStack(alignment: .leading) {
                                         Text(profile.name).font(.headline).foregroundStyle(.primary)
-                                        Text(profile.kind.rawValue).font(.caption).foregroundStyle(.secondary)
+                                        Text("\(profile.kind.rawValue) · \(profile.managementMode.rawValue)")
+                                            .font(.caption).foregroundStyle(.secondary)
                                     }
                                     Spacer()
                                     if selection.profile?.id == profile.id {
@@ -58,9 +61,29 @@ struct ProfileManagerView: View {
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button("Edit") { editingProfile = profile }.tint(.blue)
+                            if activeProfiles.count > 1 {
+                                Button("Hide", role: .destructive) { hide(profile) }
+                            }
                         }
                         .contextMenu {
                             Button("Edit Profile") { editingProfile = profile }
+                            if activeProfiles.count > 1 {
+                                Button("Hide Profile", role: .destructive) { hide(profile) }
+                            }
+                        }
+                    }
+                }
+
+                if !hiddenProfiles.isEmpty {
+                    Section("Hidden Profiles") {
+                        ForEach(hiddenProfiles) { profile in
+                            HStack(spacing: 12) {
+                                ProfileAvatarView(profile: profile, size: 34)
+                                Text(profile.name)
+                                Spacer()
+                                Button("Restore") { restore(profile) }
+                                    .buttonStyle(.bordered)
+                            }
                         }
                     }
                 }
@@ -91,6 +114,20 @@ struct ProfileManagerView: View {
             }
         }
     }
+
+    private func hide(_ profile: Profile) {
+        guard activeProfiles.count > 1 else { return }
+        profile.isActive = false
+        if selection.profile?.id == profile.id {
+            selection.profile = activeProfiles.first { $0.id != profile.id }
+        }
+        try? modelContext.save()
+    }
+
+    private func restore(_ profile: Profile) {
+        profile.isActive = true
+        try? modelContext.save()
+    }
 }
 
 private struct NewProfileView: View {
@@ -101,11 +138,26 @@ private struct NewProfileView: View {
     @State private var kind: ProfileKind = .child
     @State private var colorToken = "blue"
     @State private var starterPlan: ProfileStarterPlan = .studentAndSport
+    @State private var managementMode: ProfileManagementMode = .parentManaged
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var avatarData: Data?
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Person") {
+                    HStack {
+                        Spacer()
+                        EditableProfileAvatar(data: avatarData, kind: kind, colorToken: colorToken, size: 88)
+                        Spacer()
+                    }
+                    PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                        Label(avatarData == nil ? "Add Profile Photo" : "Change Profile Photo",
+                              systemImage: "photo.badge.plus")
+                    }
+                    if avatarData != nil {
+                        Button("Remove Photo", role: .destructive) { avatarData = nil }
+                    }
                     TextField("Name", text: $name)
                     Picker("Profile type", selection: $kind) {
                         ForEach(ProfileKind.allCases) { Text($0.rawValue).tag($0) }
@@ -114,6 +166,20 @@ private struct NewProfileView: View {
                         ForEach(CategoryAppearanceOptions.colors, id: \.self) { token in
                             Text(token.capitalized).tag(token)
                         }
+                    }
+                }
+
+                Section("Who Manages It") {
+                    Picker("Access", selection: $managementMode) {
+                        ForEach(ProfileManagementMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    Text(managementMode.explanation)
+                        .font(.caption).foregroundStyle(.secondary)
+                    if managementMode == .selfManaged {
+                        Text("For now this profile remains on this device. Secure own-phone access will arrive with Family Sync.")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                 }
 
@@ -139,6 +205,10 @@ private struct NewProfileView: View {
             }
             .onChange(of: kind) { _, newKind in
                 starterPlan = newKind == .child ? .studentAndSport : .healthAndCareer
+                managementMode = newKind == .child ? .parentManaged : .selfManaged
+            }
+            .onChange(of: selectedPhoto) { _, item in
+                loadProfilePhoto(from: item) { avatarData = $0 }
             }
         }
     }
@@ -149,6 +219,8 @@ private struct NewProfileView: View {
             kind: kind,
             colorToken: colorToken
         )
+        profile.avatarData = avatarData
+        profile.managementMode = managementMode
         modelContext.insert(profile)
         starterPlan.install(for: profile, context: modelContext)
         try? modelContext.save()
@@ -162,10 +234,19 @@ private struct EditProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
+    @State private var kind: ProfileKind
+    @State private var colorToken: String
+    @State private var managementMode: ProfileManagementMode
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var avatarData: Data?
 
     init(profile: Profile) {
         self.profile = profile
         _name = State(initialValue: profile.name)
+        _kind = State(initialValue: profile.kind)
+        _colorToken = State(initialValue: profile.colorToken)
+        _managementMode = State(initialValue: profile.managementMode)
+        _avatarData = State(initialValue: profile.avatarData)
     }
 
     private var trimmedName: String {
@@ -176,21 +257,45 @@ private struct EditProfileView: View {
         NavigationStack {
             Form {
                 Section("Person") {
+                    HStack {
+                        Spacer()
+                        EditableProfileAvatar(data: avatarData, kind: kind, colorToken: colorToken, size: 96)
+                        Spacer()
+                    }
+                    PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                        Label(avatarData == nil ? "Add Profile Photo" : "Change Profile Photo",
+                              systemImage: "photo.badge.plus")
+                    }
+                    if avatarData != nil {
+                        Button("Remove Photo", role: .destructive) { avatarData = nil }
+                    }
                     TextField("Name", text: $name)
                         .textInputAutocapitalization(.words)
                         .submitLabel(.done)
-                    Text("Rename the default Junior profile to the person's real name.")
+                    Text("Use the person's real name. Child profiles are optional and can be hidden without deleting their history.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Picker("Profile type", selection: Binding(
-                        get: { profile.kind }, set: { profile.kind = $0 }
-                    )) {
+                    Picker("Profile type", selection: $kind) {
                         ForEach(ProfileKind.allCases) { Text($0.rawValue).tag($0) }
                     }
-                    Picker("Colour", selection: $profile.colorToken) {
+                    Picker("Colour", selection: $colorToken) {
                         ForEach(CategoryAppearanceOptions.colors, id: \.self) { token in
                             Text(token.capitalized).tag(token)
                         }
+                    }
+                }
+
+                Section("Who Manages It") {
+                    Picker("Access", selection: $managementMode) {
+                        ForEach(ProfileManagementMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    Text(managementMode.explanation)
+                        .font(.caption).foregroundStyle(.secondary)
+                    if managementMode == .selfManaged {
+                        Text("This setting records the intended access model. Live use across another phone requires the future Family Sync service.")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                 }
 
@@ -201,6 +306,9 @@ private struct EditProfileView: View {
                 }
             }
             .navigationTitle("Edit Profile")
+            .onChange(of: selectedPhoto) { _, item in
+                loadProfilePhoto(from: item) { avatarData = $0 }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -208,6 +316,10 @@ private struct EditProfileView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         profile.name = trimmedName
+                        profile.kind = kind
+                        profile.colorToken = colorToken
+                        profile.managementMode = managementMode
+                        profile.avatarData = avatarData
                         try? modelContext.save()
                         dismiss()
                     }
@@ -237,6 +349,73 @@ private struct ProfileGoalsForm: View {
         }
         .navigationTitle("Profile Goals")
     }
+}
+
+struct ProfileAvatarView: View {
+    let profile: Profile
+    var size: CGFloat = 36
+
+    var body: some View {
+        EditableProfileAvatar(
+            data: profile.avatarData,
+            kind: profile.kind,
+            colorToken: profile.colorToken,
+            size: size
+        )
+    }
+}
+
+private struct EditableProfileAvatar: View {
+    let data: Data?
+    let kind: ProfileKind
+    let colorToken: String
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if let data, let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(systemName: kind == .child ? "figure.and.child.holdinghands" : "person.crop.circle.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(size * 0.22)
+                    .foregroundStyle(ColorToken.color(for: colorToken))
+                    .background(ColorToken.color(for: colorToken).opacity(0.15))
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(.white.opacity(0.8), lineWidth: 1))
+        .accessibilityHidden(true)
+    }
+}
+
+private func loadProfilePhoto(
+    from item: PhotosPickerItem?,
+    completion: @escaping (Data?) -> Void
+) {
+    guard let item else { return }
+    Task {
+        guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+        let optimized = await MainActor.run { optimizedProfilePhotoData(data) }
+        await MainActor.run { completion(optimized) }
+    }
+}
+
+@MainActor
+private func optimizedProfilePhotoData(_ data: Data) -> Data? {
+    guard let image = UIImage(data: data) else { return nil }
+    let longestSide = max(image.size.width, image.size.height)
+    let scale = longestSide > 600 ? 600 / longestSide : 1
+    let targetSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+    let renderer = UIGraphicsImageRenderer(size: targetSize)
+    let resized = renderer.image { _ in
+        image.draw(in: CGRect(origin: .zero, size: targetSize))
+    }
+    return resized.jpegData(compressionQuality: 0.82)
 }
 
 enum ProfileStarterPlan: String, CaseIterable, Identifiable {

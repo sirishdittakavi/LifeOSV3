@@ -17,6 +17,7 @@ struct LifeOSBackupPayload: Codable {
 
 struct ProfileBackup: Codable {
     let id: UUID; let name: String; let kindRaw: String; let colorToken: String; let weightUnitRaw: String
+    let avatarData: Data?; let managementModeRaw: String?
     let weightGoalKilograms: Double?; let calorieGoal: Double; let proteinGoalGrams: Double
     let carbohydrateGoalGrams: Double; let fatGoalGrams: Double; let waterGoalMilliliters: Double
     let weeklyBaseballMinutesGoal: Int; let isActive: Bool
@@ -83,7 +84,9 @@ enum LifeOSBackupService {
             schemaVersion: 1, exportedAt: .now,
             profiles: profiles.map {
                 ProfileBackup(id: $0.id, name: $0.name, kindRaw: $0.kindRaw, colorToken: $0.colorToken,
-                    weightUnitRaw: $0.weightUnitRaw, weightGoalKilograms: $0.weightGoalKilograms,
+                    weightUnitRaw: $0.weightUnitRaw, avatarData: $0.avatarData,
+                    managementModeRaw: $0.managementModeRaw,
+                    weightGoalKilograms: $0.weightGoalKilograms,
                     calorieGoal: $0.calorieGoal, proteinGoalGrams: $0.proteinGoalGrams,
                     carbohydrateGoalGrams: $0.carbohydrateGoalGrams, fatGoalGrams: $0.fatGoalGrams,
                     waterGoalMilliliters: $0.waterGoalMilliliters,
@@ -156,6 +159,10 @@ enum LifeOSBackupService {
                 kind: ProfileKind(rawValue: record.kindRaw) ?? .individual, colorToken: record.colorToken)
             item.id = record.id; item.name = record.name; item.kindRaw = record.kindRaw
             item.colorToken = record.colorToken; item.weightUnitRaw = record.weightUnitRaw
+            item.avatarData = record.avatarData
+            if let managementModeRaw = record.managementModeRaw {
+                item.managementModeRaw = managementModeRaw
+            }
             item.weightGoalKilograms = record.weightGoalKilograms; item.calorieGoal = record.calorieGoal
             item.proteinGoalGrams = record.proteinGoalGrams; item.carbohydrateGoalGrams = record.carbohydrateGoalGrams
             item.fatGoalGrams = record.fatGoalGrams; item.waterGoalMilliliters = record.waterGoalMilliliters

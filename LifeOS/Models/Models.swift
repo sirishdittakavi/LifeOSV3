@@ -20,6 +20,22 @@ enum ProfileKind: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum ProfileManagementMode: String, Codable, CaseIterable, Identifiable {
+    case selfManaged = "Self-managed"
+    case parentManaged = "Parent-managed"
+
+    var id: String { rawValue }
+
+    var explanation: String {
+        switch self {
+        case .selfManaged:
+            return "This person records and manages their own plan. Their own-phone access will use Family Sync when it is added."
+        case .parentManaged:
+            return "A parent or guardian records and manages this profile on the current device."
+        }
+    }
+}
+
 enum WeightUnit: String, Codable, CaseIterable, Identifiable {
     case kilograms = "kg"
     case pounds = "lb"
@@ -41,6 +57,8 @@ final class Profile {
     var name: String
     var kindRaw: String
     var colorToken: String
+    @Attribute(.externalStorage) var avatarData: Data?
+    var managementModeRaw: String = ""
     var weightUnitRaw: String = WeightUnit.kilograms.rawValue
     var weightGoalKilograms: Double?
     var calorieGoal: Double = 2200
@@ -61,11 +79,23 @@ final class Profile {
         set { weightUnitRaw = newValue.rawValue }
     }
 
+    var managementMode: ProfileManagementMode {
+        get {
+            ProfileManagementMode(rawValue: managementModeRaw)
+                ?? (kind == .child ? .parentManaged : .selfManaged)
+        }
+        set { managementModeRaw = newValue.rawValue }
+    }
+
     init(name: String, kind: ProfileKind, colorToken: String) {
         self.id = UUID()
         self.name = name
         self.kindRaw = kind.rawValue
         self.colorToken = colorToken
+        self.avatarData = nil
+        self.managementModeRaw = (kind == .child
+            ? ProfileManagementMode.parentManaged
+            : ProfileManagementMode.selfManaged).rawValue
         self.weightGoalKilograms = nil
     }
 }

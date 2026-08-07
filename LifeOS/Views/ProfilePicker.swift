@@ -14,7 +14,13 @@ struct ProfilePicker: View {
                 Button {
                     selection.profile = profile
                 } label: {
-                    Label(profile.name, systemImage: profile.id == selection.profile?.id ? "checkmark" : "person")
+                    HStack {
+                        ProfileAvatarView(profile: profile, size: 24)
+                        Text(profile.name)
+                        if profile.id == selection.profile?.id {
+                            Image(systemName: "checkmark")
+                        }
+                    }
                 }
             }
             Divider()
@@ -22,7 +28,14 @@ struct ProfilePicker: View {
                 Label("Manage Profiles", systemImage: "person.2.badge.gearshape")
             }
         } label: {
-            Label(selection.profile?.name ?? "Profile", systemImage: "person.crop.circle")
+            HStack(spacing: 6) {
+                if let profile = selection.profile {
+                    ProfileAvatarView(profile: profile, size: 24)
+                } else {
+                    Image(systemName: "person.crop.circle")
+                }
+                Text(selection.profile?.name ?? "Profile")
+            }
         }
         .onAppear {
             if selection.profile == nil {
