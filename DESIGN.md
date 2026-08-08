@@ -19,11 +19,11 @@ Update this table whenever the code changes.
 | Profile identity | ✅ First version | Editable name, optional compressed photo, colour and parent/self-managed access intent |
 | Profile preferences | ✅ First version | kg/lb display plus daily nutrition targets |
 | Area model | ✅ First version | Generic editable hierarchy, profile ownership, activity-plan targets, purpose, related areas and active state |
-| Category templates | ✅ First version | Built-in library, optional profile starter plans, and locally saved reusable category/task templates |
-| Goal and outcome model | ✅ First version | Goal, typed primary/supporting Result Measures, Area Contributions, dated Result Check-ins and target-date comparison |
+| Category templates | ✅ First version | Built-in School, sport, movement, nutrition, weight and recovery plans all include editable starter Actions; locally saved plans remain reusable |
+| Goal and outcome model | ✅ First version | Goal, typed primary/supporting Result Measures, Area Contributions, dated Result Check-ins, target-date comparison and five editable starter Goal templates |
 | Goal dashboard | ✅ First version | Separates result progress from Today/week/month supporting-plan adherence, evidence confidence and next action |
 | Area navigation | ✅ First version | Areas → nested Area detail; list-row edit, custom/template creation and safe deactivation |
-| Plain-language planning UX | ✅ First version | User-facing model is Goals + Areas → Actions → Today → Result Check-ins |
+| Plain-language planning UX | ✅ First version | User-facing model is Plans with Tasks, plus a dedicated Goals tab for all measurable outcomes and Result Check-ins |
 | Activity model | ✅ First version | Manual/template/AI-approved source |
 | Schedule rule | ✅ First version | Once, daily, selected weekdays, any count per day/week, exact minute intervals |
 | Calendar item | ✅ First version | Every calendar entry originates from an Activity |
@@ -41,7 +41,7 @@ Update this table whenever the code changes.
 | Notifications | ✅ First version | Profile-labelled Action reminders, weekly plan review and scheduled Goal Result check-ins |
 | JSON backup/restore | ✅ First version | Schema 2 full-family export/merge includes Goals, contributions, Result Measures, check-ins, photos and templates; schema 1 restore remains supported |
 | Portable metric contract | ✅ First version | Versioned JSON event envelope maps Action Sessions, Goal Results, nutrition, weight and generic sport evidence for Android/integrations without storing derived progress |
-| Automated regression tests | ✅ First version | 38 headless unit/component tests plus an iOS SwiftUI construction check; GitHub runs core tests and compiles both XCTest bundles on every change |
+| Automated regression tests | ✅ First version | 40 headless unit/component tests plus an iOS SwiftUI construction check; GitHub runs core tests and compiles both XCTest bundles on every change |
 | Repository protocol | ⚠️ Partial | Planning service separated; full persistence abstraction next |
 | Family sync and accounts | ❌ Deferred | Secure child invitations, permissions and multi-device sync require a cloud identity service |
 | Paid household management | 📐 Designed | StoreKit entitlement plus server-authoritative household/member limits; implementation deferred |
@@ -636,6 +636,7 @@ Included in the accompanying code:
 - Template or custom category setup with explicit user approval
 - Goal Dashboard with Today, Week and Month supporting-effort comparison
 - Goal, Area Contribution, primary/supporting Result Measure and dated Result Entry
+- Visible editable Goal templates for school results, sport performance, energy/recovery, personal weight range and project milestones
 - Numeric, rating, milestone and written result capture with scheduled check-ins
 - Increase, decrease, target-range and maintain-range result evaluation
 - Separate Goal result progress, Area plan adherence and High/Medium/Low evidence confidence
@@ -663,7 +664,7 @@ Not yet included:
 Priority order:
 
 1. Goal editing, archiving, contribution wording and optional Action inclusion overrides
-2. Goal templates with editable examples for growth, Mathematics and sport performance
+2. Additional specialist Goal templates with age-appropriate review guidance
 3. Repeat foods, recipes, food search, and meal copy/paste
 4. Apple Health weight/height import and connected-scale interoperability
 5. Daily readiness check-in: sleep, energy, soreness, stress and notes
@@ -1217,31 +1218,45 @@ A downgrade must never delete Profile data. It may stop new invitations or cloud
 
 ## 26. User-Facing Mental Model
 
-The persistence model may continue to use `AppCategory` and `Activity`, but the primary interface uses these everyday concepts:
+The persistence model may continue to use `AppCategory` and `Activity`, but the primary interface uses only these everyday concepts:
 
 1. **Goal** — the measurable result the person wants.
-2. **Area** — where supporting work belongs, such as Baseball, School, Health or Software Development.
-3. **Action** — a repeatable or one-time thing the person does.
+2. **Plan** — the organised work that supports Goals, such as Baseball, School, Nutrition or Software Development.
+3. **Task** — a repeatable or one-time thing the person does inside a Plan.
 4. **Result** — evidence entered when it becomes available, such as a mock-test score, weight or throwing velocity.
-5. **Today** — Actions and Result check-ins due now.
+5. **Today** — Tasks and Result check-ins due now.
 
 The normal creation path is therefore:
 
 ```text
-Create Goal and Result → connect supporting Areas → schedule Actions → enter Result when due
+Choose or create a Plan → connect a Goal → do today's Tasks → enter a Result when available
 ```
 
 The interface must not require a user to understand category trees, domain entities, parent IDs, pillars, target schemas or template terminology before adding the first useful action. These rules apply:
 
-- The primary Areas screen shows top-level Areas only. Optional Focus Areas appear after opening their parent.
-- Every main `+` menu uses explicit choices: **Add an Action**, **Add an Area**, or **Start from a Plan**.
-- A new Action may quick-create a simple top-level Area without asking hierarchy questions.
+- The primary Plans screen shows top-level Plans only. Optional Sub-plans appear after opening their parent.
+- Goals remain a dedicated tab that always lists every active Goal and names its connected Plans.
+- Every main `+` menu uses explicit choices: **Add a Task**, **Add a Plan**, or **Start from a Plan**.
+- A new Task may quick-create a simple top-level Plan without asking hierarchy questions.
 - Numeric targets are optional and collapsed by default.
-- Icons, colours, related areas, reminders and Focus Areas are progressive options.
+- Icons, colours, relationships, reminders and Sub-plans are progressive options.
 - Starter content is called a **Plan** in the interface. `Template` remains an internal storage term.
 - Empty states teach with real examples rather than exposing implementation language.
 
 The UI should make the common case fast while preserving advanced recurrence, relationships and hierarchy for people who need them.
+
+### 26.1 Product patterns adopted for the simplified first version
+
+Current market patterns reinforce a progressive approach:
+
+- Use a small number of understandable tracking choices and editable templates rather than exposing a schema during setup.
+- Open on work due today; deeper organisation should not obstruct checking off a Task.
+- Keep Goals, Tasks and habits linked, but show outcome progress separately from completion effort.
+- Use Plans primarily to group and filter related Tasks, not as another kind of Goal.
+- Show immediate target status, a weekly summary and longer-term trend comparisons.
+- For weight-related Goals, favour sustainable check-ins and never imply an unsafe deadline or automatically prescribe a target for a child.
+
+For LifeOS this means the bottom navigation is **Today · Plans · Goals · Week · Progress**. Starting from a template will eventually create the useful bundle—Plan, editable Tasks, optional Goal, Result definition and reminders—through one review screen. Advanced hierarchy remains available after setup, never before the first useful Task.
 
 ## 27. Generic Sport Tracking
 

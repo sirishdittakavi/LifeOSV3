@@ -460,7 +460,7 @@ private struct CalendarItemRow: View {
                 .frame(width: 64)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(item.activity?.name ?? "Action")
+                    Text(item.activity?.name ?? "Task")
                         .font(.headline)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 6) {

@@ -165,4 +165,30 @@ final class ProgressAndHierarchyTests: XCTestCase {
         measure.cadence = .onDemand
         XCTAssertFalse(measure.shouldScheduleReminder)
     }
+
+    func testEveryAreaTemplateContainsEditableStarterActions() {
+        XCTAssertFalse(ImprovementTemplates.all.isEmpty)
+        for template in ImprovementTemplates.all {
+            XCTAssertFalse(template.name.isEmpty)
+            XCTAssertFalse(template.purpose.isEmpty)
+            XCTAssertFalse(template.tasks.isEmpty, "\(template.name) unexpectedly has no starter actions")
+            XCTAssertTrue(template.tasks.allSatisfy { !$0.name.isEmpty })
+        }
+    }
+
+    func testGoalTemplatesProvideMeasurableEditableStartingPoints() {
+        XCTAssertGreaterThanOrEqual(GoalStarterTemplates.all.count, 5)
+        XCTAssertEqual(Set(GoalStarterTemplates.all.map(\.id)).count, GoalStarterTemplates.all.count)
+        for template in GoalStarterTemplates.all {
+            XCTAssertFalse(template.name.isEmpty)
+            XCTAssertFalse(template.measureName.isEmpty)
+            XCTAssertFalse(template.suggestedAreaNames.isEmpty)
+        }
+
+        let weight = GoalStarterTemplates.all.first { $0.id == "weight-range" }
+        XCTAssertTrue(weight?.needsPersonalValues == true)
+        XCTAssertNil(weight?.baseline)
+        XCTAssertNil(weight?.targetMinimum)
+        XCTAssertNil(weight?.targetMaximum)
+    }
 }

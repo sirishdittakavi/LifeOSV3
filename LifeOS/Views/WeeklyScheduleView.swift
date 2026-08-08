@@ -212,7 +212,7 @@ struct WeeklyScheduleView: View {
                     .multilineTextAlignment(.center)
             }
             Button { showingAddTask = true } label: {
-                Label("Add an Action", systemImage: "plus")
+                Label("Add a Task", systemImage: "plus")
             }
             .buttonStyle(LifeOSPrimaryButtonStyle())
             .padding(.horizontal, 32)
@@ -349,7 +349,7 @@ private struct AgendaEventCard: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 6) {
-                    Text(item.activity?.name ?? "Action")
+                    Text(item.activity?.name ?? "Task")
                         .font(.headline).foregroundStyle(.primary).lineLimit(2)
                     if isCurrent {
                         Text("NOW")
@@ -420,7 +420,7 @@ private struct WeekItemDetailView: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(item.activity?.name ?? "Action").font(.title2.weight(.bold))
+                        Text(item.activity?.name ?? "Task").font(.title2.weight(.bold))
                         if let category = item.activity?.category {
                             Label(category.name, systemImage: category.symbol)
                                 .foregroundStyle(ColorToken.color(for: category.colorToken))
@@ -458,7 +458,7 @@ private struct WeekItemDetailView: View {
                     }
                 }
             }
-            .navigationTitle("Action Details")
+            .navigationTitle("Task Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Close") { dismiss() } }

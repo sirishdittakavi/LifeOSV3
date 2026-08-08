@@ -32,7 +32,7 @@ struct AddWhatHappenedView: View {
             Form {
                 Section("What happened") {
                     TextField("e.g. Park Play", text: $name)
-                    Picker("Area", selection: $selectedCategory) {
+                    Picker("Plan", selection: $selectedCategory) {
                         Text("None").tag(AppCategory?.none)
                         ForEach(categories) { category in
                             Text(category.name).tag(AppCategory?.some(category))

@@ -48,7 +48,7 @@ struct ProfileGoalsView: View {
                 }
 
                 Section {
-                    Text("Sport and other Area targets are edited inside that Area. Targets are set by you, a parent, or a qualified coach. LifeOS tracks progress but does not prescribe medical or youth-training targets.")
+                    Text("Sport and other Plan targets are edited inside that Plan. Targets are set by you, a parent, or a qualified coach. LifeOS tracks progress but does not prescribe medical or youth-training targets.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

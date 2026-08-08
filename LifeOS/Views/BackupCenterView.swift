@@ -48,11 +48,11 @@ struct BackupCenterView: View {
 
             Section("Current Backup Contents") {
                 countRow("Profiles", profiles.count)
-                countRow("Areas", categories.count)
+                countRow("Plans", categories.count)
                 countRow("Goals", goals.count)
                 countRow("Result measures", resultMeasures.count)
                 countRow("Result check-ins", resultEntries.count)
-                countRow("Actions", activities.count)
+                countRow("Tasks", activities.count)
                 countRow("Calendar items", calendarItems.count)
                 countRow("Recorded sessions", sessions.count)
                 countRow("Food entries", foodEntries.count)

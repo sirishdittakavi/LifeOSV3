@@ -29,20 +29,20 @@ struct RootTabView: View {
 
     var body: some View {
         TabView {
-            ImprovementDashboardView(selection: selection)
-                .tabItem { Label("Goals", systemImage: "scope") }
-
             TodayTimelineView(selection: selection)
                 .tabItem { Label("Today", systemImage: "calendar") }
+
+            ImprovementCategoriesView(selection: selection)
+                .tabItem { Label("Plans", systemImage: "list.bullet.clipboard") }
+
+            ImprovementDashboardView(selection: selection)
+                .tabItem { Label("Goals", systemImage: "scope") }
 
             WeeklyScheduleView(selection: selection)
                 .tabItem { Label("Week", systemImage: "calendar.day.timeline.left") }
 
-            ImprovementCategoriesView(selection: selection)
-                .tabItem { Label("Areas", systemImage: "target") }
-
             DailyProgressView(selection: selection)
-                .tabItem { Label("Tracking", systemImage: "chart.bar.fill") }
+                .tabItem { Label("Progress", systemImage: "chart.bar.fill") }
         }
     }
 }

@@ -27,14 +27,14 @@ struct ImprovementCategoriesView: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Areas are the parts of life you want to improve. Actions are the repeatable things you do for each area.")
+                        Text("Plans organise what you do. Each Plan contains repeatable Tasks and can support one or more Goals.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         VStack(spacing: 10) {
                             Button {
                                 showingAddAction = true
                             } label: {
-                                Label("Add Action", systemImage: "checkmark.circle.badge.plus")
+                                Label("Add Task", systemImage: "checkmark.circle.badge.plus")
                             }
                             .buttonStyle(LifeOSPrimaryButtonStyle())
                             .disabled(profileCategories.isEmpty)
@@ -42,7 +42,7 @@ struct ImprovementCategoriesView: View {
                             Button {
                                 addRoute = .custom
                             } label: {
-                                Label("Add Area", systemImage: "plus.square")
+                                Label("Add Plan", systemImage: "plus.square")
                             }
                             .buttonStyle(LifeOSSecondaryButtonStyle())
                         }
@@ -53,11 +53,11 @@ struct ImprovementCategoriesView: View {
                 if topLevelCategories.isEmpty {
                     Section {
                         ContentUnavailableView(
-                            "No Improvement Areas",
-                            systemImage: "target",
-                            description: Text("Start with something meaningful such as Baseball, School, Health or Software Development.")
+                            "No Plans Yet",
+                            systemImage: "list.bullet.clipboard",
+                            description: Text("Start with Baseball, School, Nutrition or another part of life you want to work on.")
                         )
-                        Button("Create My First Area") { addRoute = .custom }
+                        Button("Create My First Plan") { addRoute = .custom }
                             .buttonStyle(LifeOSPrimaryButtonStyle())
                     }
                 }
@@ -84,7 +84,7 @@ struct ImprovementCategoriesView: View {
                                     Button {
                                         editingCategory = category
                                     } label: {
-                                        Label("Edit Area", systemImage: "pencil")
+                                        Label("Edit Plan", systemImage: "pencil")
                                     }
                                 }
                             }
@@ -92,7 +92,7 @@ struct ImprovementCategoriesView: View {
                     }
                 }
             }
-            .navigationTitle("Improvement Areas")
+            .navigationTitle("Plans")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { ProfilePicker(selection: selection) }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -100,13 +100,13 @@ struct ImprovementCategoriesView: View {
                         Button {
                             showingAddAction = true
                         } label: {
-                            Label("Add an Action", systemImage: "checkmark.circle.badge.plus")
+                            Label("Add a Task", systemImage: "checkmark.circle.badge.plus")
                         }
                         .disabled(profileCategories.isEmpty)
                         Button {
                             addRoute = .custom
                         } label: {
-                            Label("Add an Area", systemImage: "plus.square")
+                            Label("Add a Plan", systemImage: "plus.square")
                         }
                         Button {
                             addRoute = .templates

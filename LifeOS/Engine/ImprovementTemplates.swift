@@ -47,6 +47,80 @@ struct ImprovementCategoryTemplate: Identifiable {
     let tasks: [ImprovementTaskTemplate]
 }
 
+struct GoalStarterTemplate: Identifiable {
+    let id: String
+    let name: String
+    let purpose: String
+    let symbol: String
+    let colorToken: String
+    let measureName: String
+    let valueType: ResultValueType
+    let unit: String
+    let direction: ResultDirection
+    let baseline: Double?
+    let target: Double?
+    let targetMinimum: Double?
+    let targetMaximum: Double?
+    let cadence: ResultCheckInCadence
+    let suggestedAreaNames: [String]
+    let needsPersonalValues: Bool
+}
+
+enum GoalStarterTemplates {
+    static let all: [GoalStarterTemplate] = [
+        GoalStarterTemplate(
+            id: "school-result", name: "Improve a School Result",
+            purpose: "Connect regular study with objective assessment results.",
+            symbol: "graduationcap.fill", colorToken: "indigo",
+            measureName: "Mock-test or exam score", valueType: .number,
+            unit: "%", direction: .increase, baseline: 60, target: 75,
+            targetMinimum: nil, targetMaximum: nil, cadence: .monthly,
+            suggestedAreaNames: ["School", "Learning", "Education"],
+            needsPersonalValues: false
+        ),
+        GoalStarterTemplate(
+            id: "sport-performance", name: "Improve Sport Performance",
+            purpose: "Compare consistent training with a repeatable performance assessment.",
+            symbol: "figure.run", colorToken: "orange",
+            measureName: "Coach or performance assessment", valueType: .rating,
+            unit: "", direction: .increase, baseline: 3, target: 4,
+            targetMinimum: nil, targetMaximum: nil, cadence: .monthly,
+            suggestedAreaNames: ["Sport", "Baseball", "Cricket", "Training", "Mobility", "Strength"],
+            needsPersonalValues: false
+        ),
+        GoalStarterTemplate(
+            id: "energy-recovery", name: "Improve Energy and Recovery",
+            purpose: "Compare nutrition and recovery habits with a consistent readiness rating.",
+            symbol: "heart.text.square.fill", colorToken: "green",
+            measureName: "Energy and readiness rating", valueType: .rating,
+            unit: "", direction: .increase, baseline: 3, target: 4,
+            targetMinimum: nil, targetMaximum: nil, cadence: .weekly,
+            suggestedAreaNames: ["Nutrition", "Recovery", "Movement", "Health"],
+            needsPersonalValues: false
+        ),
+        GoalStarterTemplate(
+            id: "weight-range", name: "Reach a Personal Weight Range",
+            purpose: "Follow the longer-term body-weight trend alongside nutrition, movement and recovery.",
+            symbol: "scalemass.fill", colorToken: "blue",
+            measureName: "Body weight", valueType: .number,
+            unit: "kg", direction: .targetRange, baseline: nil, target: nil,
+            targetMinimum: nil, targetMaximum: nil, cadence: .monthly,
+            suggestedAreaNames: ["Nutrition", "Weight", "Movement", "Strength", "Recovery"],
+            needsPersonalValues: true
+        ),
+        GoalStarterTemplate(
+            id: "project", name: "Complete a Meaningful Project",
+            purpose: "Use focused actions to reach a clear, verifiable milestone.",
+            symbol: "flag.checkered", colorToken: "purple",
+            measureName: "Project milestone", valueType: .milestone,
+            unit: "", direction: .increase, baseline: nil, target: nil,
+            targetMinimum: nil, targetMaximum: nil, cadence: .onDemand,
+            suggestedAreaNames: ["Learning", "Software", "Career", "School"],
+            needsPersonalValues: false
+        )
+    ]
+}
+
 enum ImprovementTemplates {
     static let all: [ImprovementCategoryTemplate] = [
         ImprovementCategoryTemplate(
@@ -69,6 +143,17 @@ enum ImprovementTemplates {
             tasks: [
                 task("Coding Practice", .selectedWeekdays, [2, 3, 4, 5, 6], 20 * 60, 45, 45, "min"),
                 task("Weekly Project Milestone", .selectedWeekdays, [7], 10 * 60, 90, nil, nil)
+            ]
+        ),
+        ImprovementCategoryTemplate(
+            id: "school", name: "School", pillar: .learning,
+            symbol: "book.fill", colorToken: "indigo",
+            purpose: "Build a sustainable study plan and compare it with assessment results.",
+            weeklySessions: 5, weeklyMinutes: 225,
+            relatedNames: ["Learning", "Recovery"],
+            tasks: [
+                task("Homework or Study", .selectedWeekdays, [2, 3, 4, 5, 6], 17 * 60, 45, 45, "min"),
+                task("Weekly Review", .selectedWeekdays, [1], 17 * 60, 30, nil, nil)
             ]
         ),
         ImprovementCategoryTemplate(
@@ -101,7 +186,15 @@ enum ImprovementTemplates {
             purpose: "Fuel health, growth and performance against user-approved targets.",
             weeklySessions: 7, weeklyMinutes: 0,
             relatedNames: ["Weight Improvement", "Body Development", "Baseball", "Recovery"],
-            tasks: []
+            tasks: [
+                task("Plan and Log Meals", .daily, [], 18 * 60, 10, nil, nil),
+                ImprovementTaskTemplate(
+                    name: "Hydration Check", repeatType: .timesPerDay, weekdays: [],
+                    startMinutes: 8 * 60, durationMinutes: 2,
+                    targetValue: nil, targetUnit: nil,
+                    occurrencesPerDay: 4, repeatIntervalMinutes: 180
+                )
+            ]
         ),
         ImprovementCategoryTemplate(
             id: "weight", name: "Weight Improvement", pillar: .physical,
@@ -109,7 +202,9 @@ enum ImprovementTemplates {
             purpose: "Track body trend without reacting to daily fluctuations.",
             weeklySessions: 3, weeklyMinutes: 0,
             relatedNames: ["Nutrition", "Strength", "Recovery"],
-            tasks: []
+            tasks: [
+                task("Weekly Weigh-in", .selectedWeekdays, [2], 7 * 60, 5, nil, nil)
+            ]
         ),
         ImprovementCategoryTemplate(
             id: "recovery", name: "Recovery", pillar: .physical,

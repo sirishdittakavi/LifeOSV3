@@ -129,7 +129,7 @@ private struct WeeklySportSummary: View {
             if goalMinutes > 0 {
                 ProgressView(value: min(Double(totals.minutes) / Double(goalMinutes), 1)).tint(.orange)
             } else {
-                Text("Set weekly minutes by editing this Area.")
+                Text("Set weekly minutes by editing this Plan.")
                     .font(.caption2).foregroundStyle(.secondary)
             }
             HStack {

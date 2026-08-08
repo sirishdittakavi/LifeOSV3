@@ -108,7 +108,7 @@ struct AddActivityView: View {
                                 .font(.caption)
                         }
                     } else {
-                        Picker("Area", selection: $selectedCategory) {
+                        Picker("Plan", selection: $selectedCategory) {
                             Text("Choose an area").tag(AppCategory?.none)
                             ForEach(profileCategories) { category in
                                 Text(CategoryHierarchy.breadcrumbName(for: category, in: profileCategories))
@@ -207,7 +207,7 @@ struct AddActivityView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("New Action")
+            .navigationTitle("New Task")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

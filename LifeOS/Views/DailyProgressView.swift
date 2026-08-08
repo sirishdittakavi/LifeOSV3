@@ -68,7 +68,7 @@ struct DailyProgressView: View {
                 }
                 .padding(.vertical)
             }
-            .navigationTitle("Action Tracking")
+            .navigationTitle("Task Progress")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { ProfilePicker(selection: selection) }
             }

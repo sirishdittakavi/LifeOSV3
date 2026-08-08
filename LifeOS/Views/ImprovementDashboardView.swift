@@ -16,6 +16,8 @@ struct ImprovementDashboardView: View {
     @State private var showingAddAction = false
     @State private var showingAddArea = false
     @State private var showingStarterPlans = false
+    @State private var showingGoalTemplates = false
+    @State private var pendingGoalTemplate: GoalStarterTemplate?
 
     private var profileCategories: [AppCategory] {
         guard let profile = selection.profile else { return [] }
@@ -53,10 +55,19 @@ struct ImprovementDashboardView: View {
                         ContentUnavailableView {
                             Label("No Goals Yet", systemImage: "scope")
                         } description: {
-                            Text("Create a measurable Goal, connect the Areas that support it, and add results when they become available.")
+                            Text("Create a measurable Goal, connect the Plans that support it, and add results when they become available.")
                         } actions: {
-                            Button("Create First Goal") { showingAddGoal = true }
+                            VStack(spacing: 10) {
+                                Button("Choose a Goal Template") {
+                                    showingGoalTemplates = true
+                                }
                                 .buttonStyle(.borderedProminent)
+                                Button("Create a Custom Goal") {
+                                    pendingGoalTemplate = nil
+                                    showingAddGoal = true
+                                }
+                                .buttonStyle(.bordered)
+                            }
                         }
                         .padding(.top, 24)
                     } else {
@@ -77,9 +88,9 @@ struct ImprovementDashboardView: View {
 
                     if !profileCategories.isEmpty {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text("AREAS SUPPORT THE GOALS")
+                            Text("PLANS SUPPORT THE GOALS")
                                 .font(.caption.bold()).foregroundStyle(.secondary)
-                            Text("Areas organise the plan. Only measured results determine whether a Goal is working.")
+                            Text("Plans contain the Tasks you do. Results show whether each Goal is working.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -91,15 +102,21 @@ struct ImprovementDashboardView: View {
                 ToolbarItem(placement: .topBarLeading) { ProfilePicker(selection: selection) }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button { showingAddGoal = true } label: {
-                            Label("Add a Goal", systemImage: "scope")
+                        Button { showingGoalTemplates = true } label: {
+                            Label("Choose a Goal Template", systemImage: "square.grid.2x2")
+                        }
+                        Button {
+                            pendingGoalTemplate = nil
+                            showingAddGoal = true
+                        } label: {
+                            Label("Create a Custom Goal", systemImage: "scope")
                         }
                         Button { showingAddAction = true } label: {
-                            Label("Add an Action", systemImage: "checkmark.circle.badge.plus")
+                            Label("Add a Task", systemImage: "checkmark.circle.badge.plus")
                         }
                         .disabled(profileCategories.isEmpty)
                         Button { showingAddArea = true } label: {
-                            Label("Add an Area", systemImage: "plus.square")
+                            Label("Add a Plan", systemImage: "plus.square")
                         }
                         Button { showingStarterPlans = true } label: {
                             Label("Start from a Plan", systemImage: "square.grid.2x2")
@@ -108,8 +125,20 @@ struct ImprovementDashboardView: View {
                     .disabled(selection.profile == nil)
                 }
             }
-            .sheet(isPresented: $showingAddGoal) {
-                if let profile = selection.profile { AddGoalView(profile: profile) }
+            .sheet(isPresented: $showingGoalTemplates, onDismiss: {
+                if pendingGoalTemplate != nil { showingAddGoal = true }
+            }) {
+                GoalTemplatePickerView { template in
+                    pendingGoalTemplate = template
+                    showingGoalTemplates = false
+                }
+            }
+            .sheet(isPresented: $showingAddGoal, onDismiss: {
+                pendingGoalTemplate = nil
+            }) {
+                if let profile = selection.profile {
+                    AddGoalView(profile: profile, template: pendingGoalTemplate)
+                }
             }
             .sheet(isPresented: $showingAddAction) {
                 if let profile = selection.profile { AddActivityView(profile: profile) }
@@ -121,6 +150,69 @@ struct ImprovementDashboardView: View {
             }
             .sheet(isPresented: $showingStarterPlans) {
                 if let profile = selection.profile { AddImprovementCategoryView(profile: profile) }
+            }
+        }
+    }
+}
+
+private struct GoalTemplatePickerView: View {
+    let onSelect: (GoalStarterTemplate) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Text("Choose an editable starting point. Review the result, personal values, supporting Plans and reminder before saving.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Goal Templates") {
+                    ForEach(GoalStarterTemplates.all) { template in
+                        Button {
+                            onSelect(template)
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: template.symbol)
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(ColorToken.color(for: template.colorToken))
+                                    .frame(width: 38, height: 38)
+                                    .background(
+                                        ColorToken.color(for: template.colorToken).opacity(0.12),
+                                        in: Circle()
+                                    )
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(template.name)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(.primary)
+                                    Text("\(template.measureName) · \(template.cadence.rawValue)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    if template.needsPersonalValues {
+                                        Text("Personal values required")
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(.orange)
+                                    }
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .frame(minHeight: 52)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .navigationTitle("Choose a Goal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
             }
         }
     }
@@ -153,7 +245,7 @@ private struct GoalCoverageSummary: View {
                     CoveragePill(value: waiting, label: "waiting", color: .gray)
                 }
             }
-            Text("Action completion shows adherence. Result check-ins show whether the real outcome changed.")
+            Text("Task completion shows consistency. Result check-ins show whether the real outcome changed.")
                 .font(.caption2).foregroundStyle(.secondary)
         }
         .lifeOSCard()
@@ -210,9 +302,18 @@ private struct GoalProgressCard: View {
                 Text(progress.confidence.rawValue)
                     .font(.caption2).foregroundStyle(.secondary)
             }
+            Label(connectedPlans, systemImage: "list.bullet.clipboard")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
             Text(progress.nextAction).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
         }
         .lifeOSCard()
+    }
+
+    private var connectedPlans: String {
+        let names = progress.contributions.compactMap { $0.contribution.category?.name }
+        return names.isEmpty ? "No Plans connected" : "Plans: \(names.joined(separator: ", "))"
     }
 
     private var statusColor: Color {
@@ -288,10 +389,10 @@ private struct GoalDetailView: View {
                 .buttonStyle(LifeOSSecondaryButtonStyle())
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("SUPPORTING AREA CONTRIBUTIONS")
+                    Text("SUPPORTING PLANS")
                         .font(.caption.bold()).foregroundStyle(.secondary)
                     if progress.contributions.isEmpty {
-                        Text("No Areas are connected yet.").foregroundStyle(.secondary)
+                        Text("No Plans are connected yet.").foregroundStyle(.secondary)
                     } else {
                         ForEach(progress.contributions) { item in
                             contributionCard(item)
@@ -383,7 +484,7 @@ private struct GoalDetailView: View {
     private func contributionCard(_ item: GoalContributionProgress) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label(item.contribution.category?.name ?? "Area", systemImage: item.contribution.category?.symbol ?? "square.grid.2x2")
+                Label(item.contribution.category?.name ?? "Plan", systemImage: item.contribution.category?.symbol ?? "square.grid.2x2")
                     .font(.headline)
                 Spacer()
                 Text("\(item.completedActions)/\(item.plannedActions)")
@@ -421,6 +522,7 @@ private struct GoalDetailView: View {
 
 private struct AddGoalView: View {
     let profile: Profile
+    let template: GoalStarterTemplate?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query private var categories: [AppCategory]
@@ -441,6 +543,28 @@ private struct AddGoalView: View {
     @State private var nextCheckInDate = Calendar.current.date(byAdding: .month, value: 1, to: .now) ?? .now
     @State private var reminderEnabled = true
     @State private var reminderTime = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: .now) ?? .now
+    @State private var didApplySuggestedAreas = false
+
+    init(profile: Profile, template: GoalStarterTemplate? = nil) {
+        self.profile = profile
+        self.template = template
+        _name = State(initialValue: template?.name ?? "")
+        _purpose = State(initialValue: template?.purpose ?? "")
+        _measureName = State(initialValue: template?.measureName ?? "")
+        _valueType = State(initialValue: template?.valueType ?? .number)
+        _unit = State(initialValue: template?.unit ?? "")
+        _direction = State(initialValue: template?.direction ?? .increase)
+        _baseline = State(initialValue: template?.baseline ?? 0)
+        _target = State(initialValue: template?.target ?? 0)
+        _rangeMinimum = State(initialValue: template?.targetMinimum ?? 0)
+        _rangeMaximum = State(initialValue: template?.targetMaximum ?? 0)
+        _cadence = State(initialValue: template?.cadence ?? .monthly)
+        let cadence = template?.cadence ?? .monthly
+        _nextCheckInDate = State(initialValue:
+            cadence.nextDate(after: .now) ?? Calendar.current.date(byAdding: .month, value: 1, to: .now) ?? .now
+        )
+        _reminderEnabled = State(initialValue: cadence != .onDemand)
+    }
 
     private var profileAreas: [AppCategory] {
         categories.filter { $0.profile?.id == profile.id && $0.isActive }
@@ -463,6 +587,18 @@ private struct AddGoalView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if let template {
+                    Section {
+                        Label("Starting from \(template.name)", systemImage: template.symbol)
+                            .foregroundStyle(ColorToken.color(for: template.colorToken))
+                        Text(template.needsPersonalValues
+                             ? "Enter personal starting and target values before saving. The app never guesses health targets."
+                             : "Everything below is editable. Confirm that the example values fit this person.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Section("1. What result do you want?") {
                     TextField("Example: Improve Mathematics score", text: $name)
                     TextField("Why does this matter?", text: $purpose, axis: .vertical)
@@ -496,9 +632,9 @@ private struct AddGoalView: View {
                     }
                 }
 
-                Section("3. Which Areas support this Goal?") {
+                Section("3. Which Plans support this Goal?") {
                     if profileAreas.isEmpty {
-                        Text("Create an Area first, then return to create this Goal.")
+                        Text("Create a Plan first, then return to create this Goal.")
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(profileAreas) { area in
@@ -515,7 +651,7 @@ private struct AddGoalView: View {
                             .foregroundStyle(.primary)
                         }
                     }
-                    Text("Actions inside selected Areas automatically count as supporting effort.")
+                    Text("Tasks inside selected Plans automatically count as supporting effort.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
@@ -534,6 +670,7 @@ private struct AddGoalView: View {
             }
             .navigationTitle("New Goal")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear { applySuggestedAreasIfNeeded() }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -541,6 +678,18 @@ private struct AddGoalView: View {
                 }
             }
         }
+    }
+
+    private func applySuggestedAreasIfNeeded() {
+        guard !didApplySuggestedAreas, let template else { return }
+        didApplySuggestedAreas = true
+        let suggestions = template.suggestedAreaNames.map { $0.lowercased() }
+        selectedAreaIDs = Set(profileAreas.filter { area in
+            let areaName = area.name.lowercased()
+            return suggestions.contains { suggestion in
+                areaName.contains(suggestion) || suggestion.contains(areaName)
+            }
+        }.map(\.id))
     }
 
     private func save() {

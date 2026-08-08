@@ -147,8 +147,8 @@ private struct ConfigureImprovementCategoryView: View {
 
     var body: some View {
         Form {
-            Section("Area") {
-                TextField("Area name, such as Baseball or School", text: $name)
+            Section("Plan") {
+                TextField("Plan name, such as Baseball or School", text: $name)
                 Picker("Group", selection: $pillar) {
                     ForEach(ImprovementPillar.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -170,7 +170,7 @@ private struct ConfigureImprovementCategoryView: View {
             }
 
             if let parentCategory {
-                Section("Focus Area") {
+                Section("Optional Sub-plan") {
                     LabeledContent("Inside", value: parentCategory.name)
                     Text("This focus area will appear inside \(parentCategory.name), not as another top-level area.")
                         .font(.caption).foregroundStyle(.secondary)
@@ -184,7 +184,7 @@ private struct ConfigureImprovementCategoryView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
 
-            Section("Actions") {
+            Section("Starter Tasks") {
                 if let template, !template.tasks.isEmpty {
                     ForEach(template.tasks) { task in
                         VStack(alignment: .leading) {
@@ -208,12 +208,12 @@ private struct ConfigureImprovementCategoryView: View {
             }
 
             Section {
-                Button("Create Area", action: create)
+                Button("Create Plan", action: create)
                     .frame(maxWidth: .infinity)
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .navigationTitle(template == nil ? "New Area" : "Review Plan")
+        .navigationTitle(template == nil ? "New Plan" : "Review Plan")
     }
 
     private func create() {

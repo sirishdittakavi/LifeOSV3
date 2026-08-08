@@ -104,19 +104,19 @@ struct ImprovementCategoryDetailView: View {
 
                     if categoryTool == nil {
                         Button { showingAddTask = true } label: {
-                            Label("Add an Action", systemImage: "plus")
+                            Label("Add a Task", systemImage: "plus")
                         }
                         .buttonStyle(LifeOSPrimaryButtonStyle())
                     } else {
                         Button { showingAddTask = true } label: {
-                            Label("Add an Action", systemImage: "plus")
+                            Label("Add a Task", systemImage: "plus")
                         }
                         .buttonStyle(LifeOSSecondaryButtonStyle())
                     }
                 }
 
                 if !childCategories.isEmpty {
-                    sectionTitle("Focus Areas", detail: "Included in the activity plan above")
+                    sectionTitle("Sub-plans", detail: "Included in this Plan's progress")
                     VStack(spacing: 0) {
                         ForEach(Array(childCategories.enumerated()), id: \.element.id) { index, child in
                             NavigationLink {
@@ -150,10 +150,10 @@ struct ImprovementCategoryDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button { showingEdit = true } label: {
-                        Label("Edit Area", systemImage: "pencil")
+                        Label("Edit Plan", systemImage: "pencil")
                     }
                     Button { showingAddSubcategory = true } label: {
-                        Label("Add Optional Focus Area", systemImage: "rectangle.stack.badge.plus")
+                        Label("Add Optional Sub-plan", systemImage: "rectangle.stack.badge.plus")
                     }
                     Button {
                         let saved = SavedCategoryTemplate(category: category, activities: directCategoryActivities)
@@ -313,9 +313,9 @@ struct ImprovementCategoryDetailView: View {
 
     private var periodActionsTitle: String {
         switch period {
-        case .day: return "Today's Actions"
-        case .week: return "This Week's Actions"
-        case .month: return "This Month's Actions"
+        case .day: return "Today's Tasks"
+        case .week: return "This Week's Tasks"
+        case .month: return "This Month's Tasks"
         }
     }
 
@@ -538,7 +538,7 @@ struct EditImprovementCategoryView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Area") {
+                Section("Plan") {
                     TextField("Name", text: $category.name)
                     Picker("Inside", selection: $parentCategoryID) {
                         Text("Top-level area").tag(UUID?.none)
@@ -594,20 +594,20 @@ struct EditImprovementCategoryView: View {
                     Toggle("Enable reminders", isOn: $category.reminderEnabled)
                     if category.reminderEnabled {
                         DatePicker("Weekly review time", selection: $reminderTime, displayedComponents: .hourAndMinute)
-                        Text("Action reminders use each action's scheduled days and time.")
+                        Text("Task reminders use each Task's scheduled days and time.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
 
-                Section("Area Management") {
+                Section("Plan Management") {
                     if category.isActive {
-                        Button("Hide Area and Its Actions", role: .destructive) {
+                        Button("Hide Plan and Its Tasks", role: .destructive) {
                             showingDeactivateConfirmation = true
                         }
                         Text("Use this for duplicates or areas you no longer want to track. History is kept.")
                             .font(.caption).foregroundStyle(.secondary)
                     } else {
-                        Button("Restore Area and Its Actions") {
+                        Button("Restore Plan and Its Tasks") {
                             category.isActive = true
                             activities.forEach { $0.isActive = true }
                             try? modelContext.save()
@@ -617,7 +617,7 @@ struct EditImprovementCategoryView: View {
                     }
                 }
             }
-            .navigationTitle("Edit Area")
+            .navigationTitle("Edit Plan")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { Button("Save", action: save) }
@@ -627,7 +627,7 @@ struct EditImprovementCategoryView: View {
                 isPresented: $showingDeactivateConfirmation,
                 titleVisibility: .visible
             ) {
-                Button("Hide Area and Actions", role: .destructive) {
+                Button("Hide Plan and Tasks", role: .destructive) {
                     category.isActive = false
                     activities.forEach { $0.isActive = false }
                     try? modelContext.save()
