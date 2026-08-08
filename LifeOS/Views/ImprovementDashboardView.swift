@@ -55,7 +55,7 @@ struct ImprovementDashboardView: View {
                         ContentUnavailableView {
                             Label("No Goals Yet", systemImage: "scope")
                         } description: {
-                            Text("Create a measurable Goal, connect the Plans that support it, and add results when they become available.")
+                            Text("Create a measurable Goal, connect the Areas that support it, and add Results when they become available.")
                         } actions: {
                             VStack(spacing: 10) {
                                 Button("Choose a Goal Template") {
@@ -88,9 +88,9 @@ struct ImprovementDashboardView: View {
 
                     if !profileCategories.isEmpty {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text("PLANS SUPPORT THE GOALS")
+                            Text("AREAS SUPPORT THE GOALS")
                                 .font(.caption.bold()).foregroundStyle(.secondary)
-                            Text("Plans contain the Tasks you do. Results show whether each Goal is working.")
+                            Text("Areas contain the Tasks you do. Results show whether each Goal is working.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -116,10 +116,10 @@ struct ImprovementDashboardView: View {
                         }
                         .disabled(profileCategories.isEmpty)
                         Button { showingAddArea = true } label: {
-                            Label("Add a Plan", systemImage: "plus.square")
+                            Label("Add an Area", systemImage: "plus.square")
                         }
                         Button { showingStarterPlans = true } label: {
-                            Label("Start from a Plan", systemImage: "square.grid.2x2")
+                            Label("Start from an Area Template", systemImage: "square.grid.2x2")
                         }
                     } label: { Image(systemName: "plus") }
                     .disabled(selection.profile == nil)
@@ -163,7 +163,7 @@ private struct GoalTemplatePickerView: View {
         NavigationStack {
             List {
                 Section {
-                    Text("Choose an editable starting point. Review the result, personal values, supporting Plans and reminder before saving.")
+                    Text("Choose an editable starting point. Review the Result, personal values, supporting Areas and reminder before saving.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -295,7 +295,7 @@ private struct GoalProgressCard: View {
                 Label(progress.status.rawValue, systemImage: statusSymbol)
                     .font(.caption.bold()).foregroundStyle(statusColor)
                 if let effort = progress.effortFraction {
-                    Text("Plan \(Int(effort * 100))%")
+                    Text("Effort \(Int(effort * 100))%")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -313,7 +313,7 @@ private struct GoalProgressCard: View {
 
     private var connectedPlans: String {
         let names = progress.contributions.compactMap { $0.contribution.category?.name }
-        return names.isEmpty ? "No Plans connected" : "Plans: \(names.joined(separator: ", "))"
+        return names.isEmpty ? "No Areas connected" : "Areas: \(names.joined(separator: ", "))"
     }
 
     private var statusColor: Color {
@@ -348,6 +348,9 @@ private struct GoalDetailView: View {
     @Query private var calendarItems: [CalendarItem]
     @State private var selectedMeasure: ResultMeasure?
     @State private var showingAddMeasure = false
+    @State private var showingEditGoal = false
+    @State private var editingMeasure: ResultMeasure?
+    @State private var editingEntry: ResultEntry?
 
     private var profileCategories: [AppCategory] {
         categories.filter { $0.profile?.id == goal.profile?.id && $0.isActive }
@@ -368,7 +371,7 @@ private struct GoalDetailView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text(goal.purpose.isEmpty ? "A measurable result supported by consistent action." : goal.purpose)
+                    Text(goal.purpose.isEmpty ? "A measurable result supported by consistent Tasks." : goal.purpose)
                     if let targetDate = goal.targetDate {
                         Label("Target date \(targetDate.formatted(date: .abbreviated, time: .omitted))", systemImage: "calendar")
                             .font(.caption).foregroundStyle(.secondary)
@@ -389,10 +392,10 @@ private struct GoalDetailView: View {
                 .buttonStyle(LifeOSSecondaryButtonStyle())
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("SUPPORTING PLANS")
+                    Text("SUPPORTING AREAS")
                         .font(.caption.bold()).foregroundStyle(.secondary)
                     if progress.contributions.isEmpty {
-                        Text("No Plans are connected yet.").foregroundStyle(.secondary)
+                        Text("No Areas are connected yet.").foregroundStyle(.secondary)
                     } else {
                         ForEach(progress.contributions) { item in
                             contributionCard(item)
@@ -405,6 +408,12 @@ private struct GoalDetailView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle(goal.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showingEditGoal = true } label: { Image(systemName: "pencil") }
+                    .accessibilityLabel("Edit Goal")
+            }
+        }
         .sheet(item: $selectedMeasure) { measure in
             if let profile = selection.profile {
                 AddResultEntryView(profile: profile, measure: measure)
@@ -413,6 +422,9 @@ private struct GoalDetailView: View {
         .sheet(isPresented: $showingAddMeasure) {
             AddResultMeasureView(goal: goal)
         }
+        .sheet(isPresented: $showingEditGoal) { EditGoalView(goal: goal) }
+        .sheet(item: $editingMeasure) { EditResultMeasureView(measure: $0) }
+        .sheet(item: $editingEntry) { EditResultEntryView(entry: $0) }
     }
 
     private func resultMeasureCard(_ measure: ResultMeasure) -> some View {
@@ -427,8 +439,18 @@ private struct GoalDetailView: View {
                     Text(targetDescription(measure)).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Enter Result") { selectedMeasure = measure }
-                    .buttonStyle(.borderedProminent).controlSize(.small)
+                HStack(spacing: 8) {
+                    Button("Enter Result") { selectedMeasure = measure }
+                        .buttonStyle(.borderedProminent).controlSize(.small)
+                    Menu {
+                        Button { editingMeasure = measure } label: {
+                            Label("Edit Measure", systemImage: "pencil")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .frame(width: 44, height: 44)
+                    }
+                }
             }
 
             if measure.valueType != .text && !measureEntries.isEmpty {
@@ -477,6 +499,24 @@ private struct GoalDetailView: View {
             } else {
                 Text("Enter when available").font(.caption).foregroundStyle(.secondary)
             }
+
+            if !measureEntries.isEmpty {
+                Divider()
+                Text("RECENT CHECK-INS").font(.caption2.bold()).foregroundStyle(.secondary)
+                ForEach(Array(measureEntries.suffix(3).reversed())) { entry in
+                    Button { editingEntry = entry } label: {
+                        HStack {
+                            Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+                            Spacer()
+                            Text(entryDisplay(entry, measure: measure))
+                                .foregroundStyle(.secondary)
+                            Image(systemName: "pencil")
+                                .font(.caption).foregroundStyle(.tertiary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
         .lifeOSCard()
     }
@@ -484,7 +524,7 @@ private struct GoalDetailView: View {
     private func contributionCard(_ item: GoalContributionProgress) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label(item.contribution.category?.name ?? "Plan", systemImage: item.contribution.category?.symbol ?? "square.grid.2x2")
+                Label(item.contribution.category?.name ?? "Area", systemImage: item.contribution.category?.symbol ?? "square.grid.2x2")
                     .font(.headline)
                 Spacer()
                 Text("\(item.completedActions)/\(item.plannedActions)")
@@ -517,6 +557,14 @@ private struct GoalDetailView: View {
                 return "Target \(low)–\(high)\(measure.unit.isEmpty ? "" : " \(measure.unit)")"
             }
         }
+    }
+
+    private func entryDisplay(_ entry: ResultEntry, measure: ResultMeasure) -> String {
+        if let value = entry.numericValue {
+            return value.formatted(.number.precision(.fractionLength(0...2)))
+                + (measure.unit.isEmpty ? "" : " \(measure.unit)")
+        }
+        return entry.textValue.isEmpty ? "Check-in" : entry.textValue
     }
 }
 
@@ -632,9 +680,9 @@ private struct AddGoalView: View {
                     }
                 }
 
-                Section("3. Which Plans support this Goal?") {
+                Section("3. Which Areas support this Goal?") {
                     if profileAreas.isEmpty {
-                        Text("Create a Plan first, then return to create this Goal.")
+                        Text("Create an Area first, then return to create this Goal.")
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(profileAreas) { area in
@@ -651,7 +699,7 @@ private struct AddGoalView: View {
                             .foregroundStyle(.primary)
                         }
                     }
-                    Text("Tasks inside selected Plans automatically count as supporting effort.")
+                    Text("Tasks inside selected Areas automatically count as supporting effort.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
@@ -715,17 +763,24 @@ private struct AddGoalView: View {
         )
         modelContext.insert(measure)
 
-        profileAreas.filter { selectedAreaIDs.contains($0.id) }.forEach { area in
-            modelContext.insert(GoalAreaContribution(
+        let addedContributions = profileAreas.filter { selectedAreaIDs.contains($0.id) }.map { area in
+            let contribution = GoalAreaContribution(
                 goal: goal, category: area,
                 statement: "\(area.name) supports \(goal.name).",
                 weeklyTargetSessions: area.weeklyTargetSessions,
                 weeklyTargetMinutes: area.weeklyTargetMinutes
-            ))
+            )
+            modelContext.insert(contribution)
+            return contribution
         }
-        try? modelContext.save()
-        Task { await GoalReminderService.updateReminder(for: measure) }
-        dismiss()
+        if modelContext.saveOrReport() {
+            Task { await GoalReminderService.updateReminder(for: measure) }
+            dismiss()
+        } else {
+            addedContributions.forEach { modelContext.delete($0) }
+            modelContext.delete(measure)
+            modelContext.delete(goal)
+        }
     }
 }
 
@@ -804,15 +859,19 @@ struct AddResultEntryView: View {
 
     private func save() {
         guard canSave else { return }
-        modelContext.insert(ResultEntry(
+        let entry = ResultEntry(
             profile: profile, measure: measure, date: date, numericValue: storedNumericValue,
             textValue: textValue.trimmingCharacters(in: .whitespacesAndNewlines),
             sourceLabel: source.trimmingCharacters(in: .whitespacesAndNewlines), note: note
-        ))
+        )
+        modelContext.insert(entry)
         measure.nextCheckInDate = measure.cadence.nextDate(after: date)
-        try? modelContext.save()
-        Task { await GoalReminderService.updateReminder(for: measure) }
-        dismiss()
+        if modelContext.saveOrReport() {
+            Task { await GoalReminderService.updateReminder(for: measure) }
+            dismiss()
+        } else {
+            modelContext.delete(entry)
+        }
     }
 }
 
@@ -884,9 +943,12 @@ private struct AddResultMeasureView: View {
             reminderMinute: Calendar.current.component(.minute, from: reminderTime)
         )
         modelContext.insert(measure)
-        try? modelContext.save()
-        Task { await GoalReminderService.updateReminder(for: measure) }
-        dismiss()
+        if modelContext.saveOrReport() {
+            Task { await GoalReminderService.updateReminder(for: measure) }
+            dismiss()
+        } else {
+            modelContext.delete(measure)
+        }
     }
 }
 
@@ -918,7 +980,7 @@ struct CategoryProgressCard: View {
                     }
                 }
                 Text(progress.progressText).font(.caption).foregroundStyle(.secondary)
-                Text("Activity plan · \(progress.status.rawValue)")
+                Text("Task plan · \(progress.status.rawValue)")
                     .font(.caption2.bold()).foregroundStyle(statusColor)
                 Text("This shows adherence, not whether an outcome improved.")
                     .font(.caption2).foregroundStyle(.secondary).lineLimit(2)

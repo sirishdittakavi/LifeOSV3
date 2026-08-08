@@ -34,6 +34,7 @@ enum ProfileManagementMode: String, Codable, CaseIterable, Identifiable {
             return "A parent or guardian records and manages this profile on the current device."
         }
     }
+
 }
 
 enum WeightUnit: String, Codable, CaseIterable, Identifiable {
@@ -114,11 +115,41 @@ struct SavedTaskBlueprint: Codable {
     let targetUnit: String?
 }
 
+enum AreaTrackingKind: String, Codable, CaseIterable, Identifiable {
+    case tasks = "Tasks only"
+    case nutrition = "Food & nutrition"
+    case bodyWeight = "Body weight"
+    case sport = "Sport training"
+
+    var id: String { rawValue }
+
+    var explanation: String {
+        switch self {
+        case .tasks: return "Track scheduled Tasks and their completion."
+        case .nutrition: return "Add food, water and nutrition evidence."
+        case .bodyWeight: return "Record weight in kg or lb and review the trend."
+        case .sport: return "Record training duration, repetitions, effort and soreness."
+        }
+    }
+
+    /// Compatibility rule for records created before Areas stored an
+    /// explicit tracking capability. Runtime behavior never depends on a
+    /// user-editable name after this one-time migration.
+    static func legacyDefault(name: String, pillar: ImprovementPillar) -> AreaTrackingKind {
+        let normalizedName = name.lowercased()
+        if pillar == .sport { return .sport }
+        if normalizedName.contains("nutrition") || normalizedName.contains("food") { return .nutrition }
+        if normalizedName.contains("weight") || normalizedName.contains("body composition") { return .bodyWeight }
+        return .tasks
+    }
+}
+
 @Model
 final class SavedCategoryTemplate {
     var id: UUID
     var name: String
     var pillarRaw: String
+    var trackingKindRaw: String = ""
     var symbol: String
     var colorToken: String
     var purpose: String
@@ -131,6 +162,10 @@ final class SavedCategoryTemplate {
         ImprovementPillar(rawValue: pillarRaw) ?? .learning
     }
 
+    var trackingKind: AreaTrackingKind {
+        AreaTrackingKind(rawValue: trackingKindRaw) ?? .tasks
+    }
+
     var taskBlueprints: [SavedTaskBlueprint] {
         (try? JSONDecoder().decode([SavedTaskBlueprint].self, from: taskBlueprintData)) ?? []
     }
@@ -139,6 +174,7 @@ final class SavedCategoryTemplate {
         id = UUID()
         name = category.name
         pillarRaw = category.pillar.rawValue
+        trackingKindRaw = category.trackingKind.rawValue
         symbol = category.symbol
         colorToken = category.colorToken
         purpose = category.purpose
@@ -180,6 +216,7 @@ final class AppCategory {
     var symbol: String
     var colorToken: String
     var pillarRaw: String = ImprovementPillar.learning.rawValue
+    var trackingKindRaw: String = ""
     var purpose: String = ""
     var weeklyTargetSessions: Int = 3
     var weeklyTargetMinutes: Int = 120
@@ -193,6 +230,11 @@ final class AppCategory {
     var pillar: ImprovementPillar {
         get { ImprovementPillar(rawValue: pillarRaw) ?? .learning }
         set { pillarRaw = newValue.rawValue }
+    }
+
+    var trackingKind: AreaTrackingKind {
+        get { AreaTrackingKind(rawValue: trackingKindRaw) ?? .tasks }
+        set { trackingKindRaw = newValue.rawValue }
     }
 
     var relatedCategoryIDs: [UUID] {
@@ -210,7 +252,8 @@ final class AppCategory {
     }
 
     init(profile: Profile? = nil, name: String, symbol: String, colorToken: String,
-         pillar: ImprovementPillar = .learning, purpose: String = "",
+         pillar: ImprovementPillar = .learning, trackingKind: AreaTrackingKind = .tasks,
+         purpose: String = "",
          weeklyTargetSessions: Int = 3, weeklyTargetMinutes: Int = 120) {
         self.id = UUID()
         self.profile = profile
@@ -218,6 +261,7 @@ final class AppCategory {
         self.symbol = symbol
         self.colorToken = colorToken
         self.pillarRaw = pillar.rawValue
+        self.trackingKindRaw = trackingKind.rawValue
         self.purpose = purpose
         self.weeklyTargetSessions = weeklyTargetSessions
         self.weeklyTargetMinutes = weeklyTargetMinutes

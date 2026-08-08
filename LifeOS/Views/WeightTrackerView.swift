@@ -94,7 +94,7 @@ struct WeightTrackerView: View {
 
     private func deleteEntries(at offsets: IndexSet) {
         offsets.map { profileEntries[$0] }.forEach(modelContext.delete)
-        try? modelContext.save()
+        modelContext.saveOrReport()
     }
 }
 
@@ -235,13 +235,14 @@ private struct AddWeightEntryView: View {
     }
 
     private func save() {
-        modelContext.insert(WeightEntry(
+        let entry = WeightEntry(
             profile: profile,
             date: date,
             kilograms: profile.weightUnit.kilograms(from: displayWeight),
             note: note
-        ))
-        try? modelContext.save()
-        dismiss()
+        )
+        modelContext.insert(entry)
+        if modelContext.saveOrReport() { dismiss() }
+        else { modelContext.delete(entry) }
     }
 }

@@ -38,6 +38,7 @@ struct ImprovementCategoryTemplate: Identifiable {
     let id: String
     let name: String
     let pillar: ImprovementPillar
+    let trackingKind: AreaTrackingKind
     let symbol: String
     let colorToken: String
     let purpose: String
@@ -124,7 +125,7 @@ enum GoalStarterTemplates {
 enum ImprovementTemplates {
     static let all: [ImprovementCategoryTemplate] = [
         ImprovementCategoryTemplate(
-            id: "baseball", name: "Baseball", pillar: .sport,
+            id: "baseball", name: "Baseball", pillar: .sport, trackingKind: .sport,
             symbol: "figure.baseball", colorToken: "orange",
             purpose: "Improve baseball skill through planned practice, athlete feedback and recovery.",
             weeklySessions: 5, weeklyMinutes: 240,
@@ -135,7 +136,7 @@ enum ImprovementTemplates {
             ]
         ),
         ImprovementCategoryTemplate(
-            id: "software", name: "Software Development", pillar: .learning,
+            id: "software", name: "Software Development", pillar: .learning, trackingKind: .tasks,
             symbol: "chevron.left.forwardslash.chevron.right", colorToken: "purple",
             purpose: "Improve engineering ability through deliberate practice and shipped work.",
             weeklySessions: 5, weeklyMinutes: 225,
@@ -146,7 +147,7 @@ enum ImprovementTemplates {
             ]
         ),
         ImprovementCategoryTemplate(
-            id: "school", name: "School", pillar: .learning,
+            id: "school", name: "School", pillar: .learning, trackingKind: .tasks,
             symbol: "book.fill", colorToken: "indigo",
             purpose: "Build a sustainable study plan and compare it with assessment results.",
             weeklySessions: 5, weeklyMinutes: 225,
@@ -157,7 +158,7 @@ enum ImprovementTemplates {
             ]
         ),
         ImprovementCategoryTemplate(
-            id: "mobility", name: "Mobility", pillar: .physical,
+            id: "mobility", name: "Mobility", pillar: .physical, trackingKind: .tasks,
             symbol: "figure.flexibility", colorToken: "teal",
             purpose: "Build usable range of motion and movement quality.",
             weeklySessions: 5, weeklyMinutes: 75,
@@ -165,7 +166,7 @@ enum ImprovementTemplates {
             tasks: [task("Mobility Routine", .selectedWeekdays, [2, 3, 4, 5, 6], 7 * 60 + 30, 15, 15, "min")]
         ),
         ImprovementCategoryTemplate(
-            id: "speed", name: "Speed", pillar: .physical,
+            id: "speed", name: "Speed", pillar: .physical, trackingKind: .tasks,
             symbol: "figure.run", colorToken: "blue",
             purpose: "Improve acceleration and running mechanics progressively.",
             weeklySessions: 3, weeklyMinutes: 90,
@@ -173,7 +174,7 @@ enum ImprovementTemplates {
             tasks: [task("Sprint Technique", .selectedWeekdays, [2, 4, 6], 16 * 60 + 30, 30, 30, "min")]
         ),
         ImprovementCategoryTemplate(
-            id: "strength", name: "Strength", pillar: .physical,
+            id: "strength", name: "Strength", pillar: .physical, trackingKind: .tasks,
             symbol: "dumbbell.fill", colorToken: "red",
             purpose: "Develop strength with progressive, coach-appropriate training.",
             weeklySessions: 3, weeklyMinutes: 150,
@@ -181,7 +182,7 @@ enum ImprovementTemplates {
             tasks: [task("Strength Session", .selectedWeekdays, [2, 4, 6], 17 * 60, 50, 50, "min")]
         ),
         ImprovementCategoryTemplate(
-            id: "nutrition", name: "Nutrition", pillar: .nutrition,
+            id: "nutrition", name: "Nutrition", pillar: .nutrition, trackingKind: .nutrition,
             symbol: "fork.knife", colorToken: "green",
             purpose: "Fuel health, growth and performance against user-approved targets.",
             weeklySessions: 7, weeklyMinutes: 0,
@@ -197,7 +198,7 @@ enum ImprovementTemplates {
             ]
         ),
         ImprovementCategoryTemplate(
-            id: "weight", name: "Weight Improvement", pillar: .physical,
+            id: "weight", name: "Weight Improvement", pillar: .physical, trackingKind: .bodyWeight,
             symbol: "scalemass.fill", colorToken: "blue",
             purpose: "Track body trend without reacting to daily fluctuations.",
             weeklySessions: 3, weeklyMinutes: 0,
@@ -207,7 +208,7 @@ enum ImprovementTemplates {
             ]
         ),
         ImprovementCategoryTemplate(
-            id: "recovery", name: "Recovery", pillar: .physical,
+            id: "recovery", name: "Recovery", pillar: .physical, trackingKind: .tasks,
             symbol: "bed.double.fill", colorToken: "indigo",
             purpose: "Protect adaptation with sleep, light movement and honest soreness feedback.",
             weeklySessions: 7, weeklyMinutes: 70,
@@ -235,6 +236,7 @@ extension SavedCategoryTemplate {
             id: "saved-\(id.uuidString)",
             name: name,
             pillar: pillar,
+            trackingKind: trackingKind,
             symbol: symbol,
             colorToken: colorToken,
             purpose: purpose,

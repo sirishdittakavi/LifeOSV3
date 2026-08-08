@@ -27,7 +27,7 @@ struct ImprovementCategoriesView: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Plans organise what you do. Each Plan contains repeatable Tasks and can support one or more Goals.")
+                        Text("Areas organise what you do. Each Area contains repeatable Tasks and can support one or more Goals.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         VStack(spacing: 10) {
@@ -42,7 +42,7 @@ struct ImprovementCategoriesView: View {
                             Button {
                                 addRoute = .custom
                             } label: {
-                                Label("Add Plan", systemImage: "plus.square")
+                                Label("Add Area", systemImage: "plus.square")
                             }
                             .buttonStyle(LifeOSSecondaryButtonStyle())
                         }
@@ -53,11 +53,11 @@ struct ImprovementCategoriesView: View {
                 if topLevelCategories.isEmpty {
                     Section {
                         ContentUnavailableView(
-                            "No Plans Yet",
+                            "No Areas Yet",
                             systemImage: "list.bullet.clipboard",
                             description: Text("Start with Baseball, School, Nutrition or another part of life you want to work on.")
                         )
-                        Button("Create My First Plan") { addRoute = .custom }
+                        Button("Create My First Area") { addRoute = .custom }
                             .buttonStyle(LifeOSPrimaryButtonStyle())
                     }
                 }
@@ -84,7 +84,7 @@ struct ImprovementCategoriesView: View {
                                     Button {
                                         editingCategory = category
                                     } label: {
-                                        Label("Edit Plan", systemImage: "pencil")
+                                        Label("Edit Area", systemImage: "pencil")
                                     }
                                 }
                             }
@@ -92,7 +92,7 @@ struct ImprovementCategoriesView: View {
                     }
                 }
             }
-            .navigationTitle("Plans")
+            .navigationTitle("Areas")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { ProfilePicker(selection: selection) }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -106,12 +106,12 @@ struct ImprovementCategoriesView: View {
                         Button {
                             addRoute = .custom
                         } label: {
-                            Label("Add a Plan", systemImage: "plus.square")
+                            Label("Add an Area", systemImage: "plus.square")
                         }
                         Button {
                             addRoute = .templates
                         } label: {
-                            Label("Start from a Plan", systemImage: "square.grid.2x2")
+                            Label("Start from an Area Template", systemImage: "square.grid.2x2")
                         }
                     } label: {
                         Image(systemName: "plus")
@@ -159,11 +159,11 @@ struct ImprovementCategoriesView: View {
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: 3) {
                 Text(category.name).font(.headline)
-                Text("\(actionCount) action\(actionCount == 1 ? "" : "s") · \(progress?.progressText ?? "No activity plan yet")")
+                Text("\(actionCount) Task\(actionCount == 1 ? "" : "s") · \(progress?.progressText ?? "No Task plan yet")")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            Text(progress.map { "Plan \($0.status.rawValue.lowercased())" } ?? "")
+            Text(progress.map { "\($0.status.rawValue)" } ?? "")
                 .font(.caption2).foregroundStyle(.secondary)
         }
     }

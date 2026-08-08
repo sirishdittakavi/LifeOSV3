@@ -82,7 +82,7 @@ struct FoodTrackerView: View {
 
     private func deleteEntries(at offsets: IndexSet) {
         offsets.map { todayEntries[$0] }.forEach(modelContext.delete)
-        try? modelContext.save()
+        modelContext.saveOrReport()
     }
 }
 
@@ -307,7 +307,7 @@ private struct AddFoodEntryView: View {
     }
 
     private func save() {
-        modelContext.insert(FoodEntry(
+        let entry = FoodEntry(
             profile: profile, date: date, mealType: mealType,
             name: name.trimmingCharacters(in: .whitespaces), calories: calories,
             proteinGrams: protein, carbohydrateGrams: carbs, fatGrams: fat,
@@ -316,9 +316,10 @@ private struct AddFoodEntryView: View {
             nutritionSource: nutritionSource,
             photoData: photoData,
             servings: servings
-        ))
-        try? modelContext.save()
-        dismiss()
+        )
+        modelContext.insert(entry)
+        if modelContext.saveOrReport() { dismiss() }
+        else { modelContext.delete(entry) }
     }
 
     private func lookupBarcode() {

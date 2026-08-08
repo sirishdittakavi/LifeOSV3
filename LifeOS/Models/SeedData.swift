@@ -2,13 +2,13 @@ import Foundation
 import SwiftData
 
 enum SeedData {
-    static func seedIfNeeded(context: ModelContext) {
-        let profiles = (try? context.fetch(FetchDescriptor<Profile>())) ?? []
+    static func seedIfNeeded(context: ModelContext) throws {
+        let profiles = try context.fetch(FetchDescriptor<Profile>())
         if profiles.isEmpty {
             seedFreshWorkspace(context: context)
         }
-        upgradeImprovementCategoriesIfNeeded(context: context)
-        try? context.save()
+        try upgradeImprovementCategoriesIfNeeded(context: context)
+        try context.save()
     }
 
     private static func seedFreshWorkspace(context: ModelContext) {
@@ -19,19 +19,19 @@ enum SeedData {
 
         let movement = category(
             owner, "Movement", "figure.run", "blue", .physical,
-            "Build sustainable movement, fitness and energy.", 4, 160, context
+            .tasks, "Build sustainable movement, fitness and energy.", 4, 160, context
         )
         let learning = category(
             owner, "Learning", "lightbulb.fill", "yellow", .learning,
-            "Improve through consistent, focused learning.", 5, 150, context
+            .tasks, "Improve through consistent, focused learning.", 5, 150, context
         )
         let nutrition = category(
             owner, "Nutrition", "fork.knife", "green", .nutrition,
-            "Support health and performance with useful nutrition evidence.", 7, 0, context
+            .nutrition, "Support health and performance with useful nutrition evidence.", 7, 0, context
         )
         let recovery = category(
             owner, "Recovery", "bed.double.fill", "indigo", .life,
-            "Protect sleep, recovery and sustainable effort.", 7, 0, context
+            .tasks, "Protect sleep, recovery and sustainable effort.", 7, 0, context
         )
 
         movement.relatedCategoryIDs = [nutrition.id, recovery.id]
@@ -52,12 +52,13 @@ enum SeedData {
 
     private static func category(
         _ profile: Profile, _ name: String, _ symbol: String, _ color: String,
-        _ pillar: ImprovementPillar, _ purpose: String, _ sessions: Int, _ minutes: Int,
+        _ pillar: ImprovementPillar, _ trackingKind: AreaTrackingKind,
+        _ purpose: String, _ sessions: Int, _ minutes: Int,
         _ context: ModelContext
     ) -> AppCategory {
         let item = AppCategory(
             profile: profile, name: name, symbol: symbol, colorToken: color,
-            pillar: pillar, purpose: purpose,
+            pillar: pillar, trackingKind: trackingKind, purpose: purpose,
             weeklyTargetSessions: sessions, weeklyTargetMinutes: minutes
         )
         context.insert(item)
@@ -66,10 +67,10 @@ enum SeedData {
 
     /// Moves shared-label categories into the profile-owned
     /// improvement-area model without deleting activities or history.
-    private static func upgradeImprovementCategoriesIfNeeded(context: ModelContext) {
-        let profiles = (try? context.fetch(FetchDescriptor<Profile>())) ?? []
-        let activities = (try? context.fetch(FetchDescriptor<Activity>())) ?? []
-        var categories = (try? context.fetch(FetchDescriptor<AppCategory>())) ?? []
+    private static func upgradeImprovementCategoriesIfNeeded(context: ModelContext) throws {
+        let profiles = try context.fetch(FetchDescriptor<Profile>())
+        let activities = try context.fetch(FetchDescriptor<Activity>())
+        var categories = try context.fetch(FetchDescriptor<AppCategory>())
 
         for category in categories where category.profile == nil {
             let categoryActivities = activities.filter { $0.category?.id == category.id }
@@ -97,6 +98,8 @@ enum SeedData {
             }
         }
 
+        categories.forEach(applyDefaults)
+
         // Starter content is chosen explicitly when a profile is created.
         // Never add sport- or health-specific categories on every launch, and
         // never overwrite relationships the user has edited.
@@ -104,5 +107,7 @@ enum SeedData {
 
     private static func applyDefaults(to category: AppCategory) {
         if category.purpose.isEmpty { category.purpose = "Organise consistent actions that support measurable Goals." }
+        guard AreaTrackingKind(rawValue: category.trackingKindRaw) == nil else { return }
+        category.trackingKind = .legacyDefault(name: category.name, pillar: category.pillar)
     }
 }

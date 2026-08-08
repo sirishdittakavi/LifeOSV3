@@ -16,11 +16,15 @@ struct RecordActualView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var recordedValue: Double
+    @State private var actualDurationMinutes: Int
     @State private var note: String = ""
+    @State private var pendingSession: ActivitySession?
 
     init(item: CalendarItem) {
         self.item = item
         _recordedValue = State(initialValue: (item.activity?.targetValue ?? 0))
+        _actualDurationMinutes = State(initialValue: max(item.activity?.estimatedDurationMinutes ?? 1, 1))
+        _pendingSession = State(initialValue: nil)
     }
 
     private var hasTarget: Bool { item.activity?.targetValue != nil }
@@ -34,6 +38,13 @@ struct RecordActualView: View {
                         Label(category.name, systemImage: category.symbol)
                             .foregroundStyle(ColorToken.color(for: category.colorToken))
                     }
+                }
+
+                Section("Time spent") {
+                    TextField("Minutes", value: $actualDurationMinutes, format: .number)
+                        .keyboardType(.numberPad)
+                    Text("Use the actual time—not the planned estimate—so Goal progress stays honest.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
 
                 if hasTarget, let unit = item.activity?.targetUnit, let target = item.activity?.targetValue {
@@ -58,7 +69,7 @@ struct RecordActualView: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }.bold()
+                    Button("Save") { save() }.bold().disabled(actualDurationMinutes < 1)
                 }
             }
         }
@@ -74,27 +85,28 @@ struct RecordActualView: View {
     }
 
     private func save() {
-        if item.actualStart == nil { item.actualStart = .now }
-        item.actualEnd = .now
+        let timing = CompletionTiming.interval(endingAt: .now, durationMinutes: actualDurationMinutes)
+        item.actualStart = timing.start
+        item.actualEnd = timing.end
         item.status = .done
 
-        if hasTarget {
+        if pendingSession == nil {
             let session = ActivitySession(
                 activity: item.activity,
                 calendarItem: item,
                 date: item.date,
                 startedAt: item.actualStart,
-                endedAt: .now,
-                recordedValue: recordedValue,
+                endedAt: item.actualEnd,
+                actualActiveSeconds: actualDurationMinutes * 60,
+                recordedValue: hasTarget ? recordedValue : 0,
                 note: note
             )
             modelContext.insert(session)
-        } else if !note.isEmpty {
-            item.note = note
+            pendingSession = session
         }
+        item.note = note
 
-        try? modelContext.save()
-        dismiss()
+        if modelContext.saveOrReport() { dismiss() }
     }
 }
 

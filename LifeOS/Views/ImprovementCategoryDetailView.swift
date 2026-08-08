@@ -18,6 +18,8 @@ struct ImprovementCategoryDetailView: View {
     @State private var activeTool: CategoryTool?
     @State private var showingTemplateSaved = false
     @State private var showingProgressDetails = false
+    @State private var showingManageTasks = false
+    @State private var editingTask: Activity?
 
     private var categoryActivities: [Activity] {
         let includedIDs = CategoryHierarchy.idsIncludingDescendants(of: category, in: profileCategories)
@@ -91,7 +93,7 @@ struct ImprovementCategoryDetailView: View {
                             .contentShape(RoundedRectangle(cornerRadius: 16))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Open \(category.name) activity plan details")
+                    .accessibilityLabel("Open \(category.name) Task progress details")
                 }
 
                 VStack(spacing: 10) {
@@ -116,7 +118,7 @@ struct ImprovementCategoryDetailView: View {
                 }
 
                 if !childCategories.isEmpty {
-                    sectionTitle("Sub-plans", detail: "Included in this Plan's progress")
+                    sectionTitle("Sub-areas", detail: "Included in this Area's progress")
                     VStack(spacing: 0) {
                         ForEach(Array(childCategories.enumerated()), id: \.element.id) { index, child in
                             NavigationLink {
@@ -132,7 +134,7 @@ struct ImprovementCategoryDetailView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
 
-                sectionTitle(periodActionsTitle, detail: "Only actions planned in this period")
+                sectionTitle(periodActionsTitle, detail: "Only Tasks planned in this period")
                 actionList
             }
             .padding(.horizontal, 16)
@@ -150,28 +152,34 @@ struct ImprovementCategoryDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button { showingEdit = true } label: {
-                        Label("Edit Plan", systemImage: "pencil")
+                        Label("Edit Area", systemImage: "pencil")
+                    }
+                    Button { showingManageTasks = true } label: {
+                        Label("Manage Tasks", systemImage: "checklist")
                     }
                     Button { showingAddSubcategory = true } label: {
-                        Label("Add Optional Sub-plan", systemImage: "rectangle.stack.badge.plus")
+                        Label("Add Optional Sub-area", systemImage: "rectangle.stack.badge.plus")
                     }
                     Button {
                         let saved = SavedCategoryTemplate(category: category, activities: directCategoryActivities)
                         modelContext.insert(saved)
-                        try? modelContext.save()
-                        showingTemplateSaved = true
+                        if modelContext.saveOrReport() {
+                            showingTemplateSaved = true
+                        } else {
+                            modelContext.delete(saved)
+                        }
                     } label: {
-                        Label("Save as Reusable Plan", systemImage: "square.and.arrow.down")
+                        Label("Save as Reusable Area", systemImage: "square.and.arrow.down")
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
             }
         }
-        .alert("Plan Saved", isPresented: $showingTemplateSaved) {
+        .alert("Area Saved", isPresented: $showingTemplateSaved) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("\(category.name) and its direct actions are now available under My Saved Plans for every profile on this device.")
+            Text("\(category.name) and its direct Tasks are now available under My Saved Areas for every profile on this device.")
         }
         .sheet(isPresented: $showingAddTask) {
             if let profile = selection.profile {
@@ -186,6 +194,10 @@ struct ImprovementCategoryDetailView: View {
         .sheet(isPresented: $showingEdit) {
             EditImprovementCategoryView(category: category, activities: categoryActivities)
         }
+        .sheet(isPresented: $showingManageTasks) {
+            ManageAreaTasksView(category: category, profileCategories: profileCategories)
+        }
+        .sheet(item: $editingTask) { EditTaskView(activity: $0) }
         .sheet(item: $activeTool) { tool in
             switch tool {
             case .food: FoodTrackerView(selection: selection)
@@ -213,9 +225,9 @@ struct ImprovementCategoryDetailView: View {
                 Text(category.pillar.rawValue.uppercased())
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(ColorToken.color(for: category.colorToken))
-                Text(category.purpose.isEmpty ? "Organise the actions that support your Goals." : category.purpose)
+                Text(category.purpose.isEmpty ? "Organise the Tasks that support your Goals." : category.purpose)
                     .font(.subheadline)
-                Text("Weekly activity plan · \(category.weeklyTargetSessions) times · \(category.weeklyTargetMinutes) min")
+                Text("Weekly Task plan · \(category.weeklyTargetSessions) times · \(category.weeklyTargetMinutes) min")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -228,23 +240,26 @@ struct ImprovementCategoryDetailView: View {
     private var actionList: some View {
         if categoryActivities.isEmpty {
             emptyActions(
-                title: "No actions yet",
-                message: "Add one small repeatable action. It will appear here and on the Schedule."
+                title: "No Tasks yet",
+                message: "Add one small repeatable Task. It will appear here and on the Schedule."
             )
         } else if periodActionSummaries.isEmpty {
             emptyActions(
                 title: "Nothing planned for this \(period.emptyPeriodName)",
-                message: "Your actions are safe. Change the period above or add an action for this time."
+                message: "Your Tasks are safe. Change the period above or add a Task for this time."
             )
         } else {
             VStack(spacing: 12) {
                 ForEach(periodActionSummaries) { summary in
-                    ActionPeriodCard(
-                        summary: summary,
-                        category: category,
-                        profileCategories: profileCategories,
-                        scheduleText: scheduleDescription(summary.activity)
-                    )
+                    Button { editingTask = summary.activity } label: {
+                        ActionPeriodCard(
+                            summary: summary,
+                            category: category,
+                            profileCategories: profileCategories,
+                            scheduleText: scheduleDescription(summary.activity)
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -339,15 +354,14 @@ struct ImprovementCategoryDetailView: View {
     }
 
     private var categoryTool: CategoryTool? {
-        let name = ([category] + CategoryHierarchy.ancestors(of: category, in: profileCategories))
-            .map(\.name).joined(separator: " ").lowercased()
-        if name.contains("nutrition") || name.contains("food") { return .food }
-        if name.contains("weight") || name.contains("body development") || name.contains("body composition") { return .weight }
-        if category.pillar == .sport
-            || CategoryHierarchy.ancestors(of: category, in: profileCategories).contains(where: { $0.pillar == .sport }) {
-            return .sport
+        let hierarchy = [category] + CategoryHierarchy.ancestors(of: category, in: profileCategories)
+        let kind = hierarchy.first(where: { $0.trackingKind != .tasks })?.trackingKind ?? .tasks
+        switch kind {
+        case .nutrition: return .food
+        case .bodyWeight: return .weight
+        case .sport: return .sport
+        case .tasks: return nil
         }
-        return nil
     }
 
     private func scheduleDescription(_ activity: Activity) -> String {
@@ -453,11 +467,11 @@ private struct CategoryProgressDetailView: View {
                     }
                 }
 
-                Section("Plan adherence") {
+                Section("Task adherence") {
                     LabeledContent("Status", value: progress.status.rawValue)
                     LabeledContent("Confidence", value: progress.confidence.rawValue)
                     if progress.dueTasks > 0 {
-                        LabeledContent("Due actions decided") {
+                        LabeledContent("Due Tasks decided") {
                             Text("\(progress.decidedDueTasks) of \(progress.dueTasks)")
                         }
                     }
@@ -467,7 +481,7 @@ private struct CategoryProgressDetailView: View {
                     Text(progress.nextAction)
                 }
             }
-            .navigationTitle("\(progress.period.rawValue) Activity Plan")
+            .navigationTitle("\(progress.period.rawValue) Task Progress")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -498,7 +512,7 @@ private enum CategoryTool: String, Identifiable {
 }
 
 struct EditImprovementCategoryView: View {
-    @Bindable var category: AppCategory
+    let category: AppCategory
     let activities: [Activity]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -507,12 +521,30 @@ struct EditImprovementCategoryView: View {
     @State private var reminderTime: Date
     @State private var parentCategoryID: UUID?
     @State private var showingDeactivateConfirmation = false
+    @State private var name: String
+    @State private var pillar: ImprovementPillar
+    @State private var trackingKind: AreaTrackingKind
+    @State private var symbol: String
+    @State private var colorToken: String
+    @State private var purpose: String
+    @State private var weeklyTargetSessions: Int
+    @State private var weeklyTargetMinutes: Int
+    @State private var reminderEnabled: Bool
 
     init(category: AppCategory, activities: [Activity]) {
         self.category = category
         self.activities = activities
         _relatedIDs = State(initialValue: Set(category.relatedCategoryIDs))
         _parentCategoryID = State(initialValue: category.parentCategoryID)
+        _name = State(initialValue: category.name)
+        _pillar = State(initialValue: category.pillar)
+        _trackingKind = State(initialValue: category.trackingKind)
+        _symbol = State(initialValue: category.symbol)
+        _colorToken = State(initialValue: category.colorToken)
+        _purpose = State(initialValue: category.purpose)
+        _weeklyTargetSessions = State(initialValue: category.weeklyTargetSessions)
+        _weeklyTargetMinutes = State(initialValue: category.weeklyTargetMinutes)
+        _reminderEnabled = State(initialValue: category.reminderEnabled)
         _reminderTime = State(initialValue: Calendar.current.date(
             bySettingHour: category.reminderHour,
             minute: category.reminderMinute,
@@ -538,8 +570,8 @@ struct EditImprovementCategoryView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Plan") {
-                    TextField("Name", text: $category.name)
+                Section("Area") {
+                    TextField("Name", text: $name)
                     Picker("Inside", selection: $parentCategoryID) {
                         Text("Top-level area").tag(UUID?.none)
                         ForEach(availableParents) { parent in
@@ -547,29 +579,34 @@ struct EditImprovementCategoryView: View {
                                 .tag(UUID?.some(parent.id))
                         }
                     }
-                    Picker("Group", selection: Binding(
-                        get: { category.pillar }, set: { category.pillar = $0 }
-                    )) {
+                    Picker("Group", selection: $pillar) {
                         ForEach(ImprovementPillar.allCases) { Text($0.rawValue).tag($0) }
                     }
-                    Picker("Icon", selection: $category.symbol) {
+                    Picker("Tracking", selection: $trackingKind) {
+                        ForEach(AreaTrackingKind.allCases) { kind in
+                            Text(kind.rawValue).tag(kind)
+                        }
+                    }
+                    Text(trackingKind.explanation)
+                        .font(.caption).foregroundStyle(.secondary)
+                    Picker("Icon", selection: $symbol) {
                         ForEach(CategoryAppearanceOptions.icons) { option in
                             Label(option.name, systemImage: option.symbol).tag(option.symbol)
                         }
                     }
-                    Picker("Colour", selection: $category.colorToken) {
+                    Picker("Colour", selection: $colorToken) {
                         ForEach(CategoryAppearanceOptions.colors, id: \.self) { token in
                             Label(token.capitalized, systemImage: "circle.fill")
                                 .foregroundStyle(ColorToken.color(for: token))
                                 .tag(token)
                         }
                     }
-                    TextField("Purpose", text: $category.purpose, axis: .vertical)
+                    TextField("Purpose", text: $purpose, axis: .vertical)
                 }
 
                 Section("Weekly activity plan") {
-                    Stepper("\(category.weeklyTargetSessions) times", value: $category.weeklyTargetSessions, in: 0...21)
-                    Stepper("\(category.weeklyTargetMinutes) minutes", value: $category.weeklyTargetMinutes, in: 0...1200, step: 15)
+                    Stepper("\(weeklyTargetSessions) times", value: $weeklyTargetSessions, in: 0...21)
+                    Stepper("\(weeklyTargetMinutes) minutes", value: $weeklyTargetMinutes, in: 0...1200, step: 15)
                     Text("This is an effort target. Outcome targets belong to Goals.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -591,63 +628,78 @@ struct EditImprovementCategoryView: View {
                 }
 
                 Section("Reminders") {
-                    Toggle("Enable reminders", isOn: $category.reminderEnabled)
-                    if category.reminderEnabled {
+                    Toggle("Enable reminders", isOn: $reminderEnabled)
+                    if reminderEnabled {
                         DatePicker("Weekly review time", selection: $reminderTime, displayedComponents: .hourAndMinute)
                         Text("Task reminders use each Task's scheduled days and time.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
 
-                Section("Plan Management") {
+                Section("Area Management") {
                     if category.isActive {
-                        Button("Hide Plan and Its Tasks", role: .destructive) {
+                        Button("Hide Area and Its Tasks", role: .destructive) {
                             showingDeactivateConfirmation = true
                         }
                         Text("Use this for duplicates or areas you no longer want to track. History is kept.")
                             .font(.caption).foregroundStyle(.secondary)
                     } else {
-                        Button("Restore Plan and Its Tasks") {
+                        Button("Restore Area and Its Tasks") {
                             category.isActive = true
                             activities.forEach { $0.isActive = true }
-                            try? modelContext.save()
-                            Task { await ReminderService.updateReminders(for: category, activities: activities) }
-                            dismiss()
+                            if modelContext.saveOrReport() {
+                                Task { await ReminderService.updateReminders(for: category, activities: activities) }
+                                dismiss()
+                            }
                         }
                     }
                 }
             }
-            .navigationTitle("Edit Plan")
+            .navigationTitle("Edit Area")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("Save", action: save) }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save", action: save)
+                        .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
             }
             .confirmationDialog(
                 "Hide \(category.name)?",
                 isPresented: $showingDeactivateConfirmation,
                 titleVisibility: .visible
             ) {
-                Button("Hide Plan and Tasks", role: .destructive) {
+                Button("Hide Area and Tasks", role: .destructive) {
                     category.isActive = false
                     activities.forEach { $0.isActive = false }
-                    try? modelContext.save()
-                    Task { await ReminderService.updateReminders(for: category, activities: activities) }
-                    dismiss()
+                    if modelContext.saveOrReport() {
+                        Task { await ReminderService.updateReminders(for: category, activities: activities) }
+                        dismiss()
+                    }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("It will disappear from active areas and stop generating scheduled actions. Existing history remains saved.")
+                Text("It will disappear from active areas and stop generating scheduled Tasks. Existing history remains saved.")
             }
         }
     }
 
     private func save() {
+        category.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        category.pillar = pillar
+        category.trackingKind = trackingKind
+        category.symbol = symbol
+        category.colorToken = colorToken
+        category.purpose = purpose.trimmingCharacters(in: .whitespacesAndNewlines)
+        category.weeklyTargetSessions = weeklyTargetSessions
+        category.weeklyTargetMinutes = weeklyTargetMinutes
+        category.reminderEnabled = reminderEnabled
         category.parentCategoryID = parentCategoryID
         category.relatedCategoryIDs = Array(relatedIDs)
         category.reminderHour = Calendar.current.component(.hour, from: reminderTime)
         category.reminderMinute = Calendar.current.component(.minute, from: reminderTime)
-        try? modelContext.save()
-        Task { await ReminderService.updateReminders(for: category, activities: activities) }
-        dismiss()
+        if modelContext.saveOrReport() {
+            Task { await ReminderService.updateReminders(for: category, activities: activities) }
+            dismiss()
+        }
     }
 }

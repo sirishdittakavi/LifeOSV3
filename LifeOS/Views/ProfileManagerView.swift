@@ -18,7 +18,7 @@ struct ProfileManagerView: View {
         NavigationStack {
             List {
                 Section {
-                    Text("Each person has separate areas, actions, calendar, goals, food, weight, sport logs, and progress. Switching profile never combines their results.")
+                    Text("Each person has separate areas, Tasks, calendar, goals, food, weight, sport logs, and progress. Switching profile never combines their results.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
@@ -117,16 +117,20 @@ struct ProfileManagerView: View {
 
     private func hide(_ profile: Profile) {
         guard activeProfiles.count > 1 else { return }
+        let previousSelection = selection.profile
         profile.isActive = false
         if selection.profile?.id == profile.id {
             selection.profile = activeProfiles.first { $0.id != profile.id }
         }
-        try? modelContext.save()
+        if !modelContext.saveOrReport() {
+            profile.isActive = true
+            selection.profile = previousSelection
+        }
     }
 
     private func restore(_ profile: Profile) {
         profile.isActive = true
-        try? modelContext.save()
+        if !modelContext.saveOrReport() { profile.isActive = false }
     }
 }
 
@@ -184,14 +188,14 @@ private struct NewProfileView: View {
                 }
 
                 Section("Starting Setup") {
-                    Picker("Starter plan", selection: $starterPlan) {
+                    Picker("Starter Areas", selection: $starterPlan) {
                         ForEach(ProfileStarterPlan.allCases) { plan in
                             Text(plan.rawValue).tag(plan)
                         }
                     }
                     Text(starterPlan.explanation)
                         .font(.caption).foregroundStyle(.secondary)
-                    Text("Everything created by a starter plan is editable or removable.")
+                    Text("Every starter Area and Task is editable or archivable.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -223,9 +227,12 @@ private struct NewProfileView: View {
         profile.managementMode = managementMode
         modelContext.insert(profile)
         starterPlan.install(for: profile, context: modelContext)
-        try? modelContext.save()
-        selection.profile = profile
-        dismiss()
+        if modelContext.saveOrReport() {
+            selection.profile = profile
+            dismiss()
+        } else {
+            modelContext.rollback()
+        }
     }
 }
 
@@ -320,8 +327,7 @@ private struct EditProfileView: View {
                         profile.colorToken = colorToken
                         profile.managementMode = managementMode
                         profile.avatarData = avatarData
-                        try? modelContext.save()
-                        dismiss()
+                        if modelContext.saveOrReport() { dismiss() }
                     }
                     .disabled(trimmedName.isEmpty)
                 }
@@ -428,7 +434,7 @@ enum ProfileStarterPlan: String, CaseIterable, Identifiable {
 
     var explanation: String {
         switch self {
-        case .blank: return "Starts with no areas or actions."
+        case .blank: return "Starts with no areas or Tasks."
         case .balanced: return "Adds editable movement, learning, nutrition, relationships, and recovery areas."
         case .studentAndSport: return "Adds editable school, sport training, mobility, nutrition, and recovery areas."
         case .healthAndCareer: return "Adds editable health, career, nutrition, and recovery areas."
@@ -444,7 +450,8 @@ enum ProfileStarterPlan: String, CaseIterable, Identifiable {
                 task: ("Move or train", [2, 4, 6, 7], 18 * 60, 40), context: context)
             add(profile, "Learning", "lightbulb.fill", "yellow", .learning, 5, 150,
                 task: ("Focused learning", [2, 3, 4, 5, 6], 19 * 60, 30), context: context)
-            add(profile, "Nutrition", "fork.knife", "green", .nutrition, 7, 0, task: nil, context: context)
+            add(profile, "Nutrition", "fork.knife", "green", .nutrition, 7, 0,
+                trackingKind: .nutrition, task: nil, context: context)
             add(profile, "Relationships", "person.2.fill", "pink", .life, 3, 120, task: nil, context: context)
             add(profile, "Recovery", "bed.double.fill", "indigo", .physical, 7, 70,
                 task: ("Recovery check-in", [1, 2, 3, 4, 5, 6, 7], 20 * 60 + 30, 10), context: context)
@@ -452,10 +459,12 @@ enum ProfileStarterPlan: String, CaseIterable, Identifiable {
             add(profile, "School", "book.fill", "indigo", .learning, 5, 225,
                 task: ("Homework or study", [2, 3, 4, 5, 6], 17 * 60, 45), context: context)
             add(profile, "Sport Training", "figure.run", "orange", .sport, 3, 180,
+                trackingKind: .sport,
                 task: ("Team or skill practice", [2, 4, 6], 18 * 60, 60), context: context)
             add(profile, "Mobility", "figure.flexibility", "teal", .physical, 5, 75,
                 task: ("Mobility routine", [2, 3, 4, 5, 6], 7 * 60 + 30, 15), context: context)
-            add(profile, "Nutrition", "fork.knife", "green", .nutrition, 7, 0, task: nil, context: context)
+            add(profile, "Nutrition", "fork.knife", "green", .nutrition, 7, 0,
+                trackingKind: .nutrition, task: nil, context: context)
             add(profile, "Recovery", "bed.double.fill", "indigo", .physical, 7, 70,
                 task: ("Recovery check-in", [1, 2, 3, 4, 5, 6, 7], 20 * 60 + 30, 10), context: context)
         case .healthAndCareer:
@@ -463,7 +472,8 @@ enum ProfileStarterPlan: String, CaseIterable, Identifiable {
                 task: ("Exercise", [2, 3, 5, 7], 7 * 60, 50), context: context)
             add(profile, "Career", "briefcase.fill", "blue", .learning, 5, 300,
                 task: ("Focused work", [2, 3, 4, 5, 6], 9 * 60, 60), context: context)
-            add(profile, "Nutrition", "fork.knife", "green", .nutrition, 7, 0, task: nil, context: context)
+            add(profile, "Nutrition", "fork.knife", "green", .nutrition, 7, 0,
+                trackingKind: .nutrition, task: nil, context: context)
             add(profile, "Recovery", "bed.double.fill", "indigo", .physical, 7, 70,
                 task: ("Recovery check-in", [1, 2, 3, 4, 5, 6, 7], 20 * 60 + 30, 10), context: context)
         }
@@ -472,11 +482,13 @@ enum ProfileStarterPlan: String, CaseIterable, Identifiable {
     private func add(
         _ profile: Profile, _ name: String, _ symbol: String, _ color: String,
         _ pillar: ImprovementPillar, _ sessions: Int, _ minutes: Int,
+        trackingKind: AreaTrackingKind = .tasks,
         task: (String, [Int], Int, Int)?, context: ModelContext
     ) {
         let category = AppCategory(
             profile: profile, name: name, symbol: symbol, colorToken: color,
-            pillar: pillar, purpose: "Build consistent progress through an editable starter plan.",
+            pillar: pillar, trackingKind: trackingKind,
+            purpose: "Build consistent progress through an editable starter plan.",
             weeklyTargetSessions: sessions, weeklyTargetMinutes: minutes
         )
         context.insert(category)

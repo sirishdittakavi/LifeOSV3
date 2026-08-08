@@ -163,7 +163,7 @@ struct WeeklyScheduleView: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(date.formatted(date: .complete, time: .omitted)), \(itemCount) actions")
+                .accessibilityLabel("\(date.formatted(date: .complete, time: .omitted)), \(itemCount) Tasks")
             }
         }
         .padding(.horizontal, 12)
@@ -204,7 +204,7 @@ struct WeeklyScheduleView: View {
                 .font(.system(size: 42))
                 .foregroundStyle(.blue)
             VStack(spacing: 6) {
-                Text("No actions on \(selectedDate.formatted(.dateTime.weekday(.wide)))")
+                Text("No Tasks on \(selectedDate.formatted(.dateTime.weekday(.wide)))")
                     .font(.title3.weight(.semibold))
                 Text("Enjoy the open space, or add something you want to work on.")
                     .font(.subheadline)
@@ -291,7 +291,7 @@ struct WeeklyScheduleView: View {
                 inserted = true
             }
         }
-        if inserted { try? modelContext.save() }
+        if inserted { modelContext.saveOrReport() }
     }
 }
 
@@ -318,7 +318,7 @@ private struct DayScheduleSummary: View {
             }
             ProgressView(value: items.isEmpty ? 0 : Double(done) / Double(items.count))
                 .tint(done == items.count ? .green : .blue)
-            Text("\(items.count) actions · \(minutes) planned minutes")
+            Text("\(items.count) Tasks · \(minutes) planned minutes")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .lifeOSCard()
@@ -443,9 +443,10 @@ private struct WeekItemDetailView: View {
                             .buttonStyle(LifeOSPrimaryButtonStyle())
 
                             Button {
+                                let previousStatus = item.status
                                 item.status = .skipped
-                                try? modelContext.save()
-                                dismiss()
+                                if modelContext.saveOrReport() { dismiss() }
+                                else { item.status = previousStatus }
                             } label: {
                                 Label("Skip This Occurrence", systemImage: "forward.end")
                             }

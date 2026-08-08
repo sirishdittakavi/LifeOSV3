@@ -61,12 +61,12 @@ struct LifeOSPrimaryButtonStyle: ButtonStyle {
             .font(.subheadline.weight(.semibold))
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: 48, alignment: .center)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, LifeOSSpacing.lg)
             .foregroundStyle(.white)
             .background(Color.accentColor.opacity(configuration.isPressed ? 0.78 : 1))
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: LifeOSRadius.sm, style: .continuous))
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(.lifeOSTap, value: configuration.isPressed)
     }
 }
 
@@ -76,16 +76,16 @@ struct LifeOSSecondaryButtonStyle: ButtonStyle {
             .font(.subheadline.weight(.semibold))
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: 46, alignment: .center)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, LifeOSSpacing.lg)
             .foregroundStyle(.primary)
             .background(Color(.secondarySystemBackground).opacity(configuration.isPressed ? 0.7 : 1))
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: LifeOSRadius.sm, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: LifeOSRadius.sm, style: .continuous)
                     .stroke(Color(.separator).opacity(0.35), lineWidth: 1)
             }
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(.lifeOSTap, value: configuration.isPressed)
     }
 }
 
@@ -121,7 +121,7 @@ struct LifeOSInlineButtonStyle: ButtonStyle {
 
 extension View {
     func lifeOSCard(cornerRadius: CGFloat = 18) -> some View {
-        padding(16)
+        padding(LifeOSSpacing.lg)
             .background(Color(.secondarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
@@ -138,7 +138,7 @@ private struct LifeOSGlassCardModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .padding(16)
+            .padding(LifeOSSpacing.lg)
             .background(
                 .regularMaterial,
                 in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)

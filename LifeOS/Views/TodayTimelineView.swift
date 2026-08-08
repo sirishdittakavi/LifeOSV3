@@ -65,9 +65,9 @@ struct TodayTimelineView: View {
                         dueResults
                         journey
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .padding(.bottom, 28)
+                    .padding(.horizontal, LifeOSSpacing.lg)
+                    .padding(.top, LifeOSSpacing.sm)
+                    .padding(.bottom, LifeOSSpacing.xxl)
                 }
             }
             .navigationTitle("Today")
@@ -87,8 +87,8 @@ struct TodayTimelineView: View {
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
-                    .accessibilityLabel("Add action")
-                    .accessibilityHint("Opens the new action form")
+                    .accessibilityLabel("Add Task")
+                    .accessibilityHint("Opens the new Task form")
                 }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -121,7 +121,7 @@ struct TodayTimelineView: View {
                     .font(.title2.weight(.bold))
                 Text(summary.remaining == 0 && summary.total > 0
                      ? "Your plan is complete."
-                     : "One clear action at a time.")
+                     : "One clear Task at a time.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -143,10 +143,10 @@ struct TodayTimelineView: View {
             Label("Log What Happened", systemImage: "plus.circle.fill")
         }
         .buttonStyle(LifeOSPrimaryButtonStyle())
-        .padding(.horizontal, 16)
+        .padding(.horizontal, LifeOSSpacing.lg)
         .padding(.vertical, 10)
         .background(.ultraThinMaterial)
-        .accessibilityHint("Record an unscheduled action, meal, weight, or sport session")
+        .accessibilityHint("Record an unscheduled Task, meal, weight, or sport session")
     }
 
     private var dailySignals: some View {
@@ -161,14 +161,16 @@ struct TodayTimelineView: View {
         }
         let sportMinutes = todaySportEntries.reduce(0) { $0 + $1.durationMinutes }
         let profileSportCategories = categories.filter {
-            $0.profile?.id == profile?.id && $0.pillar == .sport && $0.isActive
+            $0.profile?.id == profile?.id && $0.trackingKind == .sport && $0.isActive
         }
         let loggedSportNames = Set(todaySportEntries.compactMap { $0.category?.name })
         let sportName = loggedSportNames.count == 1
             ? (loggedSportNames.first ?? "Sport")
             : (loggedSportNames.isEmpty && profileSportCategories.count == 1
                 ? profileSportCategories[0].name : "Sport")
-        let sportSymbol = profileSportCategories.first { $0.name == sportName }?.symbol ?? "figure.run"
+        let sportSymbol = todaySportEntries.compactMap(\.category).first?.symbol
+            ?? profileSportCategories.first { $0.name == sportName }?.symbol
+            ?? "figure.run"
 
         return VStack(alignment: .leading, spacing: 10) {
             sectionLabel("DAILY SIGNALS", symbol: "waveform.path.ecg")
@@ -252,7 +254,7 @@ struct TodayTimelineView: View {
             HStack {
                 sectionLabel("TODAY'S JOURNEY", symbol: "calendar.day.timeline.left")
                 Spacer()
-                Text("\(todayItems.count) \(todayItems.count == 1 ? "action" : "actions")")
+                Text("\(todayItems.count) \(todayItems.count == 1 ? "Task" : "Tasks")")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -261,7 +263,7 @@ struct TodayTimelineView: View {
                 ContentUnavailableView(
                     "Nothing Scheduled",
                     systemImage: "calendar.badge.plus",
-                    description: Text("Add an action or log something that happened.")
+                    description: Text("Add a Task or log something that happened.")
                 )
                 .frame(maxWidth: .infinity, minHeight: 230)
                 .lifeOSGlassCard(tint: .blue)
@@ -292,18 +294,24 @@ struct TodayTimelineView: View {
         )
         guard !newItems.isEmpty else { return }
         newItems.forEach { modelContext.insert($0) }
-        try? modelContext.save()
+        if !modelContext.saveOrReport() { newItems.forEach { modelContext.delete($0) } }
     }
 
     private func start(_ item: CalendarItem) {
+        let previousStatus = item.status
+        let previousStart = item.actualStart
         item.status = .inProgress
         item.actualStart = .now
-        try? modelContext.save()
+        if !modelContext.saveOrReport() {
+            item.status = previousStatus
+            item.actualStart = previousStart
+        }
     }
 
     private func skip(_ item: CalendarItem) {
+        let previousStatus = item.status
         item.status = .skipped
-        try? modelContext.save()
+        if !modelContext.saveOrReport() { item.status = previousStatus }
     }
 }
 
@@ -333,23 +341,19 @@ private struct TodayAtmosphericBackground: View {
 
 private struct TodayProgressHero: View {
     let summary: CompletionSummary
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var percent: Int { Int((summary.percentComplete * 100).rounded()) }
 
     var body: some View {
-        HStack(spacing: 18) {
+        HStack(spacing: LifeOSSpacing.md) {
             ZStack {
-                Circle().stroke(.primary.opacity(0.08), lineWidth: 8)
-                Circle()
-                    .trim(from: 0, to: summary.percentComplete)
-                    .stroke(
-                        AngularGradient(colors: [.blue, .cyan, .green], center: .center),
-                        style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-                    .animation(reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.82),
-                               value: summary.percentComplete)
+                SignatureProgressRing(
+                    fraction: summary.percentComplete,
+                    gradient: ImprovementPillar.physical.gradient,
+                    lineWidth: 8,
+                    diameter: 88
+                )
+                GlacierProgressMark(fraction: summary.percentComplete)
                 VStack(spacing: 0) {
                     Text("\(percent)%")
                         .font(.title3.weight(.bold).monospacedDigit())
@@ -363,8 +367,8 @@ private struct TodayProgressHero: View {
             VStack(alignment: .leading, spacing: 9) {
                 Text("Daily plan").font(.title3.weight(.bold))
                 Text(summary.total == 0
-                     ? "Build your day with one meaningful action."
-                     : "\(summary.done) of \(summary.total) planned actions complete")
+                     ? "Build your day with one meaningful Task."
+                     : "\(summary.done) of \(summary.total) planned Tasks complete")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -381,6 +385,34 @@ private struct TodayProgressHero: View {
         }
         .lifeOSGlassCard(tint: summary.remaining == 0 && summary.total > 0 ? .green : .blue,
                          cornerRadius: 26)
+    }
+}
+
+/// A quiet glacier watermark makes daily progress recognisably LifeOS while
+/// leaving the schedule and numeric completion value as the primary content.
+private struct GlacierProgressMark: View {
+    let fraction: Double
+
+    private var safeFraction: Double {
+        guard fraction.isFinite else { return 0 }
+        return min(max(fraction, 0), 1)
+    }
+
+    var body: some View {
+        ZStack {
+            Image(systemName: "mountain.2.fill")
+                .foregroundStyle(Color.primary.opacity(0.045))
+            Image(systemName: "mountain.2.fill")
+                .foregroundStyle(
+                    LinearGradient(colors: [.cyan, .blue], startPoint: .top, endPoint: .bottom)
+                )
+                .mask(alignment: .bottom) {
+                    Rectangle().frame(height: 42 * safeFraction)
+                }
+                .opacity(0.18)
+        }
+        .font(.system(size: 38, weight: .light))
+        .accessibilityHidden(true)
     }
 }
 
@@ -494,13 +526,13 @@ private struct CalendarItemRow: View {
             HStack(spacing: 8) {
                 Button("Start", action: onStart)
                     .buttonStyle(LifeOSInlineButtonStyle(tint: .blue))
-                    .accessibilityHint("Marks this action in progress")
+                    .accessibilityHint("Marks this Task in progress")
                 Button("Done", action: onDone)
                     .buttonStyle(LifeOSInlineButtonStyle(tint: .green, filled: true))
                     .accessibilityHint("Opens the result and notes form")
                 Button("Skip", action: onSkip)
                     .buttonStyle(LifeOSInlineButtonStyle(tint: .secondary))
-                    .accessibilityHint("Marks this action skipped")
+                    .accessibilityHint("Marks this Task skipped")
             }
         case .inProgress:
             HStack(spacing: 8) {
@@ -509,7 +541,7 @@ private struct CalendarItemRow: View {
                     .accessibilityHint("Opens the result and notes form")
                 Button("Skip", action: onSkip)
                     .buttonStyle(LifeOSInlineButtonStyle(tint: .secondary))
-                    .accessibilityHint("Marks this action skipped")
+                    .accessibilityHint("Marks this Task skipped")
             }
         case .done:
             HStack(spacing: 6) {

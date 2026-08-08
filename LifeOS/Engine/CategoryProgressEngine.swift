@@ -117,10 +117,10 @@ enum CategoryProgressEngine {
             $0.date <= now && ($0.status == .done || $0.status == .skipped || $0.status == .rescheduled)
         }.count
 
-        let lowerName = category.name.lowercased()
-        let isNutrition = lowerName.contains("nutrition") || lowerName.contains("food")
-        let isWeight = lowerName.contains("weight") || lowerName.contains("body development") || lowerName.contains("body composition")
-        let isSport = category.pillar == .sport
+        let trackingKind = category.trackingKind
+        let isNutrition = trackingKind == .nutrition
+        let isWeight = trackingKind == .bodyWeight
+        let isSport = trackingKind == .sport
 
         let periodFood = foodEntries.filter { $0.profile?.id == profile.id && interval.contains($0.date) }
         let foodDays = Set(periodFood.map { calendar.startOfDay(for: $0.date) }).count
@@ -131,8 +131,11 @@ enum CategoryProgressEngine {
         }
 
         var completedSessions = completedItems.count
-        var completedMinutes = completedItems.reduce(0) {
-            $0 + ($1.activity?.estimatedDurationMinutes ?? 0)
+        var completedMinutes = completedItems.reduce(0) { total, item in
+            let actualMinutes = item.actualStart.flatMap { start in
+                item.actualEnd.map { end in max(Int(end.timeIntervalSince(start) / 60), 0) }
+            }
+            return total + (actualMinutes ?? item.activity?.estimatedDurationMinutes ?? 0)
         }
 
         if isNutrition { completedSessions = foodDays }

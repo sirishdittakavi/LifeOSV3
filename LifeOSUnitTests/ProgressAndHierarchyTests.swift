@@ -99,6 +99,39 @@ final class ProgressAndHierarchyTests: XCTestCase {
         XCTAssertEqual(WeightUnit.pounds.kilograms(from: pounds), kilograms, accuracy: 0.000_001)
     }
 
+    func testTrackingCapabilityIsExplicitAndSurvivesRename() {
+        let profile = TestFixtures.profile()
+        let area = AppCategory(
+            profile: profile, name: "Baseball", symbol: "figure.baseball",
+            colorToken: "orange", trackingKind: .sport
+        )
+
+        area.name = "Cricket"
+
+        XCTAssertEqual(area.trackingKind, .sport)
+        XCTAssertEqual(area.trackingKindRaw, AreaTrackingKind.sport.rawValue)
+        XCTAssertEqual(AreaTrackingKind.legacyDefault(name: "Food", pillar: .nutrition), .nutrition)
+    }
+
+    func testProfileScopeRejectsAnotherProfilesArea() {
+        let vihaan = TestFixtures.profile("Vihaan")
+        let sibling = TestFixtures.profile("Sibling")
+        let ownArea = TestFixtures.area(profile: vihaan)
+        let foreignArea = TestFixtures.area(profile: sibling)
+
+        XCTAssertEqual(ProfileScope.categories(for: vihaan, from: [foreignArea, ownArea]).map(\.id), [ownArea.id])
+        XCTAssertTrue(ProfileScope.canAssign(ownArea, to: vihaan))
+        XCTAssertFalse(ProfileScope.canAssign(foreignArea, to: vihaan))
+    }
+
+    func testCompletionTimingUsesActualEnteredDuration() {
+        let end = TestFixtures.date(2026, 1, 6, hour: 18)
+        let timing = CompletionTiming.interval(endingAt: end, durationMinutes: 37)
+
+        XCTAssertEqual(timing.end, end)
+        XCTAssertEqual(timing.end.timeIntervalSince(timing.start), 37 * 60, accuracy: 0.001)
+    }
+
     func testTargetValidationRequiresDirectionallyCorrectValues() {
         XCTAssertTrue(ResultMeasureValidation.isValidTarget(
             valueType: .number, direction: .increase,

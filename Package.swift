@@ -17,19 +17,23 @@ let package = Package(
             path: "LifeOS",
             exclude: [
                 "Views",
+                "Assets.xcassets",
                 "LifeOSApp.swift",
+                "PrivacyInfo.xcprivacy",
                 "Models/SeedData.swift",
                 "Engine/FoodCaptureService.swift",
                 "Engine/ReminderService.swift"
             ],
             sources: [
                 "Models/Models.swift",
+                "Models/SchemaVersioning.swift",
                 "Engine/CategoryHierarchy.swift",
                 "Engine/CategoryProgressEngine.swift",
                 "Engine/LifeOSBackupService.swift",
                 "Engine/ImprovementTemplates.swift",
                 "Engine/PortableMetricService.swift",
                 "Engine/PlanningService.swift",
+                "Engine/PersistenceSupport.swift",
                 "Engine/ProgressEngine.swift"
             ]
         ),

@@ -84,7 +84,7 @@ struct SportTrackerView: View {
 
     private func deleteEntries(at offsets: IndexSet) {
         offsets.map { todayEntries[$0] }.forEach(modelContext.delete)
-        try? modelContext.save()
+        modelContext.saveOrReport()
     }
 }
 
@@ -129,7 +129,7 @@ private struct WeeklySportSummary: View {
             if goalMinutes > 0 {
                 ProgressView(value: min(Double(totals.minutes) / Double(goalMinutes), 1)).tint(.orange)
             } else {
-                Text("Set weekly minutes by editing this Plan.")
+                Text("Set weekly minutes by editing this Area.")
                     .font(.caption2).foregroundStyle(.secondary)
             }
             HStack {
@@ -280,18 +280,23 @@ private struct AddSportEntryView: View {
             .navigationTitle("Log \(category.name)")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("Save", action: save) }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save", action: save)
+                        .disabled(minutes <= 0 || category.profile?.id != profile.id || category.trackingKind != .sport)
+                }
             }
         }
     }
 
     private func save() {
-        modelContext.insert(SportEntry(
+        guard category.profile?.id == profile.id, category.trackingKind == .sport else { return }
+        let entry = SportEntry(
             profile: profile, category: category, date: date, sessionName: sessionName,
             repetitions: repetitions, durationMinutes: minutes, note: note,
             perceivedEffort: perceivedEffort, soreness: soreness
-        ))
-        try? modelContext.save()
-        dismiss()
+        )
+        modelContext.insert(entry)
+        if modelContext.saveOrReport() { dismiss() }
+        else { modelContext.delete(entry) }
     }
 }

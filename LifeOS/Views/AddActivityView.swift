@@ -45,7 +45,8 @@ struct AddActivityView: View {
     }
 
     private var hasValidCategory: Bool {
-        selectedCategory != nil || (isCreatingCategory && !newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        selectedCategory.map { ProfileScope.canAssign($0, to: profile) } == true
+            || (isCreatingCategory && !newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
     private var canSave: Bool {
@@ -54,6 +55,7 @@ struct AddActivityView: View {
         (repeatType != .selectedWeekdays || !selectedWeekdays.isEmpty) &&
         scheduleFitsWithinDay &&
         startDateIsValid &&
+        (!hasTarget || !targetUnit.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) &&
         (!hasEndDate || endDate >= startDate)
     }
 
@@ -85,7 +87,9 @@ struct AddActivityView: View {
 
     init(profile: Profile, initialCategory: AppCategory? = nil) {
         self.profile = profile
-        _selectedCategory = State(initialValue: initialCategory)
+        _selectedCategory = State(initialValue:
+            initialCategory?.profile?.id == profile.id && initialCategory?.isActive == true ? initialCategory : nil
+        )
     }
 
     var body: some View {
@@ -108,7 +112,7 @@ struct AddActivityView: View {
                                 .font(.caption)
                         }
                     } else {
-                        Picker("Plan", selection: $selectedCategory) {
+                        Picker("Area", selection: $selectedCategory) {
                             Text("Choose an area").tag(AppCategory?.none)
                             ForEach(profileCategories) { category in
                                 Text(CategoryHierarchy.breadcrumbName(for: category, in: profileCategories))
@@ -173,7 +177,7 @@ struct AddActivityView: View {
                     }
 
                     if repeatType == .timesPerWeek && occurrencesPerWeek > max(1, selectedWeekdays.count) {
-                        integerEntry("Minutes between same-day actions", value: $repeatIntervalMinutes, range: 1...1439)
+                        integerEntry("Minutes between repetitions", value: $repeatIntervalMinutes, range: 1...1439)
                     }
 
                     DatePicker(
@@ -197,7 +201,7 @@ struct AddActivityView: View {
                             .foregroundStyle(.red)
                     }
                     if !startDateIsValid {
-                        Label("Choose a future date and time for this one-time action.", systemImage: "exclamationmark.triangle.fill")
+                        Label("Choose a future date and time for this one-time Task.", systemImage: "exclamationmark.triangle.fill")
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
@@ -273,7 +277,7 @@ struct AddActivityView: View {
     private var scheduleSummary: String {
         switch repeatType {
         case .once:
-            return "One action at \(formattedStartTime)."
+            return "One Task at \(formattedStartTime)."
         case .daily:
             return "Every day at \(formattedStartTime)."
         case .selectedWeekdays:
@@ -297,7 +301,7 @@ struct AddActivityView: View {
             let newCategory = AppCategory(
                 profile: profile, name: newCategoryName,
                 symbol: "target", colorToken: "blue",
-                purpose: "Improve through consistent, measurable action."
+                purpose: "Improve through consistent, measurable Task."
             )
             modelContext.insert(newCategory)
             category = newCategory
@@ -333,9 +337,14 @@ struct AddActivityView: View {
         )
         newItems.forEach { modelContext.insert($0) }
 
-        try? modelContext.save()
-        refreshReminders(afterAdding: activity, to: category)
-        dismiss()
+        if modelContext.saveOrReport() {
+            refreshReminders(afterAdding: activity, to: category)
+            dismiss()
+        } else {
+            newItems.forEach { modelContext.delete($0) }
+            modelContext.delete(activity)
+            if let category, isCreatingCategory { modelContext.delete(category) }
+        }
     }
 
     /// A parent Area's reminder setting applies to Actions inside its Focus Areas too.

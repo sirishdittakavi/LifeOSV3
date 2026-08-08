@@ -29,7 +29,8 @@ struct ProfileBackup: Codable {
 
 struct CategoryBackup: Codable {
     let id: UUID; let profileID: UUID?; let name: String; let symbol: String; let colorToken: String
-    let pillarRaw: String; let purpose: String; let weeklyTargetSessions: Int; let weeklyTargetMinutes: Int
+    let pillarRaw: String; let trackingKindRaw: String?; let purpose: String
+    let weeklyTargetSessions: Int; let weeklyTargetMinutes: Int
     let parentCategoryIDString: String?; let relatedCategoryIDStrings: [String]
     let reminderEnabled: Bool; let reminderHour: Int; let reminderMinute: Int; let isActive: Bool
 }
@@ -95,7 +96,8 @@ struct SportBackup: Codable {
 }
 
 struct SavedTemplateBackup: Codable {
-    let id: UUID; let name: String; let pillarRaw: String; let symbol: String; let colorToken: String
+    let id: UUID; let name: String; let pillarRaw: String; let trackingKindRaw: String?
+    let symbol: String; let colorToken: String
     let purpose: String; let weeklySessions: Int; let weeklyMinutes: Int
     let taskBlueprintData: Data; let createdAt: Date
 }
@@ -123,7 +125,8 @@ enum LifeOSBackupService {
             },
             categories: categories.map {
                 CategoryBackup(id: $0.id, profileID: $0.profile?.id, name: $0.name, symbol: $0.symbol,
-                    colorToken: $0.colorToken, pillarRaw: $0.pillarRaw, purpose: $0.purpose,
+                    colorToken: $0.colorToken, pillarRaw: $0.pillarRaw,
+                    trackingKindRaw: $0.trackingKindRaw, purpose: $0.purpose,
                     weeklyTargetSessions: $0.weeklyTargetSessions, weeklyTargetMinutes: $0.weeklyTargetMinutes,
                     parentCategoryIDString: $0.parentCategoryIDString,
                     relatedCategoryIDStrings: $0.relatedCategoryIDStrings,
@@ -197,6 +200,7 @@ enum LifeOSBackupService {
             },
             savedTemplates: savedTemplates.map {
                 SavedTemplateBackup(id: $0.id, name: $0.name, pillarRaw: $0.pillarRaw,
+                    trackingKindRaw: $0.trackingKindRaw,
                     symbol: $0.symbol, colorToken: $0.colorToken, purpose: $0.purpose,
                     weeklySessions: $0.weeklySessions, weeklyMinutes: $0.weeklyMinutes,
                     taskBlueprintData: $0.taskBlueprintData, createdAt: $0.createdAt)
@@ -234,6 +238,8 @@ enum LifeOSBackupService {
             item.id = record.id; item.profile = record.profileID.flatMap { profileMap[$0] }
             item.name = record.name; item.symbol = record.symbol; item.colorToken = record.colorToken
             item.pillarRaw = record.pillarRaw; item.purpose = record.purpose
+            item.trackingKindRaw = record.trackingKindRaw
+                ?? AreaTrackingKind.legacyDefault(name: record.name, pillar: item.pillar).rawValue
             item.weeklyTargetSessions = record.weeklyTargetSessions; item.weeklyTargetMinutes = record.weeklyTargetMinutes
             item.parentCategoryIDString = record.parentCategoryIDString
             item.relatedCategoryIDStrings = record.relatedCategoryIDStrings
@@ -378,6 +384,8 @@ enum LifeOSBackupService {
             let placeholder = AppCategory(name: record.name, symbol: record.symbol, colorToken: record.colorToken)
             let item = SavedCategoryTemplate(category: placeholder, activities: [])
             item.id = record.id; item.name = record.name; item.pillarRaw = record.pillarRaw
+            item.trackingKindRaw = record.trackingKindRaw
+                ?? AreaTrackingKind.legacyDefault(name: record.name, pillar: item.pillar).rawValue
             item.symbol = record.symbol; item.colorToken = record.colorToken; item.purpose = record.purpose
             item.weeklySessions = record.weeklySessions; item.weeklyMinutes = record.weeklyMinutes
             item.taskBlueprintData = record.taskBlueprintData; item.createdAt = record.createdAt

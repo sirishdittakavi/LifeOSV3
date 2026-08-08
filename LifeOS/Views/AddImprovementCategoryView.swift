@@ -36,13 +36,13 @@ struct AddImprovementCategoryView: View {
                     List {
                         Section {
                             Text(parentCategory.map {
-                                "Choose an editable starting plan inside \($0.name)."
-                            } ?? "Starter plans create an area and a few editable actions. Nothing is locked.")
+                                "Choose an editable Area Template inside \($0.name)."
+                            } ?? "Area Templates create an Area and a few editable Tasks. Nothing is locked.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
 
-                        Section("Starter Plans") {
+                        Section("Starter Areas") {
                             ForEach(ImprovementTemplates.all) { template in
                                 NavigationLink {
                                     ConfigureImprovementCategoryView(
@@ -65,7 +65,7 @@ struct AddImprovementCategoryView: View {
                         }
 
                         if !savedTemplates.isEmpty {
-                            Section("My Saved Plans") {
+                            Section("My Saved Areas") {
                                 ForEach(savedTemplates) { saved in
                                     NavigationLink {
                                         ConfigureImprovementCategoryView(
@@ -77,7 +77,7 @@ struct AddImprovementCategoryView: View {
                                         Label {
                                             VStack(alignment: .leading, spacing: 3) {
                                                 Text(saved.name)
-                                                Text("\(saved.taskBlueprints.count) actions · saved \(saved.createdAt.formatted(date: .abbreviated, time: .omitted))")
+                                                Text("\(saved.taskBlueprints.count) Tasks · saved \(saved.createdAt.formatted(date: .abbreviated, time: .omitted))")
                                                     .font(.caption).foregroundStyle(.secondary)
                                             }
                                         } icon: {
@@ -88,14 +88,14 @@ struct AddImprovementCategoryView: View {
                                     .swipeActions {
                                         Button("Delete", role: .destructive) {
                                             modelContext.delete(saved)
-                                            try? modelContext.save()
+                                            modelContext.saveOrReport()
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                    .navigationTitle("Choose a Plan")
+                    .navigationTitle("Choose an Area")
                 }
             }
             .toolbar {
@@ -115,6 +115,7 @@ private struct ConfigureImprovementCategoryView: View {
 
     @State private var name: String
     @State private var pillar: ImprovementPillar
+    @State private var trackingKind: AreaTrackingKind
     @State private var purpose: String
     @State private var sessions: Int
     @State private var minutes: Int
@@ -137,6 +138,7 @@ private struct ConfigureImprovementCategoryView: View {
         self.onCreated = onCreated
         _name = State(initialValue: template?.name ?? "")
         _pillar = State(initialValue: parentCategory?.pillar ?? template?.pillar ?? .physical)
+        _trackingKind = State(initialValue: parentCategory?.trackingKind ?? template?.trackingKind ?? .tasks)
         _purpose = State(initialValue: template?.purpose ?? "")
         _sessions = State(initialValue: template?.weeklySessions ?? 3)
         _minutes = State(initialValue: template?.weeklyMinutes ?? 120)
@@ -147,11 +149,18 @@ private struct ConfigureImprovementCategoryView: View {
 
     var body: some View {
         Form {
-            Section("Plan") {
-                TextField("Plan name, such as Baseball or School", text: $name)
+            Section("Area") {
+                TextField("Area name, such as Baseball or School", text: $name)
                 Picker("Group", selection: $pillar) {
                     ForEach(ImprovementPillar.allCases) { Text($0.rawValue).tag($0) }
                 }
+                Picker("Tracking", selection: $trackingKind) {
+                    ForEach(AreaTrackingKind.allCases) { kind in
+                        Text(kind.rawValue).tag(kind)
+                    }
+                }
+                Text(trackingKind.explanation)
+                    .font(.caption).foregroundStyle(.secondary)
                 TextField("Why does this matter?", text: $purpose, axis: .vertical)
                 DisclosureGroup("Appearance (optional)") {
                     Picker("Icon", selection: $symbol) {
@@ -194,8 +203,8 @@ private struct ConfigureImprovementCategoryView: View {
                         }
                     }
                 } else {
-                    TextField("First action (optional)", text: $customTaskName)
-                    Text("Example: Baseball → Batting practice. You can add more actions later.")
+                    TextField("First Task (optional)", text: $customTaskName)
+                    Text("Example: Baseball → Batting practice. You can add more Tasks later.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -208,12 +217,12 @@ private struct ConfigureImprovementCategoryView: View {
             }
 
             Section {
-                Button("Create Plan", action: create)
+                Button("Create Area", action: create)
                     .frame(maxWidth: .infinity)
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .navigationTitle(template == nil ? "New Plan" : "Review Plan")
+        .navigationTitle(template == nil ? "New Area" : "Review Area")
     }
 
     private func create() {
@@ -223,6 +232,7 @@ private struct ConfigureImprovementCategoryView: View {
             symbol: symbol,
             colorToken: colorToken,
             pillar: pillar,
+            trackingKind: trackingKind,
             purpose: purpose,
             weeklyTargetSessions: sessions,
             weeklyTargetMinutes: minutes
@@ -266,9 +276,13 @@ private struct ConfigureImprovementCategoryView: View {
             createdActivities.append(activity)
         }
 
-        try? modelContext.save()
-        Task { await ReminderService.updateReminders(for: category, activities: createdActivities) }
-        onCreated()
+        if modelContext.saveOrReport() {
+            Task { await ReminderService.updateReminders(for: category, activities: createdActivities) }
+            onCreated()
+        } else {
+            createdActivities.forEach { modelContext.delete($0) }
+            modelContext.delete(category)
+        }
     }
 
     private func contextInsert<T: PersistentModel>(_ model: T) {

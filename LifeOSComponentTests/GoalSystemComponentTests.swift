@@ -8,6 +8,51 @@ import UIKit
 
 @MainActor
 final class GoalSystemComponentTests: XCTestCase {
+    func testVersionOneSchemaRosterAndMigrationContainer() throws {
+        let expectedNames = Set([
+            "Profile", "SavedCategoryTemplate", "AppCategory", "Goal",
+            "GoalAreaContribution", "ResultMeasure", "ResultEntry", "Activity",
+            "CalendarItem", "ActivitySession", "FoodEntry", "WeightEntry", "SportEntry"
+        ])
+        let actualNames = Set(LifeOSSchemaV1.models.map { String(describing: $0) })
+
+        XCTAssertEqual(LifeOSSchemaV1.versionIdentifier, Schema.Version(1, 0, 0))
+        XCTAssertEqual(actualNames, expectedNames)
+        XCTAssertNoThrow(try LifeOSDataStore.makeContainer(inMemory: true))
+    }
+
+    func testVersionOnePlanOpensAStoreCreatedBeforeExplicitVersioning() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LifeOSMigration-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let storeURL = directory.appendingPathComponent("LifeOS.store")
+
+        do {
+            let originalSchema = Schema(LifeOSSchemaV1.models)
+            let originalConfiguration = ModelConfiguration(schema: originalSchema, url: storeURL)
+            let originalContainer = try ModelContainer(
+                for: originalSchema,
+                configurations: [originalConfiguration]
+            )
+            originalContainer.mainContext.insert(
+                Profile(name: "Existing Profile", kind: .child, colorToken: "blue")
+            )
+            try originalContainer.mainContext.save()
+        }
+
+        let versionedSchema = LifeOSDataStore.schema
+        let versionedConfiguration = ModelConfiguration(schema: versionedSchema, url: storeURL)
+        let versionedContainer = try ModelContainer(
+            for: versionedSchema,
+            migrationPlan: LifeOSMigrationPlan.self,
+            configurations: [versionedConfiguration]
+        )
+        let profiles = try versionedContainer.mainContext.fetch(FetchDescriptor<Profile>())
+
+        XCTAssertEqual(profiles.map(\.name), ["Existing Profile"])
+    }
+
     func testGoalGraphPersistsWithRelationshipsAndProfileIsolation() throws {
         let container = try makeContainer()
         let context = container.mainContext
@@ -48,7 +93,7 @@ final class GoalSystemComponentTests: XCTestCase {
         let profile = Profile(name: "Vihaan", kind: .child, colorToken: "blue")
         let area = AppCategory(
             profile: profile, name: "Nutrition", symbol: "fork.knife",
-            colorToken: "green", pillar: .nutrition
+            colorToken: "green", pillar: .nutrition, trackingKind: .nutrition
         )
         let goal = Goal(profile: profile, name: "Reach a healthy weight range", purpose: "Support growth")
         let contribution = GoalAreaContribution(
@@ -97,6 +142,7 @@ final class GoalSystemComponentTests: XCTestCase {
         XCTAssertEqual(entries.count, 1)
         XCTAssertEqual(contributions.first?.goal?.id, goals.first?.id)
         XCTAssertEqual(contributions.first?.category?.name, "Nutrition")
+        XCTAssertEqual(contributions.first?.category?.trackingKind, .nutrition)
         XCTAssertEqual(measures.first?.targetMinimum, 47)
         XCTAssertEqual(entries.first?.measure?.id, measures.first?.id)
         XCTAssertEqual(entries.first?.sourceLabel, "Home scale")
@@ -175,14 +221,7 @@ final class GoalSystemComponentTests: XCTestCase {
     #endif
 
     private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([
-            Profile.self, SavedCategoryTemplate.self, AppCategory.self,
-            Goal.self, GoalAreaContribution.self, ResultMeasure.self, ResultEntry.self,
-            Activity.self, CalendarItem.self, ActivitySession.self,
-            FoodEntry.self, WeightEntry.self, SportEntry.self
-        ])
-        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-        return try ModelContainer(for: schema, configurations: [configuration])
+        try LifeOSDataStore.makeContainer(inMemory: true)
     }
 }
 

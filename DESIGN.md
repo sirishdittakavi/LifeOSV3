@@ -19,15 +19,17 @@ Update this table whenever the code changes.
 | Profile identity | ✅ First version | Editable name, optional compressed photo, colour and parent/self-managed access intent |
 | Profile preferences | ✅ First version | kg/lb display plus daily nutrition targets |
 | Area model | ✅ First version | Generic editable hierarchy, profile ownership, activity-plan targets, purpose, related areas and active state |
-| Category templates | ✅ First version | Built-in School, sport, movement, nutrition, weight and recovery plans all include editable starter Actions; locally saved plans remain reusable |
+| Area templates | ✅ First version | Built-in School, sport, movement, nutrition, weight and recovery Areas include editable starter Tasks; locally saved Areas remain reusable |
 | Goal and outcome model | ✅ First version | Goal, typed primary/supporting Result Measures, Area Contributions, dated Result Check-ins, target-date comparison and five editable starter Goal templates |
 | Goal dashboard | ✅ First version | Separates result progress from Today/week/month supporting-plan adherence, evidence confidence and next action |
 | Area navigation | ✅ First version | Areas → nested Area detail; list-row edit, custom/template creation and safe deactivation |
-| Plain-language planning UX | ✅ First version | User-facing model is Plans with Tasks, plus a dedicated Goals tab for all measurable outcomes and Result Check-ins |
+| Plain-language planning UX | ✅ First version | User-facing model is Areas with Tasks, plus a dedicated Goals tab for measurable outcomes and Result Check-ins |
 | Activity model | ✅ First version | Manual/template/AI-approved source |
 | Schedule rule | ✅ First version | Once, daily, selected weekdays, any count per day/week, exact minute intervals |
 | Calendar item | ✅ First version | Every calendar entry originates from an Activity |
 | Today timeline | ✅ First version | Real-data progress ring, daily signals, due Goal Result check-ins and chronological glass depth cards with accessible 44pt controls and haptics |
+| First-run onboarding | ✅ V1 | Opens on Today, supports multi-select built-in and custom Areas, generates editable Goals, Tasks and schedules through the generic models |
+| Glacier identity | ✅ V1 | Restrained adaptive glacier artwork in the app icon and a subtle progress watermark on Today; Tasks remain visually dominant |
 | Mobile schedule | ✅ First version | Seven-day strip, focused daily agenda, graphical date jump and interactive action cards |
 | Mark Done / Skip | ✅ First version | Status and actual timestamps retained |
 | Add task manually | ✅ First version | Fast task + inline category creation, exact numeric targets, time, duration and flexible repeat |
@@ -40,8 +42,10 @@ Update this table whenever the code changes.
 | Goals and measurements | ✅ First version | Numeric, rating, milestone and written Result types; increase/decrease/range targets and scheduled/manual check-ins |
 | Notifications | ✅ First version | Profile-labelled Action reminders, weekly plan review and scheduled Goal Result check-ins |
 | JSON backup/restore | ✅ First version | Schema 2 full-family export/merge includes Goals, contributions, Result Measures, check-ins, photos and templates; schema 1 restore remains supported |
+| Store migration safety | ✅ V1 baseline | Explicit VersionedSchema and migration plan; persistent-store failure is blocked behind Retry or an explicitly confirmed, visibly marked temporary session |
+| App privacy manifest | ✅ V1 baseline | Declares app-private UserDefaults access with approved reason CA92.1; local-only records are not declared as collected off-device |
 | Portable metric contract | ✅ First version | Versioned JSON event envelope maps Action Sessions, Goal Results, nutrition, weight and generic sport evidence for Android/integrations without storing derived progress |
-| Automated regression tests | ✅ First version | 40 headless unit/component tests plus an iOS SwiftUI construction check; GitHub runs core tests and compiles both XCTest bundles on every change |
+| Automated regression tests | ✅ First version | Headless unit/component tests plus an iOS SwiftUI construction check; GitHub runs core tests and compiles both XCTest bundles on every change |
 | Repository protocol | ⚠️ Partial | Planning service separated; full persistence abstraction next |
 | Family sync and accounts | ❌ Deferred | Secure child invitations, permissions and multi-device sync require a cloud identity service |
 | Paid household management | 📐 Designed | StoreKit entitlement plus server-authoritative household/member limits; implementation deferred |
@@ -61,7 +65,7 @@ Measurable Goal and target
         ↓
 Supporting Areas and their contribution
         ↓
-Scheduled Actions
+Scheduled Tasks
         ↓
 Today's calendar
         ↓
@@ -88,14 +92,14 @@ The Goals Dashboard answers whether measured outcomes are moving toward their ta
 |---:|---|
 | 1 | **The Today calendar is the primary product surface.** |
 | 2 | **Every calendar item originates from an Activity.** No unclassified calendar-only event exists. |
-| 3 | **Each profile owns a separate calendar.** Parents and children have separate activities, plans, and history. |
+| 3 | **Each profile owns a separate calendar.** Parents and children have separate Areas, Tasks, Goals, and history. |
 | 4 | **Activities may be created manually, selected from templates, or suggested by AI—but AI/template suggestions require approval.** |
-| 5 | **Area is mandatory for every Action.** Tags are optional and support later analysis. |
+| 5 | **Area is mandatory for every Task.** Tags are optional and support later analysis. |
 | 6 | **Planned and actual values are stored separately.** Historical plans are never overwritten by actual results. |
 | 7 | **A one-time manual event still creates a one-time Activity plus a Calendar Item.** It may later be saved as reusable. |
 | 8 | **Complete-day tracking is supported but not forced.** LifeOS must not become surveillance or require accounting for every minute. |
 | 9 | **Daily and weekly schedules are generated from activity rules, then remain editable by the user.** |
-| 10 | **Goal progress and Action adherence are separate values.** Completing tasks is evidence of effort, not proof that an outcome improved. |
+| 10 | **Goal progress and Task adherence are separate values.** Completing Tasks is evidence of effort, not proof that an outcome improved. |
 
 ---
 
@@ -138,8 +142,8 @@ The engine is identical. The starter activities differ.
 Workspace / Family
   └── Profile
        ├── Areas
-       │    ├── Focus Areas
-       │    └── Actions
+       │    ├── Sub-areas
+       │    └── Tasks
        ├── Goals
        │    ├── Area Contributions
        │    ├── Primary Result Measure
@@ -175,7 +179,7 @@ Workspace / Family
 - **Area Contribution** — how one Area is expected to support a Goal, with an optional weekly Action plan. Goals and Areas are many-to-many.
 - **Result Measure** — the typed definition of success: number, rating, milestone or written assessment, plus baseline, target, direction and check-in cadence.
 - **Result Entry** — dated evidence supplied by the profile, parent, coach or an eventual import.
-- **Activity** — a reusable definition of what the person may do.
+- **Task** — the user-facing reusable definition of what the person may do; stored as `Activity` in Version 1.
 - **Schedule Rule** — when and how often the Activity should occur.
 - **Calendar Item** — one planned or unplanned occurrence on a specific day.
 - **Session** — what actually happened, including timing and measured values.
@@ -184,10 +188,10 @@ Workspace / Family
 The canonical relationship is:
 
 ```text
-Goal → Area Contributions → Actions → Result Check-ins → Comparison
+Goal → Area Contributions → Tasks → Result Check-ins → Comparison
 ```
 
-Actions inside a selected Area contribute by default. An advanced Action-level include/exclude override may be added later without changing this model.
+Tasks inside a selected Area contribute by default. An advanced Task-level include/exclude override may be added later without changing this model.
 
 No calendar item may exist without an Activity reference.
 
@@ -1221,26 +1225,26 @@ A downgrade must never delete Profile data. It may stop new invitations or cloud
 The persistence model may continue to use `AppCategory` and `Activity`, but the primary interface uses only these everyday concepts:
 
 1. **Goal** — the measurable result the person wants.
-2. **Plan** — the organised work that supports Goals, such as Baseball, School, Nutrition or Software Development.
-3. **Task** — a repeatable or one-time thing the person does inside a Plan.
+2. **Area** — the organised part of life that supports Goals, such as Baseball, School, Nutrition or Software Development.
+3. **Task** — a repeatable or one-time thing the person does inside an Area.
 4. **Result** — evidence entered when it becomes available, such as a mock-test score, weight or throwing velocity.
 5. **Today** — Tasks and Result check-ins due now.
 
 The normal creation path is therefore:
 
 ```text
-Choose or create a Plan → connect a Goal → do today's Tasks → enter a Result when available
+Choose or create an Area → connect a Goal → do today's Tasks → enter a Result when available
 ```
 
 The interface must not require a user to understand category trees, domain entities, parent IDs, pillars, target schemas or template terminology before adding the first useful action. These rules apply:
 
-- The primary Plans screen shows top-level Plans only. Optional Sub-plans appear after opening their parent.
-- Goals remain a dedicated tab that always lists every active Goal and names its connected Plans.
-- Every main `+` menu uses explicit choices: **Add a Task**, **Add a Plan**, or **Start from a Plan**.
-- A new Task may quick-create a simple top-level Plan without asking hierarchy questions.
+- The primary Areas screen shows top-level Areas only. Optional Sub-areas appear after opening their parent.
+- Goals remain a dedicated tab that always lists every active Goal and names its connected Areas.
+- Every main `+` menu uses explicit choices: **Add a Task**, **Add an Area**, or **Start from an Area Template**.
+- A new Task may quick-create a simple top-level Area without asking hierarchy questions.
 - Numeric targets are optional and collapsed by default.
-- Icons, colours, relationships, reminders and Sub-plans are progressive options.
-- Starter content is called a **Plan** in the interface. `Template` remains an internal storage term.
+- Icons, colours, relationships, reminders and Sub-areas are progressive options.
+- Starter content is called an **Area Template** only at the point of selection; the created record is an Area.
 - Empty states teach with real examples rather than exposing implementation language.
 
 The UI should make the common case fast while preserving advanced recurrence, relationships and hierarchy for people who need them.
@@ -1252,17 +1256,29 @@ Current market patterns reinforce a progressive approach:
 - Use a small number of understandable tracking choices and editable templates rather than exposing a schema during setup.
 - Open on work due today; deeper organisation should not obstruct checking off a Task.
 - Keep Goals, Tasks and habits linked, but show outcome progress separately from completion effort.
-- Use Plans primarily to group and filter related Tasks, not as another kind of Goal.
+- Use Areas primarily to group and filter related Tasks, not as another kind of Goal.
 - Show immediate target status, a weekly summary and longer-term trend comparisons.
 - For weight-related Goals, favour sustainable check-ins and never imply an unsafe deadline or automatically prescribe a target for a child.
 
-For LifeOS this means the bottom navigation is **Today · Plans · Goals · Week · Progress**. Starting from a template will eventually create the useful bundle—Plan, editable Tasks, optional Goal, Result definition and reminders—through one review screen. Advanced hierarchy remains available after setup, never before the first useful Task.
+For LifeOS this means the bottom navigation is **Today · Areas · Goals · Schedule**. Goal progress and supporting effort live together in Goals, so a fifth ambiguous Progress tab is unnecessary. Starting from a template creates an Area with editable Tasks; a Goal and Result definition remain explicit choices rather than silent additions. Advanced hierarchy remains available after setup, never before the first useful Task.
 
 ## 27. Generic Sport Tracking
 
-Baseball is an optional starter Plan, never a product-level assumption. Any Area in the **Sport Development** group—such as Cricket, Soccer, Tennis, Swimming or Baseball—receives the same sport log using that Area's editable name, icon and weekly target.
+Baseball is an optional starter Area, never a product-level assumption. Any Area explicitly configured for **Sport training**—such as Cricket, Soccer, Tennis, Swimming or Baseball—receives the same sport log using that Area's editable name, icon and weekly target. Runtime behavior never depends on matching an editable name.
 
 Sport records belong to both a Profile and a Sport Area. The first generic logger records session type, duration, optional repetitions, perceived effort, soreness and notes. Sport-specific measurements may be added later as user-defined fields; they must not be forced onto unrelated sports.
+
+### 27.1 Explicit Area tracking capability
+
+Every Area stores one tracking capability: **Tasks only**, **Food & nutrition**, **Body weight**, or **Sport training**. The user chooses it when creating or editing an Area. Sub-areas may inherit the initial choice but remain independently editable. Existing Version 1 records receive a one-time compatibility mapping; after that migration, renaming an Area cannot change its tracker or progress semantics.
+
+### 27.2 Editing and archival
+
+Tasks, Goals and Result Measures have active/archive state. Archival removes future scheduling and reminders while retaining historical Calendar Items, Sessions and Result Check-ins. Goals, their supporting Areas, Result Measures, and individual Result Check-ins are editable. Destructive history deletion is intentionally not the normal Version 1 workflow.
+
+### 27.3 Persistence failures
+
+No user-initiated save may silently discard an error. Failed saves remain on the current form and show a clear recovery message. Initial seeding is part of persistent-store preparation; if it fails, the app opens the same recovery gate as any other store failure.
 
 ---
 
