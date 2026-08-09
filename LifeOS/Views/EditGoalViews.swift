@@ -51,7 +51,7 @@ struct EditGoalView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
-                Section("Supporting Areas") {
+                Section("Supporting Plans") {
                     ForEach(profileAreas) { area in
                         Button {
                             if selectedAreaIDs.contains(area.id) { selectedAreaIDs.remove(area.id) }
@@ -65,7 +65,7 @@ struct EditGoalView: View {
                         }
                         .foregroundStyle(.primary)
                     }
-                    Text("At least one Area is required while a Goal is active.")
+                    Text("At least one Plan is required while a Goal is active.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }

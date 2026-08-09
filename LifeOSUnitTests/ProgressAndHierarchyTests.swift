@@ -54,6 +54,32 @@ final class ProgressAndHierarchyTests: XCTestCase {
         XCTAssertEqual(summary.percentComplete, 0.25, accuracy: 0.0001)
     }
 
+    func testPlannedSummaryExcludesManualCompletedWork() {
+        let profile = TestFixtures.profile()
+        let area = TestFixtures.area(profile: profile)
+        let task = Activity(
+            profile: profile, category: area, name: "Practice",
+            plannedStartMinutes: 600, estimatedDurationMinutes: 10
+        )
+        let date = TestFixtures.date(2026, 1, 6)
+        let scheduled = CalendarItem(
+            profile: profile, activity: task, date: date,
+            plannedStart: TestFixtures.date(2026, 1, 6, hour: 10)
+        )
+        let manual = CalendarItem(
+            profile: profile, activity: task, date: date,
+            plannedStart: TestFixtures.date(2026, 1, 6, hour: 12),
+            status: .done, source: .manual
+        )
+
+        let summary = ProgressEngine.completionSummary(
+            items: PlanningService.plannedItems([scheduled, manual])
+        )
+        XCTAssertEqual(summary.total, 1)
+        XCTAssertEqual(summary.done, 0)
+        XCTAssertEqual(summary.remaining, 1)
+    }
+
     func testHierarchyIncludesNestedDescendantsWithoutDuplicates() {
         let profile = TestFixtures.profile()
         let baseball = TestFixtures.area(profile: profile)

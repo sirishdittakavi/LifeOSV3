@@ -283,15 +283,17 @@ struct WeeklyScheduleView: View {
         guard let profile = selection.profile else { return }
         var inserted = false
         for date in visibleDates {
-            let newItems = PlanningService.generateMissingCalendarItems(
-                profile: profile, date: date, activities: activities, existingItems: allItems
-            )
-            newItems.forEach {
-                modelContext.insert($0)
-                inserted = true
+            do {
+                let newItems = try PlanningService.insertMissingCalendarItems(
+                    profile: profile, date: date, activities: activities, context: modelContext
+                )
+                if !newItems.isEmpty { inserted = true }
+            } catch {
+                PersistenceIssueCenter.shared.report(error)
+                return
             }
         }
-        if inserted { modelContext.saveOrReport() }
+        if inserted || modelContext.hasChanges { modelContext.saveOrReport() }
     }
 }
 
@@ -414,6 +416,7 @@ private struct WeekItemDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var recording = false
+    @State private var editingTask = false
 
     var body: some View {
         NavigationStack {
@@ -433,6 +436,16 @@ private struct WeekItemDetailView: View {
                     LabeledContent("Starts", value: item.plannedStart?.formatted(date: .omitted, time: .shortened) ?? "Any time")
                     LabeledContent("Duration", value: "\(item.activity?.estimatedDurationMinutes ?? 0) min")
                     LabeledContent("Status", value: item.status.rawValue)
+                }
+                if item.activity != nil {
+                    Section {
+                        Button { editingTask = true } label: {
+                            Label("Edit Task", systemImage: "pencil")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(LifeOSPrimaryButtonStyle())
+                        .accessibilityHint("Edit the Task name, Plan, target, schedule, time, and duration")
+                    }
                 }
                 Section("What happened?") {
                     if item.status != .done {
@@ -465,6 +478,11 @@ private struct WeekItemDetailView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Close") { dismiss() } }
             }
             .sheet(isPresented: $recording) { RecordActualView(item: item) }
+            .sheet(isPresented: $editingTask) {
+                if let activity = item.activity {
+                    EditTaskView(activity: activity)
+                }
+            }
         }
     }
 }

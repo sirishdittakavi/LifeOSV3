@@ -332,10 +332,17 @@ struct AddActivityView: View {
         // Generate today's calendar item immediately if this activity is
         // scheduled today, so it shows up on Today without waiting for the
         // next app-open regeneration pass.
-        let newItems = PlanningService.generateMissingCalendarItems(
-            profile: profile, date: .now, activities: [activity], existingItems: []
-        )
-        newItems.forEach { modelContext.insert($0) }
+        let newItems: [CalendarItem]
+        do {
+            newItems = try PlanningService.insertMissingCalendarItems(
+                profile: profile, date: .now, activities: [activity], context: modelContext
+            )
+        } catch {
+            PersistenceIssueCenter.shared.report(error)
+            modelContext.delete(activity)
+            if let category, isCreatingCategory { modelContext.delete(category) }
+            return
+        }
 
         if modelContext.saveOrReport() {
             refreshReminders(afterAdding: activity, to: category)

@@ -107,6 +107,9 @@ struct AddWhatHappenedView: View {
         let minutesSinceMidnight = calendar.component(.hour, from: startTime) * 60 + calendar.component(.minute, from: startTime)
         let durationMinutes = max(1, Int(endTime.timeIntervalSince(startTime) / 60))
 
+        let reusableStartDate = saveAsReusable
+            ? PlanningService.firstReusableDate(after: startTime, calendar: calendar)
+            : calendar.startOfDay(for: startTime)
         let activity = Activity(
             profile: profile,
             category: selectedCategory,
@@ -118,7 +121,7 @@ struct AddWhatHappenedView: View {
             repeatType: saveAsReusable ? .daily : .once,
             plannedStartMinutes: minutesSinceMidnight,
             estimatedDurationMinutes: durationMinutes,
-            startDate: calendar.startOfDay(for: startTime)
+            startDate: reusableStartDate
         )
         modelContext.insert(activity)
 

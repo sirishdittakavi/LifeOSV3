@@ -8,6 +8,7 @@ struct EditTaskView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \AppCategory.name) private var categories: [AppCategory]
     @Query private var allActivities: [Activity]
+    @Query private var allCalendarItems: [CalendarItem]
 
     @State private var name: String
     @State private var categoryID: UUID?
@@ -85,8 +86,8 @@ struct EditTaskView: View {
             Form {
                 Section("Task") {
                     TextField("Name", text: $name)
-                    Picker("Area", selection: $categoryID) {
-                        Text("Choose an Area").tag(UUID?.none)
+                    Picker("Plan", selection: $categoryID) {
+                        Text("Choose a Plan").tag(UUID?.none)
                         ForEach(profileCategories) { area in
                             Text(CategoryHierarchy.breadcrumbName(for: area, in: profileCategories))
                                 .tag(UUID?.some(area.id))
@@ -111,11 +112,11 @@ struct EditTaskView: View {
                         ForEach(RepeatType.allCases) { Text($0.rawValue).tag($0) }
                     }
                     if repeatType == .timesPerDay {
-                        numberField("Times each day", value: $occurrencesPerDay)
-                        numberField("Minutes between", value: $repeatIntervalMinutes)
+                        numberField("Times each day", value: $occurrencesPerDay, range: 1...99)
+                        numberField("Minutes between", value: $repeatIntervalMinutes, range: 1...1439)
                     }
                     if repeatType == .timesPerWeek {
-                        numberField("Times each week", value: $occurrencesPerWeek)
+                        numberField("Times each week", value: $occurrencesPerWeek, range: 1...99)
                     }
                     if repeatType == .selectedWeekdays || repeatType == .timesPerWeek {
                         weekdayPicker
@@ -128,7 +129,7 @@ struct EditTaskView: View {
                         }
                     }
                     DatePicker("Start time", selection: $plannedStart, displayedComponents: .hourAndMinute)
-                    numberField("Duration in minutes", value: $durationMinutes)
+                    numberField("Duration in minutes", value: $durationMinutes, range: 1...1440)
                 }
             }
             .navigationTitle("Edit Task")
@@ -141,9 +142,36 @@ struct EditTaskView: View {
         }
     }
 
-    private func numberField(_ title: String, value: Binding<Int>) -> some View {
-        TextField(title, value: value, format: .number)
-            .keyboardType(.numberPad)
+    private func numberField(
+        _ title: String,
+        value: Binding<Int>,
+        range: ClosedRange<Int>
+    ) -> some View {
+        LabeledContent(title) {
+            HStack(spacing: 10) {
+                Button {
+                    value.wrappedValue = max(range.lowerBound, value.wrappedValue - 1)
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Decrease \(title)")
+
+                TextField("", value: value, format: .number)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.center)
+                    .frame(width: 58)
+                    .accessibilityLabel(title)
+
+                Button {
+                    value.wrappedValue = min(range.upperBound, value.wrappedValue + 1)
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Increase \(title)")
+            }
+        }
     }
 
     private var weekdayPicker: some View {
@@ -183,6 +211,26 @@ struct EditTaskView: View {
         activity.startDate = startDate
         activity.endDate = repeatType == .once || !hasEndDate ? nil : endDate
         activity.isActive = isActive
+
+        let staleItems = PlanningService.reconcileUntouchedOccurrences(
+            for: activity, in: allCalendarItems
+        )
+        staleItems.forEach(modelContext.delete)
+
+        do {
+            let hasTodayHistory = PlanningService.hasHistory(
+                for: activity, on: .now, in: allCalendarItems
+            )
+            if let profile = activity.profile, !hasTodayHistory {
+                try PlanningService.insertMissingCalendarItems(
+                    profile: profile, date: .now,
+                    activities: [activity], context: modelContext
+                )
+            }
+        } catch {
+            PersistenceIssueCenter.shared.report(error)
+            return
+        }
 
         if modelContext.saveOrReport() {
             let areaActivities = allActivities.filter { $0.category?.id == category.id }
@@ -242,7 +290,159 @@ struct ManageAreaTasksView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
-            .sheet(item: $editingTask) { EditTaskView(activity: $0) }
+            .sheet(item: $editingTask) { TaskDetailView(activity: $0) }
+        }
+    }
+}
+
+struct TaskDetailView: View {
+    let activity: Activity
+
+    @Environment(\.dismiss) private var dismiss
+    @Query private var calendarItems: [CalendarItem]
+    @Query private var contributions: [GoalAreaContribution]
+    @State private var showingEdit = false
+
+    private var linkedGoals: [Goal] {
+        guard let categoryID = activity.category?.id else { return [] }
+        var seen = Set<UUID>()
+        return contributions.compactMap { contribution in
+            guard contribution.isActive,
+                  contribution.category?.id == categoryID,
+                  let goal = contribution.goal,
+                  goal.isActive,
+                  seen.insert(goal.id).inserted else { return nil }
+            return goal
+        }
+    }
+
+    private var history: [CalendarItem] {
+        calendarItems.filter { $0.activity?.id == activity.id }
+            .sorted { ($0.plannedStart ?? $0.date) > ($1.plannedStart ?? $1.date) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(activity.category?.name ?? "Plan", systemImage: activity.category?.symbol ?? "list.bullet.clipboard")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(activity.category.map { ColorToken.color(for: $0.colorToken) } ?? .blue)
+                        Text(activity.name).font(.title2.bold())
+                        Text(activity.isActive ? "Active Task" : "Archived Task")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(activity.isActive ? .green : .secondary)
+                    }
+                    .padding(.vertical, 6)
+
+                    Button { showingEdit = true } label: {
+                        Label("Edit Task", systemImage: "pencil")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(LifeOSPrimaryButtonStyle())
+                    .accessibilityHint("Edit the Task name, Plan, target, schedule, time, and duration")
+                }
+
+                Section("Task details") {
+                    detail("Plan", activity.category?.name ?? "Not assigned")
+                    detail("Duration", "\(activity.estimatedDurationMinutes) minutes")
+                    detail("Start time", formattedTime)
+                    detail("Repeats", repeatDescription)
+                    detail("Starts", activity.startDate.formatted(date: .abbreviated, time: .omitted))
+                    if let endDate = activity.endDate {
+                        detail("Ends", endDate.formatted(date: .abbreviated, time: .omitted))
+                    }
+                    if let target = activity.targetValue {
+                        detail("Target", "\(target.formatted(.number.precision(.fractionLength(0...2)))) \(activity.targetUnit ?? "")")
+                    } else {
+                        detail("Target", "Completion only")
+                    }
+                }
+
+                Section("Supports") {
+                    if linkedGoals.isEmpty {
+                        Text("No Progress Goal connected through this Plan.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(linkedGoals) { goal in
+                            Label(goal.name, systemImage: "scope")
+                        }
+                    }
+                }
+
+                Section("Recent history") {
+                    if history.isEmpty {
+                        Text("No occurrences recorded yet.").foregroundStyle(.secondary)
+                    } else {
+                        ForEach(history.prefix(10)) { item in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.date.formatted(date: .abbreviated, time: .omitted))
+                                    Text(item.plannedStart?.formatted(date: .omitted, time: .shortened) ?? "Any time")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(item.status.rawValue)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(statusColor(item.status))
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Task Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showingEdit = true } label: {
+                        Label("Edit Task", systemImage: "pencil")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingEdit) { EditTaskView(activity: activity) }
+        }
+    }
+
+    private func detail(_ label: String, _ value: String) -> some View {
+        LabeledContent(label, value: value)
+    }
+
+    private var formattedTime: String {
+        let hour = activity.plannedStartMinutes / 60
+        let minute = activity.plannedStartMinutes % 60
+        return Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: .now)?
+            .formatted(date: .omitted, time: .shortened) ?? "Any time"
+    }
+
+    private var repeatDescription: String {
+        switch activity.repeatType {
+        case .once: return "Once"
+        case .daily: return "Every day"
+        case .selectedWeekdays: return weekdayNames
+        case .timesPerDay: return "\(activity.occurrencesPerDay) times daily, \(activity.repeatIntervalMinutes) minutes apart"
+        case .timesPerWeek: return "\(activity.occurrencesPerWeek) times weekly · \(weekdayNames)"
+        }
+    }
+
+    private var weekdayNames: String {
+        let symbols = Calendar.current.shortWeekdaySymbols
+        return activity.weekdays.sorted().compactMap { day in
+            symbols.indices.contains(day - 1) ? symbols[day - 1] : nil
+        }.joined(separator: ", ")
+    }
+
+    private func statusColor(_ status: CalendarItemStatus) -> Color {
+        switch status {
+        case .done: return .green
+        case .inProgress: return .blue
+        case .skipped: return .secondary
+        case .rescheduled: return .orange
+        case .unplanned: return .purple
+        case .planned: return .secondary
         }
     }
 }

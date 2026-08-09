@@ -197,7 +197,7 @@ struct ImprovementCategoryDetailView: View {
         .sheet(isPresented: $showingManageTasks) {
             ManageAreaTasksView(category: category, profileCategories: profileCategories)
         }
-        .sheet(item: $editingTask) { EditTaskView(activity: $0) }
+        .sheet(item: $editingTask) { TaskDetailView(activity: $0) }
         .sheet(item: $activeTool) { tool in
             switch tool {
             case .food: FoodTrackerView(selection: selection)
@@ -414,9 +414,14 @@ private struct ActionPeriodCard: View {
                     Text(scheduleText).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
-                Text("\(summary.completedCount)/\(summary.plannedCount)")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(summary.completedCount >= summary.plannedCount ? .green : .blue)
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text("\(summary.completedCount)/\(summary.plannedCount)")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(summary.completedCount >= summary.plannedCount ? .green : .blue)
+                    Label("Edit", systemImage: "pencil")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.blue)
+                }
             }
             ProgressView(value: summary.fraction)
                 .tint(summary.completedCount >= summary.plannedCount ? .green : .blue)
@@ -517,6 +522,7 @@ struct EditImprovementCategoryView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query private var allCategories: [AppCategory]
+    @Query private var allCalendarItems: [CalendarItem]
     @State private var relatedIDs: Set<UUID>
     @State private var reminderTime: Date
     @State private var parentCategoryID: UUID?
@@ -671,6 +677,11 @@ struct EditImprovementCategoryView: View {
                 Button("Hide Area and Tasks", role: .destructive) {
                     category.isActive = false
                     activities.forEach { $0.isActive = false }
+                    activities.flatMap { activity in
+                        PlanningService.reconcileUntouchedOccurrences(
+                            for: activity, in: allCalendarItems
+                        )
+                    }.forEach(modelContext.delete)
                     if modelContext.saveOrReport() {
                         Task { await ReminderService.updateReminders(for: category, activities: activities) }
                         dismiss()

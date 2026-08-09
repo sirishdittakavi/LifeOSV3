@@ -11,8 +11,115 @@
 //
 
 import Foundation
+import SwiftData
 
 enum PlanningService {
+
+    /// The only persistence entry point for schedule generation. Fetching from
+    /// ModelContext here avoids stale @Query snapshots and prevents Add Task,
+    /// Today and Schedule from independently inserting the same occurrence.
+    @discardableResult
+    static func insertMissingCalendarItems(
+        profile: Profile,
+        date: Date,
+        activities: [Activity],
+        context: ModelContext,
+        calendar: Calendar = .current
+    ) throws -> [CalendarItem] {
+        let storedItems = try context.fetch(FetchDescriptor<CalendarItem>())
+        duplicateCalendarItems(in: storedItems, calendar: calendar).forEach(context.delete)
+        let currentItems = try context.fetch(FetchDescriptor<CalendarItem>())
+        let newItems = generateMissingCalendarItems(
+            profile: profile, date: date, activities: activities,
+            existingItems: currentItems, calendar: calendar
+        )
+        newItems.forEach(context.insert)
+        return newItems
+    }
+
+    /// Canonical identity for one scheduled occurrence. Calendar dates are
+    /// intentionally reduced to their day and minute so second/nanosecond
+    /// differences introduced by persistence cannot create another copy.
+    struct OccurrenceIdentity: Hashable {
+        let profileID: UUID
+        let activityID: UUID
+        let day: Date
+        let startMinute: Int
+    }
+
+    static func occurrenceIdentity(
+        for item: CalendarItem,
+        calendar: Calendar = .current
+    ) -> OccurrenceIdentity? {
+        guard item.source == .schedule,
+              let profileID = item.profile?.id,
+              let activityID = item.activity?.id,
+              let plannedStart = item.plannedStart else { return nil }
+        let day = calendar.startOfDay(for: item.date)
+        return OccurrenceIdentity(
+            profileID: profileID,
+            activityID: activityID,
+            day: day,
+            startMinute: calendar.dateComponents([.minute], from: day, to: plannedStart).minute ?? 0
+        )
+    }
+
+    /// Returns redundant records to remove at the persistence boundary. When
+    /// old data already contains a collision, the record with user history is
+    /// retained ahead of an untouched planned copy.
+    static func duplicateCalendarItems(
+        in items: [CalendarItem],
+        calendar: Calendar = .current
+    ) -> [CalendarItem] {
+        var keeperByIdentity: [OccurrenceIdentity: CalendarItem] = [:]
+        var duplicates: [CalendarItem] = []
+        for item in items.sorted(by: { preferredDuplicateKeeper($0, over: $1) }) {
+            guard let identity = occurrenceIdentity(for: item, calendar: calendar) else { continue }
+            if keeperByIdentity[identity] == nil { keeperByIdentity[identity] = item }
+            else if isUntouchedPlanned(item) { duplicates.append(item) }
+        }
+        return duplicates
+    }
+
+    /// Reconciles only untouched scheduled records after a Task definition is
+    /// edited. Completed, skipped, rescheduled, manual, or otherwise annotated
+    /// records are history and are never removed. The returned records no
+    /// longer belong to the edited schedule and should be deleted by the caller.
+    @discardableResult
+    static func reconcileUntouchedOccurrences(
+        for activity: Activity,
+        in items: [CalendarItem],
+        calendar: Calendar = .current
+    ) -> [CalendarItem] {
+        var stale: [CalendarItem] = []
+
+        for item in items where item.activity?.id == activity.id && item.source == .schedule {
+            guard isUntouchedPlanned(item) else { continue }
+            let day = calendar.startOfDay(for: item.date)
+            let expectedMinutes = activity.isActive
+                ? scheduledStartMinutes(activity, on: day, calendar: calendar)
+                : []
+            guard let plannedStart = item.plannedStart else {
+                stale.append(item)
+                continue
+            }
+            let actualMinute = calendar.dateComponents(
+                [.minute], from: day, to: plannedStart
+            ).minute
+
+            guard let actualMinute, expectedMinutes.contains(actualMinute) else {
+                stale.append(item)
+                continue
+            }
+
+            item.plannedEnd = calendar.date(
+                byAdding: .minute,
+                value: max(activity.estimatedDurationMinutes, 1),
+                to: plannedStart
+            )
+        }
+        return stale
+    }
 
     /// Returns the Calendar Items that need to be created for `date` — i.e.
     /// activities scheduled for that day which don't already have an item.
@@ -28,23 +135,21 @@ enum PlanningService {
         let dayStart = calendar.startOfDay(for: date)
 
         let relevantActivities = activities.filter { activity in
-            activity.profile?.id == profile.id &&
-            activity.isActive &&
-            isScheduled(activity, on: dayStart, calendar: calendar)
+            activity.profile?.id == profile.id
+                && activity.profile?.isActive == true
+                && activity.category?.profile?.id == profile.id
+                && activity.category?.isActive == true
+                && activity.isActive
+                && isScheduled(activity, on: dayStart, calendar: calendar)
         }
 
         var newItems: [CalendarItem] = []
+        var occupied = Set(existingItems.compactMap { occurrenceIdentity(for: $0, calendar: calendar) })
         for activity in relevantActivities {
             for startMinute in scheduledStartMinutes(activity, on: dayStart, calendar: calendar) {
                 let plannedStart = calendar.date(byAdding: .minute, value: startMinute, to: dayStart)
-                let alreadyExists = existingItems.contains {
-                    $0.activity?.id == activity.id &&
-                    calendar.isSameDay($0.date, as: dayStart) &&
-                    $0.plannedStart == plannedStart
-                } || newItems.contains {
-                    $0.activity?.id == activity.id && $0.plannedStart == plannedStart
-                }
-                guard !alreadyExists else { continue }
+                let identity = OccurrenceIdentity(profileID: profile.id, activityID: activity.id, day: dayStart, startMinute: startMinute)
+                guard occupied.insert(identity).inserted else { continue }
 
                 let plannedEnd = plannedStart.flatMap {
                     calendar.date(byAdding: .minute, value: activity.estimatedDurationMinutes, to: $0)
@@ -76,6 +181,7 @@ enum PlanningService {
         on date: Date,
         calendar: Calendar = .current
     ) -> [Int] {
+        guard activity.isActive, activity.category?.isActive == true else { return [] }
         let date = calendar.startOfDay(for: date)
         let startOfActivityStart = calendar.startOfDay(for: activity.startDate)
         if date < startOfActivityStart { return [] }
@@ -159,8 +265,32 @@ enum PlanningService {
         return occurrence > now
     }
 
+    /// Work logged manually is already complete for its original day. If the
+    /// user saves it as a repeating Task, its first obligation begins tomorrow.
+    static func firstReusableDate(after loggedDate: Date, calendar: Calendar = .current) -> Date {
+        let day = calendar.startOfDay(for: loggedDate)
+        return calendar.date(byAdding: .day, value: 1, to: day) ?? day
+    }
+
     static func plannedItems(_ items: [CalendarItem]) -> [CalendarItem] {
         items.filter { $0.source == .schedule && $0.status != .unplanned }
+    }
+
+    static func hasHistory(
+        for activity: Activity,
+        on date: Date,
+        in items: [CalendarItem],
+        calendar: Calendar = .current
+    ) -> Bool {
+        items.contains { item in
+            item.activity?.id == activity.id
+                && calendar.isSameDay(item.date, as: date)
+                && (item.source == .manual || !isUntouchedPlanned(item))
+        }
+    }
+
+    static func isOverdue(_ item: CalendarItem, now: Date = .now) -> Bool {
+        item.status == .planned && item.plannedStart.map { $0 < now } == true
     }
 
     private static func occurrenceTimes(
@@ -174,5 +304,21 @@ enum PlanningService {
         return (0..<safeCount)
             .map { firstStartMinute + ($0 * safeInterval) }
             .filter { $0 >= 0 && $0 < 24 * 60 }
+    }
+
+    private static func preferredDuplicateKeeper(_ lhs: CalendarItem, over rhs: CalendarItem) -> Bool {
+        func score(_ item: CalendarItem) -> Int {
+            var value = 0
+            if item.status != .planned { value += 4 }
+            if item.actualStart != nil || item.actualEnd != nil { value += 2 }
+            if !item.note.isEmpty { value += 1 }
+            return value
+        }
+        let left = score(lhs), right = score(rhs)
+        return left == right ? lhs.id.uuidString < rhs.id.uuidString : left > right
+    }
+
+    private static func isUntouchedPlanned(_ item: CalendarItem) -> Bool {
+        item.status == .planned && item.actualStart == nil && item.actualEnd == nil && item.note.isEmpty
     }
 }

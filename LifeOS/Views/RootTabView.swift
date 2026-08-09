@@ -37,10 +37,10 @@ struct RootTabView: View {
                 .tabItem { Label("Today", systemImage: "calendar") }
 
             ImprovementCategoriesView(selection: selection)
-                .tabItem { Label("Areas", systemImage: "square.grid.2x2") }
+                .tabItem { Label("Plans", systemImage: "list.bullet.clipboard") }
 
             ImprovementDashboardView(selection: selection)
-                .tabItem { Label("Goals", systemImage: "scope") }
+                .tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
 
             WeeklyScheduleView(selection: selection)
                 .tabItem { Label("Schedule", systemImage: "calendar.day.timeline.left") }
@@ -55,13 +55,15 @@ struct RootTabView: View {
         }
         .onAppear { presentOnboardingIfNeeded() }
         .onChange(of: profiles.count) { presentOnboardingIfNeeded() }
-        .fullScreenCover(isPresented: $showingOnboarding) {
+        .sheet(isPresented: $showingOnboarding) {
             if let profile = selection.profile ?? profiles.first(where: \.isActive) {
                 LifeOSOnboardingView(profile: profile) {
                     onboardingCompleted = true
                     showingOnboarding = false
                 }
                 .interactiveDismissDisabled()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
             }
         }
     }
@@ -260,7 +262,10 @@ private struct LifeOSOnboardingView: View {
         for plan in selectedPlans {
             let category = AppCategory(profile: profile, name: plan.areaName, symbol: plan.symbol, colorToken: plan.color, pillar: plan.pillar, trackingKind: plan.id == "nutrition" ? .nutrition : (plan.id == "sports" ? .sport : .tasks), purpose: "Move \(plan.areaName) forward through consistent action.", weeklyTargetSessions: plan.weekdays.count, weeklyTargetMinutes: plan.duration * plan.weekdays.count)
             let goal = Goal(profile: profile, name: plan.goalName, purpose: "Supported by \(plan.areaName).")
-            let task = Activity(profile: profile, category: category, name: plan.taskName, source: .template, targetValue: Double(plan.duration), targetUnit: "min", repeatType: .selectedWeekdays, weekdays: plan.weekdays, plannedStartMinutes: hour * 60 + minute, estimatedDurationMinutes: plan.duration)
+            // First-run selections are the user's initial daily plan. Every
+            // selected Task must therefore produce a Today occurrence; users
+            // can narrow individual schedules later in Schedule.
+            let task = Activity(profile: profile, category: category, name: plan.taskName, source: .template, targetValue: Double(plan.duration), targetUnit: "min", repeatType: .daily, weekdays: Array(1...7), plannedStartMinutes: hour * 60 + minute, estimatedDurationMinutes: plan.duration)
             let contribution = GoalAreaContribution(goal: goal, category: category, statement: "Consistent \(plan.areaName) work supports this Goal.", weeklyTargetSessions: plan.weekdays.count, weeklyTargetMinutes: plan.duration * plan.weekdays.count)
             modelContext.insert(category)
             modelContext.insert(goal)
@@ -287,8 +292,18 @@ private struct LifeOSOnboardingView: View {
             discard(createdContributions, createdActivities, createdGoals, createdCategories)
             saveFailed = true; return
         }
-        let newItems = PlanningService.generateMissingCalendarItems(profile: profile, date: .now, activities: activities + createdActivities, existingItems: [])
-        newItems.forEach(modelContext.insert)
+        let newItems: [CalendarItem]
+        do {
+            newItems = try PlanningService.insertMissingCalendarItems(
+                profile: profile, date: .now, activities: activities + createdActivities,
+                context: modelContext
+            )
+        } catch {
+            PersistenceIssueCenter.shared.report(error)
+            discard(createdContributions, createdActivities, createdGoals, createdCategories)
+            saveFailed = true
+            return
+        }
         guard modelContext.saveOrReport() else {
             newItems.forEach(modelContext.delete)
             discard(createdContributions, createdActivities, createdGoals, createdCategories)

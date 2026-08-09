@@ -27,7 +27,7 @@ struct ImprovementCategoriesView: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Areas organise what you do. Each Area contains repeatable Tasks and can support one or more Goals.")
+                        Text("A Plan groups the Tasks you do regularly to move one part of life forward.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         VStack(spacing: 10) {
@@ -42,7 +42,7 @@ struct ImprovementCategoriesView: View {
                             Button {
                                 addRoute = .custom
                             } label: {
-                                Label("Add Area", systemImage: "plus.square")
+                                Label("Create Plan", systemImage: "plus.square")
                             }
                             .buttonStyle(LifeOSSecondaryButtonStyle())
                         }
@@ -53,11 +53,11 @@ struct ImprovementCategoriesView: View {
                 if topLevelCategories.isEmpty {
                     Section {
                         ContentUnavailableView(
-                            "No Areas Yet",
+                            "No Plans Yet",
                             systemImage: "list.bullet.clipboard",
-                            description: Text("Start with Baseball, School, Nutrition or another part of life you want to work on.")
+                            description: Text("Create a Plan for Health, Career, Family, Sport or anything else you want to move forward.")
                         )
-                        Button("Create My First Area") { addRoute = .custom }
+                        Button("Create My First Plan") { addRoute = .custom }
                             .buttonStyle(LifeOSPrimaryButtonStyle())
                     }
                 }
@@ -84,7 +84,7 @@ struct ImprovementCategoriesView: View {
                                     Button {
                                         editingCategory = category
                                     } label: {
-                                        Label("Edit Area", systemImage: "pencil")
+                                        Label("Edit Plan", systemImage: "pencil")
                                     }
                                 }
                             }
@@ -92,7 +92,7 @@ struct ImprovementCategoriesView: View {
                     }
                 }
             }
-            .navigationTitle("Areas")
+            .navigationTitle("Plans")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { ProfilePicker(selection: selection) }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -106,12 +106,12 @@ struct ImprovementCategoriesView: View {
                         Button {
                             addRoute = .custom
                         } label: {
-                            Label("Add an Area", systemImage: "plus.square")
+                            Label("Create a Plan", systemImage: "plus.square")
                         }
                         Button {
                             addRoute = .templates
                         } label: {
-                            Label("Start from an Area Template", systemImage: "square.grid.2x2")
+                            Label("Start from a Plan Template", systemImage: "square.grid.2x2")
                         }
                     } label: {
                         Image(systemName: "plus")

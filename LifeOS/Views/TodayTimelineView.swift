@@ -25,7 +25,15 @@ struct TodayTimelineView: View {
     @State private var showingAddWhatHappened = false
     @State private var recordingItem: CalendarItem?
     @State private var resultMeasureToRecord: ResultMeasure?
+    @State private var selectedTask: Activity?
     @State private var feedbackTrigger = 0
+    @State private var completedExpanded = false
+    @State private var showingTaskOverview = false
+    @State private var showingFoodTracker = false
+    @State private var showingWeightTracker = false
+    @State private var showingSportTracker = false
+    @State private var selectedOverviewPlan: AppCategory?
+    @State private var showingAddPlan = false
 
     private var todayItems: [CalendarItem] {
         guard let profile = selection.profile else { return [] }
@@ -36,7 +44,29 @@ struct TodayTimelineView: View {
     }
 
     private var summary: CompletionSummary {
-        ProgressEngine.completionSummary(items: todayItems)
+        ProgressEngine.completionSummary(items: PlanningService.plannedItems(todayItems))
+    }
+
+    private var activeItems: [CalendarItem] {
+        todayItems.filter { $0.status == .planned || $0.status == .inProgress }
+    }
+    private var decidedItems: [CalendarItem] {
+        todayItems.filter {
+            $0.status == .done || $0.status == .skipped
+                || $0.status == .rescheduled || $0.status == .unplanned
+        }
+    }
+    private var overdueItems: [CalendarItem] {
+        activeItems.filter { PlanningService.isOverdue($0) }
+    }
+    private var nextItem: CalendarItem? {
+        activeItems.first { $0.status == .inProgress }
+            ?? activeItems.first { !PlanningService.isOverdue($0) }
+    }
+    private var restOfDayItems: [CalendarItem] {
+        activeItems.filter {
+            $0.id != nextItem?.id && !PlanningService.isOverdue($0)
+        }
     }
 
     private var dueResultMeasures: [ResultMeasure] {
@@ -60,10 +90,10 @@ struct TodayTimelineView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 16) {
                         dayHeading
-                        TodayProgressHero(summary: summary)
-                        dailySignals
+                        compactDailyProgress
+                        overviewGrid
                         dueResults
-                        journey
+                        todaySections
                     }
                     .padding(.horizontal, LifeOSSpacing.lg)
                     .padding(.top, LifeOSSpacing.sm)
@@ -106,6 +136,31 @@ struct TodayTimelineView: View {
             .sheet(item: $recordingItem) { item in
                 RecordActualView(item: item)
             }
+            .sheet(item: $selectedTask) { TaskDetailView(activity: $0) }
+            .sheet(isPresented: $showingTaskOverview) {
+                TodayTaskOverviewView(items: todayItems)
+            }
+            .sheet(isPresented: $showingFoodTracker) {
+                FoodTrackerView(selection: selection)
+            }
+            .sheet(isPresented: $showingWeightTracker) {
+                WeightTrackerView(selection: selection)
+            }
+            .sheet(isPresented: $showingSportTracker) {
+                if let category = sportPlan {
+                    SportTrackerView(selection: selection, category: category)
+                }
+            }
+            .sheet(item: $selectedOverviewPlan) { category in
+                NavigationStack {
+                    ImprovementCategoryDetailView(selection: selection, category: category)
+                }
+            }
+            .sheet(isPresented: $showingAddPlan) {
+                if let profile = selection.profile {
+                    AddImprovementCategoryView(profile: profile)
+                }
+            }
             .sheet(item: $resultMeasureToRecord) { measure in
                 if let profile = selection.profile {
                     AddResultEntryView(profile: profile, measure: measure)
@@ -147,6 +202,31 @@ struct TodayTimelineView: View {
         .padding(.vertical, 10)
         .background(.ultraThinMaterial)
         .accessibilityHint("Record an unscheduled Task, meal, weight, or sport session")
+    }
+
+    private var compactDailyProgress: some View {
+        let percent = Int((summary.percentComplete * 100).rounded())
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Today's progress")
+                    .font(.subheadline.weight(.bold))
+                Spacer()
+                Text("\(percent)%")
+                    .font(.subheadline.weight(.bold).monospacedDigit())
+                    .foregroundStyle(.blue)
+            }
+            ProgressView(value: summary.percentComplete)
+                .tint(summary.remaining == 0 && summary.total > 0 ? .green : .blue)
+                .scaleEffect(y: 1.7)
+            Text(summary.total == 0
+                 ? "No Tasks scheduled today"
+                 : "\(summary.done) of \(summary.total) Tasks complete")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .lifeOSGlassCard(tint: .blue, cornerRadius: 20)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Today's progress, \(percent) percent, \(summary.done) of \(summary.total) Tasks complete")
     }
 
     private var dailySignals: some View {
@@ -193,6 +273,125 @@ struct TodayTimelineView: View {
                     symbol: sportSymbol, color: .orange
                 )
             }
+        }
+    }
+
+    private var sportPlan: AppCategory? {
+        guard let profile = selection.profile else { return nil }
+        return categories.first {
+            $0.profile?.id == profile.id && $0.isActive && $0.trackingKind == .sport
+        }
+    }
+
+    private var overviewPlans: [AppCategory] {
+        guard let profile = selection.profile else { return [] }
+        let profilePlans = categories.filter { $0.profile?.id == profile.id && $0.isActive }
+        return profilePlans
+            .filter { CategoryHierarchy.isTopLevel($0, in: profilePlans) }
+            .sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+    }
+
+    private var overviewGrid: some View {
+        let profile = selection.profile
+        return VStack(alignment: .leading, spacing: 10) {
+            sectionLabel("OVERVIEW", symbol: "square.grid.2x2.fill")
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                TodayOverviewTile(
+                    title: "Tasks", symbol: "checklist", tint: .blue,
+                    value: "\(summary.done)/\(summary.total)",
+                    detail: summary.remaining == 0 && summary.total > 0 ? "Plan complete" : "\(summary.remaining) remaining",
+                    progress: summary.percentComplete,
+                    action: { showingTaskOverview = true }
+                )
+                TodayOverviewTile(
+                    title: "Check-ins", symbol: "list.clipboard.fill", tint: .orange,
+                    value: "\(dueResultMeasures.count)",
+                    detail: dueResultMeasures.isEmpty ? "Nothing due" : "Results due",
+                    progress: nil,
+                    action: { resultMeasureToRecord = dueResultMeasures.first }
+                )
+                ForEach(Array(overviewPlans.prefix(3))) { plan in
+                    let snapshot = overviewSnapshot(for: plan, profile: profile)
+                    TodayOverviewTile(
+                        title: plan.name,
+                        symbol: plan.symbol,
+                        tint: ColorToken.color(for: plan.colorToken),
+                        value: snapshot.value,
+                        detail: snapshot.detail,
+                        progress: snapshot.progress,
+                        action: { selectedOverviewPlan = plan }
+                    )
+                }
+            }
+
+            Button {
+                showingAddPlan = true
+            } label: {
+                Label("Add another Plan later", systemImage: "plus.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.blue)
+
+            if overviewPlans.count > 3 {
+                Text("Only 3 Plans are kept on Home. Your other \(overviewPlans.count - 3) Plan\(overviewPlans.count == 4 ? "" : "s") remain available in Plans.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .multilineTextAlignment(.center)
+            }
+        }
+    }
+
+    private func overviewSnapshot(for plan: AppCategory, profile: Profile?) -> TodayPlanSnapshot {
+        let planIDs = CategoryHierarchy.idsIncludingDescendants(of: plan, in: categories)
+        let planItems = todayItems.filter {
+            $0.activity?.category.map { planIDs.contains($0.id) } == true
+        }
+        let planSummary = ProgressEngine.completionSummary(
+            items: PlanningService.plannedItems(planItems)
+        )
+
+        switch plan.trackingKind {
+        case .nutrition:
+            let entries = foodEntries.filter {
+                $0.profile?.id == profile?.id && Calendar.current.isDateInToday($0.date)
+            }
+            let calories = entries.reduce(0.0) { $0 + $1.calories }
+            let protein = entries.reduce(0.0) { $0 + $1.proteinGrams }
+            let target = max(profile?.proteinGoalGrams ?? 0, 1)
+            return TodayPlanSnapshot(
+                value: "\(Int(calories)) kcal",
+                detail: "\(Int(protein))/\(Int(profile?.proteinGoalGrams ?? 0))g protein",
+                progress: min(protein / target, 1)
+            )
+        case .bodyWeight:
+            let latest = weightEntries.first { $0.profile?.id == profile?.id }
+            let unit = profile?.weightUnit ?? .kilograms
+            let value = latest.map {
+                "\(unit.displayValue(kilograms: $0.kilograms).formatted(.number.precision(.fractionLength(1)))) \(unit.rawValue)"
+            } ?? "No entry"
+            return TodayPlanSnapshot(value: value, detail: "Latest check-in", progress: nil)
+        case .sport:
+            let minutes = sportEntries.filter {
+                $0.profile?.id == profile?.id
+                    && $0.category.map { planIDs.contains($0.id) } == true
+                    && Calendar.current.isDateInToday($0.date)
+            }.reduce(0) { $0 + $1.durationMinutes }
+            let taskDetail = planSummary.total > 0
+                ? "\(planSummary.done)/\(planSummary.total) Tasks done"
+                : "Open training details"
+            return TodayPlanSnapshot(value: "\(minutes) min", detail: taskDetail,
+                                     progress: planSummary.total > 0 ? planSummary.percentComplete : nil)
+        case .tasks:
+            return TodayPlanSnapshot(
+                value: "\(planSummary.done)/\(planSummary.total)",
+                detail: planSummary.total == 0 ? "No Tasks today" : "\(planSummary.remaining) remaining",
+                progress: planSummary.total > 0 ? planSummary.percentComplete : nil
+            )
         }
     }
 
@@ -249,16 +448,8 @@ struct TodayTimelineView: View {
         }
     }
 
-    private var journey: some View {
+    private var todaySections: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                sectionLabel("TODAY'S JOURNEY", symbol: "calendar.day.timeline.left")
-                Spacer()
-                Text("\(todayItems.count) \(todayItems.count == 1 ? "Task" : "Tasks")")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
             if todayItems.isEmpty {
                 ContentUnavailableView(
                     "Nothing Scheduled",
@@ -268,16 +459,57 @@ struct TodayTimelineView: View {
                 .frame(maxWidth: .infinity, minHeight: 230)
                 .lifeOSGlassCard(tint: .blue)
             } else {
-                ForEach(todayItems) { item in
-                    CalendarItemRow(
-                        item: item,
-                        onStart: { feedbackTrigger += 1; start(item) },
-                        onDone: { feedbackTrigger += 1; recordingItem = item },
-                        onSkip: { feedbackTrigger += 1; skip(item) }
-                    )
+                if let nextItem {
+                    sectionLabel("NEXT TASK", symbol: "arrow.forward.circle.fill")
+                    itemRow(nextItem)
+                }
+                if !restOfDayItems.isEmpty {
+                    sectionLabel("REST OF DAY", symbol: "calendar.day.timeline.left")
+                        .padding(.top, 6)
+                    ForEach(restOfDayItems) { item in itemRow(item) }
+                }
+                if !overdueItems.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        sectionLabel("OVERDUE", symbol: "clock.badge.exclamationmark.fill")
+                            .foregroundStyle(.orange)
+                        Text("Earlier Tasks remain available—complete, skip or edit them.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 6)
+                    ForEach(overdueItems) { item in itemRow(item) }
+                }
+                if !decidedItems.isEmpty {
+                    Button {
+                        withAnimation(.lifeOSReveal) { completedExpanded.toggle() }
+                    } label: {
+                        HStack {
+                            sectionLabel("COMPLETED & DECIDED", symbol: "checkmark.circle.fill")
+                            Spacer()
+                            Text("\(decidedItems.count)").font(.caption.weight(.bold))
+                            Image(systemName: completedExpanded ? "chevron.up" : "chevron.down")
+                        }
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    if completedExpanded {
+                        ForEach(decidedItems) { item in itemRow(item) }
+                    }
                 }
             }
         }
+    }
+
+    private func itemRow(_ item: CalendarItem) -> some View {
+        CalendarItemRow(
+            item: item,
+            onStart: { feedbackTrigger += 1; start(item) },
+            onDone: { feedbackTrigger += 1; recordingItem = item },
+            onSkip: { feedbackTrigger += 1; skip(item) },
+            onDetails: { selectedTask = item.activity },
+            isOverdue: PlanningService.isOverdue(item)
+        )
     }
 
     private func sectionLabel(_ title: String, symbol: String) -> some View {
@@ -289,12 +521,14 @@ struct TodayTimelineView: View {
 
     private func generateTodayItemsIfNeeded() {
         guard let profile = selection.profile else { return }
-        let newItems = PlanningService.generateMissingCalendarItems(
-            profile: profile, date: .now, activities: activities, existingItems: allItems
-        )
-        guard !newItems.isEmpty else { return }
-        newItems.forEach { modelContext.insert($0) }
-        if !modelContext.saveOrReport() { newItems.forEach { modelContext.delete($0) } }
+        do {
+            let newItems = try PlanningService.insertMissingCalendarItems(
+                profile: profile, date: .now, activities: activities, context: modelContext
+            )
+            if !newItems.isEmpty || modelContext.hasChanges { _ = modelContext.saveOrReport() }
+        } catch {
+            PersistenceIssueCenter.shared.report(error)
+        }
     }
 
     private func start(_ item: CalendarItem) {
@@ -465,11 +699,165 @@ private struct DailySignalCard: View {
     }
 }
 
+private struct TodayPlanSnapshot {
+    let value: String
+    let detail: String
+    let progress: Double?
+}
+
+private struct TodayOverviewTile: View {
+    let title: String
+    let symbol: String
+    let tint: Color
+    let value: String
+    let detail: String
+    let progress: Double?
+    let action: () -> Void
+
+    private var safeProgress: Double? {
+        guard let progress, progress.isFinite else { return nil }
+        return min(max(progress, 0), 1)
+    }
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Text(title)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.tertiary)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: symbol)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 44, height: 44)
+                    .background(tint.opacity(0.11), in: Circle())
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(value)
+                        .font(.title3.weight(.bold).monospacedDigit())
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                if let safeProgress {
+                    ProgressView(value: safeProgress)
+                        .tint(tint)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 150, alignment: .leading)
+            .padding(16)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(.white.opacity(0.16), lineWidth: 0.75)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), \(value), \(detail)")
+        .accessibilityHint("Opens \(title)")
+    }
+}
+
+private struct TodayTaskOverviewView: View {
+    let items: [CalendarItem]
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedTask: Activity?
+
+    private var sortedItems: [CalendarItem] {
+        items.sorted { ($0.plannedStart ?? .distantFuture) < ($1.plannedStart ?? .distantFuture) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    if sortedItems.isEmpty {
+                        ContentUnavailableView(
+                            "No Tasks Today",
+                            systemImage: "checklist",
+                            description: Text("Scheduled Tasks will appear here.")
+                        )
+                    } else {
+                        ForEach(sortedItems) { item in
+                            Button {
+                                selectedTask = item.activity
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Text(item.plannedStart?.formatted(date: .omitted, time: .shortened) ?? "Any time")
+                                        .font(.caption.weight(.semibold).monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                        .frame(width: 62, alignment: .leading)
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(item.activity?.name ?? "Task")
+                                            .font(.body.weight(.semibold))
+                                            .foregroundStyle(.primary)
+                                        Text(taskDetail(for: item))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                    Spacer(minLength: 4)
+                                    StatusBadge(status: item.status, isOverdue: PlanningService.isOverdue(item))
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .frame(minHeight: 48)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Shows all Task details")
+                        }
+                    }
+                } header: {
+                    Text("All \(sortedItems.count) Tasks")
+                } footer: {
+                    Text("Tap any Task to view its full details and edit its schedule, duration, target, and Plan.")
+                }
+            }
+            .navigationTitle("Today's Tasks")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .sheet(item: $selectedTask) { TaskDetailView(activity: $0) }
+        }
+    }
+
+    private func taskDetail(for item: CalendarItem) -> String {
+        let plan = item.activity?.category?.name ?? "No Plan"
+        let duration = item.activity?.estimatedDurationMinutes ?? 0
+        return duration > 0 ? "\(plan) · \(duration) min" : plan
+    }
+}
+
 private struct CalendarItemRow: View {
     let item: CalendarItem
     let onStart: () -> Void
     let onDone: () -> Void
     let onSkip: () -> Void
+    let onDetails: () -> Void
+    let isOverdue: Bool
 
     private var categoryColor: Color {
         item.activity?.category.map { ColorToken.color(for: $0.colorToken) } ?? .blue
@@ -477,7 +865,8 @@ private struct CalendarItemRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 13) {
-            HStack(alignment: .top, spacing: 12) {
+            Button(action: onDetails) {
+                HStack(alignment: .top, spacing: 12) {
                 VStack(spacing: 5) {
                     Image(systemName: item.activity?.category?.symbol ?? "circle.fill")
                         .font(.subheadline.weight(.semibold))
@@ -486,7 +875,7 @@ private struct CalendarItemRow: View {
                         .background(categoryColor.opacity(0.11), in: Circle())
                     Text(item.plannedStart?.formatted(date: .omitted, time: .shortened) ?? "Any time")
                         .font(.caption2.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(isOverdue ? .orange : .secondary)
                         .lineLimit(1)
                 }
                 .frame(width: 64)
@@ -502,7 +891,7 @@ private struct CalendarItemRow: View {
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
-                        StatusBadge(status: item.status)
+                        StatusBadge(status: item.status, isOverdue: isOverdue)
                     }
                     if let duration = item.activity?.estimatedDurationMinutes, duration > 0 {
                         Label("\(duration) min", systemImage: "clock")
@@ -510,8 +899,15 @@ private struct CalendarItemRow: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
-                Spacer(minLength: 0)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.tertiary)
+                        .frame(minHeight: 44)
+                }
             }
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows all Task details")
 
             actionButtons
         }
@@ -563,8 +959,10 @@ private struct CalendarItemRow: View {
 
 private struct StatusBadge: View {
     let status: CalendarItemStatus
+    var isOverdue = false
 
     private var color: Color {
+        if isOverdue { return .orange }
         switch status {
         case .done: return .green
         case .inProgress: return .blue
@@ -576,7 +974,7 @@ private struct StatusBadge: View {
     }
 
     var body: some View {
-        Text(status.rawValue)
+        Text(isOverdue ? "Overdue" : status.rawValue)
             .font(.caption2.weight(.semibold))
             .foregroundStyle(color)
             .padding(.horizontal, 7)

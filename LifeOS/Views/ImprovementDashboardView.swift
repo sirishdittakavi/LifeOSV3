@@ -53,9 +53,9 @@ struct ImprovementDashboardView: View {
 
                     if progresses.isEmpty {
                         ContentUnavailableView {
-                            Label("No Goals Yet", systemImage: "scope")
+                            Label("No Progress Goals Yet", systemImage: "scope")
                         } description: {
-                            Text("Create a measurable Goal, connect the Areas that support it, and add Results when they become available.")
+                            Text("Choose the result you want from a Plan, then record check-ins when evidence becomes available.")
                         } actions: {
                             VStack(spacing: 10) {
                                 Button("Choose a Goal Template") {
@@ -71,33 +71,21 @@ struct ImprovementDashboardView: View {
                         }
                         .padding(.top, 24)
                     } else {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("GOALS").font(.caption.bold()).foregroundStyle(.secondary)
-                            ForEach(progresses) { progress in
-                                NavigationLink {
-                                    GoalDetailView(
-                                        selection: selection, goal: progress.goal, period: period
-                                    )
-                                } label: {
-                                    GoalProgressCard(progress: progress)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
+                        goalIndex
                     }
 
                     if !profileCategories.isEmpty {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text("AREAS SUPPORT THE GOALS")
+                            Text("PLANS CREATE THE PROGRESS")
                                 .font(.caption.bold()).foregroundStyle(.secondary)
-                            Text("Areas contain the Tasks you do. Results show whether each Goal is working.")
+                            Text("Plans contain your regular Tasks. Results show whether that work is moving you forward.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }
                 .padding()
             }
-            .navigationTitle("Goals")
+            .navigationTitle("Progress")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { ProfilePicker(selection: selection) }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -116,10 +104,10 @@ struct ImprovementDashboardView: View {
                         }
                         .disabled(profileCategories.isEmpty)
                         Button { showingAddArea = true } label: {
-                            Label("Add an Area", systemImage: "plus.square")
+                            Label("Create a Plan", systemImage: "plus.square")
                         }
                         Button { showingStarterPlans = true } label: {
-                            Label("Start from an Area Template", systemImage: "square.grid.2x2")
+                            Label("Start from a Plan Template", systemImage: "square.grid.2x2")
                         }
                     } label: { Image(systemName: "plus") }
                     .disabled(selection.profile == nil)
@@ -153,6 +141,84 @@ struct ImprovementDashboardView: View {
             }
         }
     }
+
+    private var goalIndex: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("GOALS BY PLAN").font(.caption.bold()).foregroundStyle(.secondary)
+            ForEach(profileCategories.filter { category in
+                progresses.contains { progress in
+                    progress.contributions.contains { $0.contribution.category?.id == category.id }
+                }
+            }) { category in
+                let areaGoals = progresses.filter { progress in
+                    progress.contributions.contains { $0.contribution.category?.id == category.id }
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    Label(category.name, systemImage: category.symbol)
+                        .font(.headline)
+                        .foregroundStyle(ColorToken.color(for: category.colorToken))
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        ForEach(areaGoals) { progress in goalLink(progress, category: category) }
+                    }
+                }
+                .lifeOSGlassCard(tint: ColorToken.color(for: category.colorToken), cornerRadius: 26)
+            }
+
+            let ungrouped = progresses.filter(\.contributions.isEmpty)
+            if !ungrouped.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Unassigned", systemImage: "square.dashed")
+                        .font(.headline).foregroundStyle(.secondary)
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        ForEach(ungrouped) { progress in goalLink(progress, category: nil) }
+                    }
+                }
+            }
+        }
+    }
+
+    private func goalLink(_ progress: GoalProgress, category: AppCategory?) -> some View {
+        NavigationLink {
+            GoalDetailView(selection: selection, goal: progress.goal, period: period)
+        } label: {
+            GoalIndexTile(progress: progress, tint: category.map { ColorToken.color(for: $0.colorToken) } ?? .blue)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct GoalIndexTile: View {
+    let progress: GoalProgress
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(tint.gradient)
+                Image(systemName: "scope").font(.title2.bold()).foregroundStyle(.white)
+            }
+            .frame(width: 48, height: 48)
+            Text(progress.goal.name).font(.subheadline.weight(.semibold)).lineLimit(2)
+            Spacer(minLength: 0)
+            if let fraction = progress.resultFraction {
+                ProgressView(value: fraction).tint(tint)
+                Text("\(Int((fraction * 100).rounded()))% result")
+                    .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+            } else {
+                Text(progress.status.rawValue).font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 145, alignment: .topLeading)
+        .padding(13)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 19, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 19, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 0.75)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
+        .accessibilityElement(children: .combine)
+    }
 }
 
 private struct GoalTemplatePickerView: View {
@@ -163,7 +229,7 @@ private struct GoalTemplatePickerView: View {
         NavigationStack {
             List {
                 Section {
-                    Text("Choose an editable starting point. Review the Result, personal values, supporting Areas and reminder before saving.")
+                    Text("Choose an editable starting point. Review the Result, personal values, supporting Plans and reminder before saving.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -410,7 +476,7 @@ private struct GoalDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { showingEditGoal = true } label: { Image(systemName: "pencil") }
+                Button { showingEditGoal = true } label: { Label("Edit Goal", systemImage: "pencil") }
                     .accessibilityLabel("Edit Goal")
             }
         }
@@ -442,14 +508,13 @@ private struct GoalDetailView: View {
                 HStack(spacing: 8) {
                     Button("Enter Result") { selectedMeasure = measure }
                         .buttonStyle(.borderedProminent).controlSize(.small)
-                    Menu {
-                        Button { editingMeasure = measure } label: {
-                            Label("Edit Measure", systemImage: "pencil")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .frame(width: 44, height: 44)
+                    Button { editingMeasure = measure } label: {
+                        Label("Edit", systemImage: "pencil")
+                            .frame(minHeight: 44)
                     }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .accessibilityLabel("Edit \(measure.name) result settings")
                 }
             }
 
