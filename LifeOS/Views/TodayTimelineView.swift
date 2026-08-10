@@ -849,7 +849,7 @@ private struct TodayTaskOverviewView: View {
                                             .lineLimit(1)
                                     }
                                     Spacer(minLength: 4)
-                                    StatusBadge(status: item.status, isOverdue: PlanningService.isOverdue(item, now: currentTime))
+                                    StatusBadge(status: item.status, isOverdue: PlanningService.isOverdue(item))
                                     Image(systemName: "chevron.right")
                                         .font(.caption.weight(.bold))
                                         .foregroundStyle(.tertiary)
