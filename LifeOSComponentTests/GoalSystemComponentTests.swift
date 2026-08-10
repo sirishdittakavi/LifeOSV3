@@ -8,6 +8,27 @@ import UIKit
 
 @MainActor
 final class GoalSystemComponentTests: XCTestCase {
+    func testDamagedBackupIsRejectedBeforeItCanMutateTheStore() throws {
+        let id = UUID()
+        let profile = ProfileBackup(
+            id: id, name: "Player", kindRaw: ProfileKind.individual.rawValue,
+            colorToken: "blue", weightUnitRaw: WeightUnit.kilograms.rawValue,
+            avatarData: nil, managementModeRaw: nil, weightGoalKilograms: nil,
+            calorieGoal: 2_000, proteinGoalGrams: 120, carbohydrateGoalGrams: 250,
+            fatGoalGrams: 65, waterGoalMilliliters: 2_000, isActive: true
+        )
+        let backup = LifeOSBackupPayload(
+            schemaVersion: 2, exportedAt: .now, profiles: [profile, profile], categories: [],
+            goals: [], goalContributions: [], resultMeasures: [], resultEntries: [],
+            activities: [], calendarItems: [], sessions: [], foodEntries: [],
+            weightEntries: [], sportEntries: [], savedTemplates: []
+        )
+        let container = try LifeOSDataStore.makeContainer(inMemory: true)
+
+        XCTAssertThrowsError(try LifeOSBackupService.restore(backup, into: container.mainContext))
+        XCTAssertTrue(try container.mainContext.fetch(FetchDescriptor<Profile>()).isEmpty)
+    }
+
     func testWeeklyNutritionPlanTracksActualMealsAndDeviationsWithoutInflatingTotals() throws {
         let container = try makeContainer()
         let context = container.mainContext
@@ -385,6 +406,10 @@ final class GoalSystemComponentTests: XCTestCase {
         let actualNames = Set(LifeOSSchemaV1.models.map { String(describing: $0) })
 
         XCTAssertEqual(LifeOSSchemaV1.versionIdentifier, Schema.Version(1, 0, 0))
+        XCTAssertEqual(
+            LifeOSSchemaV1.releaseFingerprint,
+            "LifeOSSchemaV1:1.0.0:Profile,SavedCategoryTemplate,AppCategory,Goal,GoalAreaContribution,ResultMeasure,ResultEntry,Activity,CalendarItem,ActivitySession,FoodEntry,WeightEntry,SportEntry"
+        )
         XCTAssertEqual(actualNames, expectedNames)
         XCTAssertNoThrow(try LifeOSDataStore.makeContainer(inMemory: true))
     }

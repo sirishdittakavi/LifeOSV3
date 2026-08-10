@@ -84,6 +84,27 @@ final class ProgressAndHierarchyTests: XCTestCase {
         XCTAssertEqual(report.buckets.map(\.total), [3, 0])
     }
 
+    func testPeriodReportSynthesizesFuturePlanAndMarksSameDayOverdue() {
+        let profile = TestFixtures.profile()
+        let area = TestFixtures.area(profile: profile)
+        let firstDay = TestFixtures.date(2026, 8, 10)
+        let task = Activity(
+            profile: profile, category: area, name: "Practice",
+            repeatType: .daily, plannedStartMinutes: 600,
+            estimatedDurationMinutes: 10, startDate: firstDay
+        )
+
+        let report = ProgressEngine.periodCompletionReport(
+            profile: profile,
+            interval: DateInterval(start: firstDay, end: TestFixtures.date(2026, 8, 12)),
+            items: [], activities: [task], now: TestFixtures.date(2026, 8, 10, hour: 12),
+            calendar: TestFixtures.calendar
+        )
+
+        XCTAssertEqual([report.done, report.missed, report.remaining, report.total], [0, 1, 1, 2])
+        XCTAssertEqual(report.buckets.map(\.total), [1, 1])
+    }
+
     func testPlannedSummaryExcludesManualCompletedWork() {
         let profile = TestFixtures.profile()
         let area = TestFixtures.area(profile: profile)

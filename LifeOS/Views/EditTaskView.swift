@@ -233,6 +233,7 @@ struct EditTaskView: View {
                 )
             }
         } catch {
+            modelContext.rollback()
             PersistenceIssueCenter.shared.report(error)
             return
         }
@@ -246,6 +247,8 @@ struct EditTaskView: View {
                 )
             }
             dismiss()
+        } else {
+            modelContext.rollback()
         }
     }
 }

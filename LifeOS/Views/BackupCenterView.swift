@@ -121,6 +121,7 @@ struct BackupCenterView: View {
             try LifeOSBackupService.restore(payload, into: modelContext)
             showStatus("Backup Restored", "Profiles and records were merged successfully. Existing matching records were not duplicated.")
         } catch {
+            modelContext.rollback()
             showStatus("Restore Failed", error.localizedDescription)
         }
     }

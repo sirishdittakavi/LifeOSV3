@@ -25,9 +25,12 @@ final class SelectedProfile {
 }
 
 struct RootTabView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selection = SelectedProfile()
     @State private var persistenceIssues = PersistenceIssueCenter.shared
     @Query(sort: \Profile.name) private var profiles: [Profile]
+    @Query private var categories: [AppCategory]
+    @Query private var activities: [Activity]
     @AppStorage("LifeOS.onboarding.v1.completed") private var onboardingCompleted = false
     @State private var showingOnboarding = false
 
@@ -53,8 +56,14 @@ struct RootTabView: View {
         } message: {
             Text(persistenceIssues.message ?? "Please try again.")
         }
-        .onAppear { presentOnboardingIfNeeded() }
+        .onAppear {
+            presentOnboardingIfNeeded()
+            refreshReminders()
+        }
         .onChange(of: profiles.count) { presentOnboardingIfNeeded() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { refreshReminders() }
+        }
         .sheet(isPresented: $showingOnboarding) {
             if let profile = selection.profile ?? profiles.first(where: \.isActive) {
                 LifeOSOnboardingView(profile: profile) {
@@ -73,6 +82,19 @@ struct RootTabView: View {
               let profile = profiles.first(where: \.isActive) else { return }
         if selection.profile == nil { selection.profile = profile }
         showingOnboarding = true
+    }
+
+    private func refreshReminders() {
+        guard !categories.isEmpty else { return }
+        Task {
+            for category in categories {
+                let ids = CategoryHierarchy.idsIncludingDescendants(of: category, in: categories)
+                let areaActivities = activities.filter { activity in
+                    activity.category.map { ids.contains($0.id) } == true
+                }
+                await ReminderService.updateReminders(for: category, activities: areaActivities)
+            }
+        }
     }
 }
 

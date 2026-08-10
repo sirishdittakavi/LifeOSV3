@@ -23,6 +23,9 @@ import SwiftData
 
 enum LifeOSSchemaV1: VersionedSchema {
     static let versionIdentifier = Schema.Version(1, 0, 0)
+    /// Release contract used by migration tests. Never change this value or
+    /// roster after V1 ships; add a new versioned schema instead.
+    static let releaseFingerprint = "LifeOSSchemaV1:1.0.0:Profile,SavedCategoryTemplate,AppCategory,Goal,GoalAreaContribution,ResultMeasure,ResultEntry,Activity,CalendarItem,ActivitySession,FoodEntry,WeightEntry,SportEntry"
 
     static var models: [any PersistentModel.Type] {
         [

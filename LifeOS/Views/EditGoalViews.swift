@@ -108,7 +108,17 @@ struct EditGoalView: View {
             }
         }
 
-        if modelContext.saveOrReport() { dismiss() }
+        if modelContext.saveOrReport() {
+            let goalMeasures = measures.filter { $0.goal?.id == goal.id }
+            Task {
+                for measure in goalMeasures {
+                    await GoalReminderService.updateReminder(for: measure)
+                }
+            }
+            dismiss()
+        } else {
+            modelContext.rollback()
+        }
     }
 }
 

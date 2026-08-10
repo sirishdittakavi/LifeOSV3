@@ -3,6 +3,37 @@ import SwiftData
 @testable import LifeOS
 
 final class PlanningServiceTests: XCTestCase {
+    func testReminderDatesRespectLifecycleAndExcludeElapsedOccurrences() {
+        let profile = TestFixtures.profile()
+        let area = TestFixtures.area(profile: profile)
+        let task = Activity(
+            profile: profile, category: area, name: "Practice",
+            repeatType: .daily, plannedStartMinutes: 600,
+            estimatedDurationMinutes: 10,
+            startDate: TestFixtures.date(2026, 8, 11),
+            endDate: TestFixtures.date(2026, 8, 12)
+        )
+
+        XCTAssertEqual(
+            PlanningService.reminderOccurrenceDates(
+                for: task, after: TestFixtures.date(2026, 8, 10, hour: 20),
+                calendar: TestFixtures.calendar
+            ),
+            [TestFixtures.date(2026, 8, 11, hour: 10), TestFixtures.date(2026, 8, 12, hour: 10)]
+        )
+        XCTAssertEqual(
+            PlanningService.reminderOccurrenceDates(
+                for: task, after: TestFixtures.date(2026, 8, 11, hour: 12),
+                calendar: TestFixtures.calendar
+            ),
+            [TestFixtures.date(2026, 8, 12, hour: 10)]
+        )
+        task.isActive = false
+        XCTAssertTrue(PlanningService.reminderOccurrenceDates(
+            for: task, after: TestFixtures.date(2026, 8, 10), calendar: TestFixtures.calendar
+        ).isEmpty)
+    }
+
     func testOccurrenceIdentityPreventsDuplicatesWithoutCollapsingLegitimateWork() {
         assertGenerationDoesNotDuplicateExistingOccurrence()
         assertGenerationUsesMinuteIdentityWhenStoredOccurrenceHasSeconds()

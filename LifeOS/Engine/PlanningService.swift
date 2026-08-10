@@ -272,6 +272,36 @@ enum PlanningService {
         return calendar.date(byAdding: .day, value: 1, to: day) ?? day
     }
 
+    /// Concrete future dates used by local notifications. Finite dates avoid
+    /// repeating notifications firing before a Task starts or after it ends.
+    static func reminderOccurrenceDates(
+        for activity: Activity,
+        after now: Date = .now,
+        horizonDays: Int = 60,
+        maxCount: Int = 24,
+        calendar: Calendar = .current
+    ) -> [Date] {
+        guard activity.isActive, activity.category?.isActive == true, maxCount > 0 else { return [] }
+        let today = calendar.startOfDay(for: now)
+        let activityStart = calendar.startOfDay(for: activity.startDate)
+        var day = max(today, activityStart)
+        let horizon = calendar.date(byAdding: .day, value: max(1, horizonDays), to: today) ?? today
+        let lastDay = min(activity.endDate.map { calendar.startOfDay(for: $0) } ?? horizon, horizon)
+        var dates: [Date] = []
+
+        while day <= lastDay && dates.count < maxCount {
+            for minute in scheduledStartMinutes(activity, on: day, calendar: calendar) {
+                guard let occurrence = calendar.date(byAdding: .minute, value: minute, to: day),
+                      occurrence > now else { continue }
+                dates.append(occurrence)
+                if dates.count == maxCount { break }
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
+        }
+        return dates.sorted()
+    }
+
     static func plannedItems(_ items: [CalendarItem]) -> [CalendarItem] {
         items.filter { $0.source == .schedule && $0.status != .unplanned }
     }

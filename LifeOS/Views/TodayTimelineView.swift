@@ -8,10 +8,12 @@
 
 import SwiftUI
 import SwiftData
+import Combine
 
 struct TodayTimelineView: View {
     @Bindable var selection: SelectedProfile
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
 
     @Query private var activities: [Activity]
     @Query private var allItems: [CalendarItem]
@@ -34,12 +36,15 @@ struct TodayTimelineView: View {
     @State private var showingSportTracker = false
     @State private var selectedOverviewPlan: AppCategory?
     @State private var showingAddPlan = false
+    @State private var currentTime = Date.now
+
+    private let clock = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     private var todayItems: [CalendarItem] {
         guard let profile = selection.profile else { return [] }
         let calendar = Calendar.current
         return allItems
-            .filter { $0.profile?.id == profile.id && calendar.isSameDay($0.date, as: .now) }
+            .filter { $0.profile?.id == profile.id && calendar.isSameDay($0.date, as: currentTime) }
             .sorted { ($0.plannedStart ?? .distantPast) < ($1.plannedStart ?? .distantPast) }
     }
 
@@ -57,21 +62,21 @@ struct TodayTimelineView: View {
         }
     }
     private var overdueItems: [CalendarItem] {
-        activeItems.filter { PlanningService.isOverdue($0) }
+        activeItems.filter { PlanningService.isOverdue($0, now: currentTime) }
     }
     private var nextItem: CalendarItem? {
         activeItems.first { $0.status == .inProgress }
-            ?? activeItems.first { !PlanningService.isOverdue($0) }
+            ?? activeItems.first { !PlanningService.isOverdue($0, now: currentTime) }
     }
     private var restOfDayItems: [CalendarItem] {
         activeItems.filter {
-            $0.id != nextItem?.id && !PlanningService.isOverdue($0)
+            $0.id != nextItem?.id && !PlanningService.isOverdue($0, now: currentTime)
         }
     }
 
     private var dueResultMeasures: [ResultMeasure] {
         guard let profile = selection.profile else { return [] }
-        let startOfToday = Calendar.current.startOfDay(for: .now)
+        let startOfToday = Calendar.current.startOfDay(for: currentTime)
         return resultMeasures
             .filter { measure in
                 guard measure.isActive,
@@ -126,8 +131,15 @@ struct TodayTimelineView: View {
                 addWhatHappenedButton
             }
             .sensoryFeedback(.selection, trigger: feedbackTrigger)
-            .onAppear { generateTodayItemsIfNeeded() }
+            .onAppear { refresh(at: .now, generate: true) }
             .onChange(of: selection.profile?.id) { generateTodayItemsIfNeeded() }
+            .onReceive(clock) { refresh(at: $0) }
+            .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+                refresh(at: .now, generate: true)
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { refresh(at: .now, generate: true) }
+            }
             .sheet(isPresented: $showingAddActivity) {
                 if let profile = selection.profile { AddActivityView(profile: profile) }
             }
@@ -173,7 +185,7 @@ struct TodayTimelineView: View {
     private var dayHeading: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                Text(currentTime.formatted(.dateTime.weekday(.wide).month(.wide).day()))
                     .font(.title2.weight(.bold))
                 Text(summary.remaining == 0 && summary.total > 0
                      ? "Your plan is complete."
@@ -517,7 +529,7 @@ struct TodayTimelineView: View {
             onSkip: { feedbackTrigger += 1; skip(item) },
             onUndoSkip: { feedbackTrigger += 1; undoSkip(item) },
             onDetails: { selectedTask = item.activity },
-            isOverdue: PlanningService.isOverdue(item)
+            isOverdue: PlanningService.isOverdue(item, now: currentTime)
         )
     }
 
@@ -532,12 +544,18 @@ struct TodayTimelineView: View {
         guard let profile = selection.profile else { return }
         do {
             let newItems = try PlanningService.insertMissingCalendarItems(
-                profile: profile, date: .now, activities: activities, context: modelContext
+                profile: profile, date: currentTime, activities: activities, context: modelContext
             )
             if !newItems.isEmpty || modelContext.hasChanges { _ = modelContext.saveOrReport() }
         } catch {
             PersistenceIssueCenter.shared.report(error)
         }
+    }
+
+    private func refresh(at date: Date, generate: Bool = false) {
+        let changedDay = !Calendar.current.isSameDay(currentTime, as: date)
+        currentTime = date
+        if generate || changedDay { generateTodayItemsIfNeeded() }
     }
 
     private func start(_ item: CalendarItem) {
@@ -831,7 +849,7 @@ private struct TodayTaskOverviewView: View {
                                             .lineLimit(1)
                                     }
                                     Spacer(minLength: 4)
-                                    StatusBadge(status: item.status, isOverdue: PlanningService.isOverdue(item))
+                                    StatusBadge(status: item.status, isOverdue: PlanningService.isOverdue(item, now: currentTime))
                                     Image(systemName: "chevron.right")
                                         .font(.caption.weight(.bold))
                                         .foregroundStyle(.tertiary)

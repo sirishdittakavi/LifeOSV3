@@ -43,7 +43,10 @@ struct ImprovementDashboardView: View {
     private var reportInterval: DateInterval { period.interval(containing: .now) }
     private var report: PeriodCompletionReport? {
         guard let profile = selection.profile else { return nil }
-        return ProgressEngine.periodCompletionReport(profile: profile, interval: reportInterval, items: calendarItems)
+        return ProgressEngine.periodCompletionReport(
+            profile: profile, interval: reportInterval,
+            items: calendarItems, activities: activities
+        )
     }
     private var topLevelPlans: [AppCategory] {
         profileCategories.filter { CategoryHierarchy.isTopLevel($0, in: profileCategories) }
@@ -171,8 +174,18 @@ struct ImprovementDashboardView: View {
                 let items = PlanningService.plannedItems(calendarItems.filter {
                     reportInterval.contains($0.date) && $0.activity?.category.map { ids.contains($0.id) } == true && $0.status != .rescheduled
                 })
+                let planActivities = activities.filter {
+                    $0.profile?.id == selection.profile?.id &&
+                    $0.category.map { ids.contains($0.id) } == true
+                }
+                let summary = selection.profile.map {
+                    ProgressEngine.periodCompletionReport(
+                        profile: $0, interval: reportInterval,
+                        items: items, activities: planActivities
+                    )
+                }
                 NavigationLink { ImprovementCategoryDetailView(selection: selection, category: plan) } label: {
-                    PlanReportRow(plan: plan, summary: ProgressEngine.completionSummary(items: items))
+                    PlanReportRow(plan: plan, report: summary)
                 }
                 .buttonStyle(.plain)
             }
@@ -272,15 +285,15 @@ private struct ReportStatusPill: View {
 }
 
 private struct PlanReportRow: View {
-    let plan: AppCategory; let summary: CompletionSummary
+    let plan: AppCategory; let report: PeriodCompletionReport?
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: plan.symbol).font(.headline).foregroundStyle(ColorToken.color(for: plan.colorToken))
                 .frame(width: 42, height: 42).background(ColorToken.color(for: plan.colorToken).opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 5) {
-                HStack { Text(plan.name).font(.headline); Spacer(); Text("\(summary.done)/\(summary.total)").font(.subheadline.bold()).foregroundStyle(.secondary) }
-                ProgressView(value: summary.percentComplete).tint(ColorToken.color(for: plan.colorToken))
-                Text(summary.total == 0 ? "No Tasks in this period" : "\(summary.remaining) remaining · \(summary.skipped) skipped")
+                HStack { Text(plan.name).font(.headline); Spacer(); Text("\(report?.done ?? 0)/\(report?.total ?? 0)").font(.subheadline.bold()).foregroundStyle(.secondary) }
+                ProgressView(value: report?.percentComplete ?? 0).tint(ColorToken.color(for: plan.colorToken))
+                Text((report?.total ?? 0) == 0 ? "No Tasks in this period" : "\(report?.remaining ?? 0) left · \(report?.missed ?? 0) missed · \(report?.skipped ?? 0) skipped")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.tertiary)
@@ -1037,7 +1050,7 @@ struct AddResultEntryView: View {
             Task { await GoalReminderService.updateReminder(for: measure) }
             dismiss()
         } else {
-            modelContext.delete(entry)
+            modelContext.rollback()
         }
     }
 }

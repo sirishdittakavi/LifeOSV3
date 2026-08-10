@@ -210,6 +210,7 @@ enum LifeOSBackupService {
 
     static func restore(_ backup: LifeOSBackupPayload, into context: ModelContext) throws {
         guard (1...2).contains(backup.schemaVersion) else { throw BackupError.unsupportedVersion }
+        try validate(backup)
 
         var profileMap = Dictionary(uniqueKeysWithValues:
             (try context.fetch(FetchDescriptor<Profile>())).map { ($0.id, $0) })
@@ -393,9 +394,95 @@ enum LifeOSBackupService {
         }
         try context.save()
     }
+
+    static func validate(_ backup: LifeOSBackupPayload) throws {
+        func requireUnique<T>(_ values: [T], _ name: String, id: (T) -> UUID) throws {
+            let ids = values.map(id)
+            guard Set(ids).count == ids.count else { throw BackupError.invalidData("Duplicate \(name) identifiers.") }
+        }
+        func requireReference(_ id: UUID?, in valid: Set<UUID>, _ name: String) throws {
+            if let id, !valid.contains(id) { throw BackupError.invalidData("Missing \(name) reference.") }
+        }
+
+        let goals = backup.goals ?? []
+        let contributions = backup.goalContributions ?? []
+        let measures = backup.resultMeasures ?? []
+        let results = backup.resultEntries ?? []
+        try requireUnique(backup.profiles, "profile", id: \ProfileBackup.id)
+        try requireUnique(backup.categories, "plan", id: \CategoryBackup.id)
+        try requireUnique(goals, "goal", id: \GoalBackup.id)
+        try requireUnique(contributions, "goal contribution", id: \GoalContributionBackup.id)
+        try requireUnique(measures, "result measure", id: \ResultMeasureBackup.id)
+        try requireUnique(results, "result entry", id: \ResultEntryBackup.id)
+        try requireUnique(backup.activities, "task", id: \ActivityBackup.id)
+        try requireUnique(backup.calendarItems, "occurrence", id: \CalendarItemBackup.id)
+        try requireUnique(backup.sessions, "session", id: \SessionBackup.id)
+        try requireUnique(backup.foodEntries, "food entry", id: \FoodBackup.id)
+        try requireUnique(backup.weightEntries, "weight entry", id: \WeightBackup.id)
+        try requireUnique(backup.sportEntries, "sport entry", id: \SportBackup.id)
+        try requireUnique(backup.savedTemplates, "template", id: \SavedTemplateBackup.id)
+
+        let profileIDs = Set(backup.profiles.map(\.id))
+        let categoryIDs = Set(backup.categories.map(\.id))
+        let goalIDs = Set(goals.map(\.id))
+        let measureIDs = Set(measures.map(\.id))
+        let activityIDs = Set(backup.activities.map(\.id))
+        let calendarIDs = Set(backup.calendarItems.map(\.id))
+
+        for value in backup.categories {
+            try requireReference(value.profileID, in: profileIDs, "plan profile")
+            if let raw = value.parentCategoryIDString {
+                guard let id = UUID(uuidString: raw), categoryIDs.contains(id), id != value.id else {
+                    throw BackupError.invalidData("Invalid parent plan reference.")
+                }
+            }
+            for raw in value.relatedCategoryIDStrings {
+                guard let id = UUID(uuidString: raw), categoryIDs.contains(id), id != value.id else {
+                    throw BackupError.invalidData("Invalid related plan reference.")
+                }
+            }
+        }
+        for value in goals { try requireReference(value.profileID, in: profileIDs, "goal profile") }
+        for value in contributions {
+            try requireReference(value.goalID, in: goalIDs, "contribution goal")
+            try requireReference(value.categoryID, in: categoryIDs, "contribution plan")
+        }
+        for value in measures { try requireReference(value.goalID, in: goalIDs, "measure goal") }
+        for value in results {
+            try requireReference(value.profileID, in: profileIDs, "result profile")
+            try requireReference(value.measureID, in: measureIDs, "result measure")
+        }
+        for value in backup.activities {
+            try requireReference(value.profileID, in: profileIDs, "task profile")
+            try requireReference(value.categoryID, in: categoryIDs, "task plan")
+        }
+        for value in backup.calendarItems {
+            try requireReference(value.profileID, in: profileIDs, "occurrence profile")
+            try requireReference(value.activityID, in: activityIDs, "occurrence task")
+        }
+        for value in backup.sessions {
+            try requireReference(value.activityID, in: activityIDs, "session task")
+            try requireReference(value.calendarItemID, in: calendarIDs, "session occurrence")
+        }
+        for value in backup.foodEntries { try requireReference(value.profileID, in: profileIDs, "food profile") }
+        for value in backup.weightEntries { try requireReference(value.profileID, in: profileIDs, "weight profile") }
+        for value in backup.sportEntries {
+            try requireReference(value.profileID, in: profileIDs, "sport profile")
+            try requireReference(value.categoryID, in: categoryIDs, "sport plan")
+        }
+    }
 }
 
 enum BackupError: LocalizedError {
     case unsupportedVersion
-    var errorDescription: String? { "This backup version is not supported by this version of LifeOS." }
+    case invalidData(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .unsupportedVersion:
+            "This backup version is not supported by this version of LifeOS."
+        case .invalidData(let reason):
+            "This backup is incomplete or damaged. \(reason) Nothing was restored."
+        }
+    }
 }
