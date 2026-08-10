@@ -107,7 +107,7 @@ private struct LifeOSOnboardingView: View {
     @Query private var activities: [Activity]
     @Query private var goals: [Goal]
     @State private var step = 0
-    @State private var selectedIDs: Set<String> = []
+    @State private var selectedIDs: Set<String> = ["nutrition"]
     @State private var customPlans: [OnboardingPlan] = []
     @State private var customAreaName = ""
     @State private var customGoalName = ""
@@ -157,11 +157,15 @@ private struct LifeOSOnboardingView: View {
                     ForEach(OnboardingPlan.suggestions) { plan in
                         let selected = selectedIDs.contains(plan.id)
                         Button {
+                            guard plan.id != "nutrition" else { return }
                             if selected { selectedIDs.remove(plan.id) } else { selectedIDs.insert(plan.id) }
                         } label: {
                             VStack(alignment: .leading, spacing: 12) {
                                 Image(systemName: plan.symbol).font(.title2)
                                 Text(plan.areaName).font(.headline).multilineTextAlignment(.leading)
+                                if plan.id == "nutrition" {
+                                    Text("Included").font(.caption.weight(.semibold)).opacity(0.8)
+                                }
                                 Spacer(minLength: 0)
                                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                                     .frame(maxWidth: .infinity, alignment: .trailing)

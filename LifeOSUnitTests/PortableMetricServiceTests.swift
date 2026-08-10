@@ -132,4 +132,25 @@ final class PortableMetricServiceTests: XCTestCase {
             XCTAssertEqual(error as? PortableMetricError, .duplicateIdentifier(id))
         }
     }
+
+    func testWeeklyMealPlansAreNotExportedAsActualNutritionEvidence() throws {
+        let profile = TestFixtures.profile()
+        let planned = FoodEntry(
+            profile: profile, mealType: .dinner, name: "Planned salmon",
+            calories: 500, nutritionSource: FoodEntry.mealPlanSource
+        )
+        let actual = FoodEntry(
+            profile: profile, mealType: .dinner, name: "Chicken bowl",
+            calories: 620, nutritionSource: "Manual"
+        )
+
+        let envelope = try PortableMetricService.makeEnvelope(
+            sessions: [], resultEntries: [], foodEntries: [planned, actual],
+            weightEntries: [], sportEntries: []
+        )
+
+        XCTAssertTrue(planned.isMealPlanItem)
+        XCTAssertFalse(actual.isMealPlanItem)
+        XCTAssertEqual(envelope.metrics.map(\.title), ["Chicken bowl"])
+    }
 }

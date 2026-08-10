@@ -33,7 +33,7 @@ Update this table whenever the code changes.
 | Mobile schedule | ✅ First version | Seven-day strip, focused daily agenda, graphical date jump and interactive action cards |
 | Mark Done / Skip | ✅ First version | Status and actual timestamps retained |
 | Add task manually | ✅ First version | Fast task + inline category creation, exact numeric targets, time, duration and flexible repeat |
-| Daily nutrition log | ✅ First version | Barcode lookup, label-photo OCR, saved photos, manual editing, macros, water and daily totals |
+| Daily nutrition log | ✅ V1 | Mandatory Nutrition Area, manual meals, editable servings/macros, water, daily totals, weekly meal planning and planned-vs-actual tracking |
 | Body-weight log | ✅ First version | Canonical kg storage, kg/lb display, goal distance, raw scale data and transparent 7-entry trend |
 | Sport training log | ✅ First version | Uses the user's Sport Area name; generic sessions, repetitions, duration × effort workload and soreness trend |
 | Seed templates | ✅ First version | Neutral single-profile start; optional starter plans for any added adult or child |
@@ -161,7 +161,7 @@ Workspace / Family
        ├── Session
        │    └── Actual values
        ├── Food Entry
-       │    ├── Meal photo / barcode source
+       │    ├── Manual meal / weekly-plan source
        │    └── Calories, macros, water, servings
        ├── Weight Entry
        │    └── Canonical kilograms; profile chooses kg or lb display
@@ -629,8 +629,9 @@ Included in the accompanying code:
 - Start basic activity
 - Planned-vs-actual timestamps
 - Daily Progress view (Section 10a): target vs. actual per tracked Activity, today
-- Food logging by manual entry, barcode lookup, or nutrition-label photo
-- Saved food photos, serving quantities, daily nutrition targets and progress
+- Manual food logging with serving quantities, daily nutrition targets and progress
+- Weekly meal planning with planned meals stored separately from actual intake
+- Unplanned meals and planned-meal deviations retained in daily history
 - Weight logging in kg or lb with canonical kg storage, goal distance and 7-entry trend
 - Generic sport session logging with repetitions, workload, effort and soreness
 - Cross-domain Today signals for protein, latest weight and sport minutes
@@ -660,6 +661,7 @@ Not yet included:
 - Face ID/PIN
 - Cloud sync
 - AI API
+- Barcode scanning, nutrition-label OCR and external food-database lookup
 
 ---
 
@@ -765,14 +767,14 @@ The wedge is **cross-domain cause-and-context**, not more isolated charts. A bas
 3. **Goals belong to a Profile, not an Area.** A Goal may have several Result Measures and several supporting Area Contributions. Weekly Area values describe plan adherence only.
 4. **Targets are editable, not medical prescriptions.** Youth nutrition, weight and workload goals require parent/coach judgment. The product must avoid shame, punitive colors and automatic restriction.
 5. **Workload needs context.** Sport load begins as duration × perceived effort, shown alongside repetitions and soreness. It is a conversation aid, not an injury predictor.
-6. **Fast capture, mandatory review.** Barcode and photo-derived nutrition must remain editable and show their source and serving basis.
+6. **Fast capture, mandatory review.** Manual and planned nutrition remain editable and show their source and serving basis. Barcode and photo capture follow in V2.
 7. **Approval before adaptation.** Future weekly coaching may recommend changes, but never silently changes a person's targets or schedule.
 
 ### Roadmap gates
 
-**Foundation — implemented:** profile-specific kg/lb, targets, barcode/label/manual food capture, serving quantities, body trend, generic sport workload and Today cross-domain signals.
+**Foundation — implemented:** profile-specific kg/lb, editable nutrition targets, manual food capture, weekly planned-vs-actual meals, serving quantities, body trend, generic sport workload and Today cross-domain signals.
 
-**Logging depth:** repeat foods and meals, recipes, search, micronutrients, body measurements, readiness check-in, baseball drill templates, assessment metrics and video.
+**Logging depth:** barcode and label capture, repeat foods and recipes, food search, micronutrients, body measurements, readiness check-in, baseball drill templates, assessment metrics and video.
 
 **Interoperability:** Apple Health, connected scales, structured imports from scoring/training systems, JSON backup and user-controlled export.
 

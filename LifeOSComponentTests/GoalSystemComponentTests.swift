@@ -8,6 +8,51 @@ import UIKit
 
 @MainActor
 final class GoalSystemComponentTests: XCTestCase {
+    func testWeeklyNutritionPlanTracksActualMealsAndDeviationsWithoutInflatingTotals() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let profile = Profile(name: "Tester", kind: .individual, colorToken: "blue")
+        let nutrition = AppCategory(
+            profile: profile, name: "Nutrition", symbol: "fork.knife",
+            colorToken: "green", pillar: .nutrition, trackingKind: .nutrition
+        )
+        let day = TestDate.make(2026, 8, 10, hour: 8)
+        let plannedMeals = [
+            FoodEntry(profile: profile, date: day, mealType: .breakfast, name: "Oats", calories: 400, nutritionSource: FoodEntry.mealPlanSource),
+            FoodEntry(profile: profile, date: day, mealType: .lunch, name: "Chicken bowl", calories: 600, nutritionSource: FoodEntry.mealPlanSource),
+            FoodEntry(profile: profile, date: day, mealType: .dinner, name: "Salmon", calories: 550, nutritionSource: FoodEntry.mealPlanSource)
+        ]
+        let actualMeals = [
+            FoodEntry(profile: profile, date: day, mealType: .breakfast, name: "Oats", calories: 410, nutritionSource: "Planned meal"),
+            FoodEntry(profile: profile, date: day, mealType: .lunch, name: "Pasta", calories: 720, nutritionSource: "Manual"),
+            FoodEntry(profile: profile, date: day, mealType: .snack, name: "Fruit", calories: 120, nutritionSource: "Manual")
+        ]
+        context.insert(profile)
+        context.insert(nutrition)
+        plannedMeals.forEach(context.insert)
+        actualMeals.forEach(context.insert)
+        try context.save()
+
+        let stored = try context.fetch(FetchDescriptor<FoodEntry>())
+        XCTAssertEqual(stored.filter(\.isMealPlanItem).count, 3)
+        XCTAssertEqual(stored.filter { !$0.isMealPlanItem }.reduce(0) { $0 + $1.calories }, 1_250)
+        XCTAssertEqual(stored.filter { !$0.isMealPlanItem && $0.mealType == .lunch }.map(\.name), ["Pasta"])
+
+        let progress = CategoryProgressEngine.progress(
+            profile: profile, category: nutrition, period: .day, now: day,
+            activities: [], calendarItems: [], foodEntries: stored,
+            weightEntries: [], sportEntries: [], calendar: TestDate.calendar
+        )
+        XCTAssertEqual(progress.completedSessions, 1)
+
+        plannedMeals[2].name = "Vegetable curry"
+        plannedMeals[2].calories = 500
+        try context.save()
+        let edited = try context.fetch(FetchDescriptor<FoodEntry>()).first { $0.id == plannedMeals[2].id }
+        XCTAssertEqual(edited?.name, "Vegetable curry")
+        XCTAssertEqual(edited?.calories, 500)
+    }
+
     func testHidingPlanRemovesFutureAndTodayCardsButPreservesCompletedHistory() throws {
         let container = try makeContainer()
         let context = container.mainContext

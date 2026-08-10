@@ -122,7 +122,9 @@ enum CategoryProgressEngine {
         let isWeight = trackingKind == .bodyWeight
         let isSport = trackingKind == .sport
 
-        let periodFood = foodEntries.filter { $0.profile?.id == profile.id && interval.contains($0.date) }
+        let periodFood = foodEntries.filter {
+            $0.profile?.id == profile.id && !$0.isMealPlanItem && interval.contains($0.date)
+        }
         let foodDays = Set(periodFood.map { calendar.startOfDay(for: $0.date) }).count
         let periodWeights = weightEntries.filter { $0.profile?.id == profile.id && interval.contains($0.date) }
         let periodSport = sportEntries.filter { entry in

@@ -702,6 +702,7 @@ enum MealType: String, Codable, CaseIterable, Identifiable {
 
 @Model
 final class FoodEntry {
+    static let mealPlanSource = "Meal Plan"
     var id: UUID
     var profile: Profile?
     var date: Date
@@ -722,6 +723,11 @@ final class FoodEntry {
         get { MealType(rawValue: mealTypeRaw) ?? .snack }
         set { mealTypeRaw = newValue.rawValue }
     }
+
+    /// Weekly meal plans reuse the nutrition record shape but remain excluded
+    /// from actual intake totals. A planned meal becomes evidence only when a
+    /// separate actual FoodEntry is logged.
+    var isMealPlanItem: Bool { nutritionSource == Self.mealPlanSource }
 
     init(profile: Profile?, date: Date = .now, mealType: MealType, name: String,
          calories: Double = 0, proteinGrams: Double = 0, carbohydrateGrams: Double = 0,

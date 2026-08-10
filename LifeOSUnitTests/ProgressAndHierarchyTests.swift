@@ -250,4 +250,35 @@ final class ProgressAndHierarchyTests: XCTestCase {
         XCTAssertNil(weight?.targetMinimum)
         XCTAssertNil(weight?.targetMaximum)
     }
+
+    func testPlannedMealsDoNotCountAsNutritionAdherenceUntilActuallyLogged() {
+        let profile = TestFixtures.profile()
+        let area = AppCategory(
+            profile: profile, name: "Nutrition", symbol: "fork.knife",
+            colorToken: "green", pillar: .nutrition, trackingKind: .nutrition
+        )
+        let date = TestFixtures.date(2026, 1, 6, hour: 12)
+        let planned = FoodEntry(
+            profile: profile, date: date, mealType: .lunch, name: "Planned bowl",
+            calories: 500, nutritionSource: FoodEntry.mealPlanSource
+        )
+
+        let beforeLogging = CategoryProgressEngine.progress(
+            profile: profile, category: area, period: .day, now: date,
+            activities: [], calendarItems: [], foodEntries: [planned],
+            weightEntries: [], sportEntries: [], calendar: TestFixtures.calendar
+        )
+        XCTAssertEqual(beforeLogging.completedSessions, 0)
+
+        let actual = FoodEntry(
+            profile: profile, date: date, mealType: .lunch, name: "Actual bowl",
+            calories: 520, nutritionSource: "Manual"
+        )
+        let afterLogging = CategoryProgressEngine.progress(
+            profile: profile, category: area, period: .day, now: date,
+            activities: [], calendarItems: [], foodEntries: [planned, actual],
+            weightEntries: [], sportEntries: [], calendar: TestFixtures.calendar
+        )
+        XCTAssertEqual(afterLogging.completedSessions, 1)
+    }
 }

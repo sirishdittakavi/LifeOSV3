@@ -232,7 +232,8 @@ struct TodayTimelineView: View {
     private var dailySignals: some View {
         let profile = selection.profile
         let todayFood = foodEntries.filter {
-            $0.profile?.id == profile?.id && Calendar.current.isDateInToday($0.date)
+            $0.profile?.id == profile?.id && !$0.isMealPlanItem
+                && Calendar.current.isDateInToday($0.date)
         }
         let protein = todayFood.reduce(0.0) { $0 + $1.proteinGrams }
         let latestWeight = weightEntries.first { $0.profile?.id == profile?.id }
@@ -358,7 +359,8 @@ struct TodayTimelineView: View {
         switch plan.trackingKind {
         case .nutrition:
             let entries = foodEntries.filter {
-                $0.profile?.id == profile?.id && Calendar.current.isDateInToday($0.date)
+                $0.profile?.id == profile?.id && !$0.isMealPlanItem
+                    && Calendar.current.isDateInToday($0.date)
             }
             let calories = entries.reduce(0.0) { $0 + $1.calories }
             let protein = entries.reduce(0.0) { $0 + $1.proteinGrams }

@@ -212,7 +212,7 @@ enum PortableMetricService {
     ) throws -> PortableMetricEnvelope {
         var metrics = try sessions.map(metric(from:))
         metrics += try resultEntries.map(metric(from:))
-        metrics += try foodEntries.map(metric(from:))
+        metrics += try foodEntries.filter { !$0.isMealPlanItem }.map(metric(from:))
         metrics += try weightEntries.map(metric(from:))
         metrics += try sportEntries.map(metric(from:))
         metrics.sort {

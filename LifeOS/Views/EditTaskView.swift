@@ -302,6 +302,7 @@ struct TaskDetailView: View {
     @Query private var calendarItems: [CalendarItem]
     @Query private var contributions: [GoalAreaContribution]
     @State private var showingEdit = false
+    @State private var historyPeriod: DashboardPeriod = .week
 
     private var linkedGoals: [Goal] {
         guard let categoryID = activity.category?.id else { return [] }
@@ -319,6 +320,20 @@ struct TaskDetailView: View {
     private var history: [CalendarItem] {
         calendarItems.filter { $0.activity?.id == activity.id }
             .sorted { ($0.plannedStart ?? $0.date) > ($1.plannedStart ?? $1.date) }
+    }
+
+    private var periodHistory: [CalendarItem] {
+        let interval = historyPeriod.interval(containing: .now)
+        return history.filter { interval.contains($0.date) }
+    }
+
+    private var completedMinutes: Int {
+        periodHistory.filter { $0.status == .done }.reduce(0) { total, item in
+            if let start = item.actualStart, let end = item.actualEnd {
+                return total + max(Int(end.timeIntervalSince(start) / 60), 0)
+            }
+            return total + (item.activity?.estimatedDurationMinutes ?? 0)
+        }
     }
 
     var body: some View {
@@ -371,11 +386,26 @@ struct TaskDetailView: View {
                     }
                 }
 
-                Section("Recent history") {
-                    if history.isEmpty {
+                Section("History") {
+                    Picker("History period", selection: $historyPeriod) {
+                        ForEach(DashboardPeriod.allCases) { period in
+                            Text(period.rawValue).tag(period)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    LabeledContent("Completed") {
+                        Text("\(periodHistory.filter { $0.status == .done }.count) of \(periodHistory.count)")
+                            .fontWeight(.semibold).monospacedDigit()
+                    }
+                    LabeledContent("Time completed") {
+                        Text("\(completedMinutes) min").fontWeight(.semibold).monospacedDigit()
+                    }
+
+                    if periodHistory.isEmpty {
                         Text("No occurrences recorded yet.").foregroundStyle(.secondary)
                     } else {
-                        ForEach(history.prefix(10)) { item in
+                        ForEach(periodHistory.prefix(10)) { item in
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(item.date.formatted(date: .abbreviated, time: .omitted))
