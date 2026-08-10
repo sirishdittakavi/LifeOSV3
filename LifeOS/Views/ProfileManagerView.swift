@@ -100,6 +100,11 @@ struct ProfileManagerView: View {
                     } label: {
                         Label("Backup & Restore", systemImage: "externaldrive.badge.icloud")
                     }
+                    NavigationLink {
+                        AppInformationView()
+                    } label: {
+                        Label("Privacy, Support & About", systemImage: "info.circle")
+                    }
                 }
             }
             .navigationTitle("Profiles")
@@ -131,6 +136,45 @@ struct ProfileManagerView: View {
     private func restore(_ profile: Profile) {
         profile.isActive = true
         if !modelContext.saveOrReport() { profile.isActive = false }
+    }
+}
+
+private struct AppInformationView: View {
+    private let privacyURL = URL(string: "https://sirishdittakavi.github.io/LifeOS/privacy.html")!
+    private let supportURL = URL(string: "https://sirishdittakavi.github.io/LifeOS/support.html")!
+
+    private var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+    }
+    private var build: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
+    }
+
+    var body: some View {
+        List {
+            Section("About LifeOS") {
+                LabeledContent("Version", value: "\(version) (\(build))")
+                Text("LifeOS is a local-first planning and progress app. It is not a medical device and does not provide medical diagnosis or treatment advice.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Your Data") {
+                Label("Stored locally on this iPhone", systemImage: "iphone.gen3")
+                Text("LifeOS V1 does not require an account, use advertising or analytics SDKs, or upload your plans, profiles, nutrition, weight, sport, or progress records to a LifeOS server.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("You choose when to export an unencrypted JSON backup. Keep exported backups in a private location.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Help & Legal") {
+                Link(destination: privacyURL) { Label("Privacy Policy", systemImage: "hand.raised") }
+                Link(destination: supportURL) { Label("Support", systemImage: "questionmark.circle") }
+            }
+            Section("Children and Families") {
+                Text("Child profiles are optional and parent-managed on the same device. V1 does not provide remote monitoring, child accounts, or cross-device family sharing.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("About LifeOS")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

@@ -21,7 +21,6 @@ let package = Package(
                 "LifeOSApp.swift",
                 "PrivacyInfo.xcprivacy",
                 "Models/SeedData.swift",
-                "Engine/FoodCaptureService.swift",
                 "Engine/ReminderService.swift"
             ],
             sources: [

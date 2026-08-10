@@ -45,7 +45,6 @@
 		BE651337EF518EAB4A766D74 /* RecordActualView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73B48145494B4301A179594D /* RecordActualView.swift */; };
 		C42B22F16BD3D1E6D55D2FF6 /* CategoryProgressEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78943876F88DB77027A69003 /* CategoryProgressEngine.swift */; };
 		CE9C7EC7EC71B6F09AF868BD /* LifeOSBackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDDCC3A1F13B93070395E397 /* LifeOSBackupService.swift */; };
-		D2F6740EF079027D82CD1BEB /* FoodCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A663322A791BA2B3E365376D /* FoodCaptureService.swift */; };
 		D3110A8487A6D40D35338712 /* ColorToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84489496ECECED00233A0050 /* ColorToken.swift */; };
 		DBFDB074D4EB6AE1C7608E8F /* EditGoalViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90B582C37891B169DC95F47F /* EditGoalViews.swift */; };
 		F20B0CC3F213D901E11187B4 /* AddWhatHappenedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BFAF5CF2A126324576CB407 /* AddWhatHappenedView.swift */; };
@@ -113,7 +112,6 @@
 		90B582C37891B169DC95F47F /* EditGoalViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditGoalViews.swift; sourceTree = "<group>"; };
 		9893C70F313744DD079BA597 /* PlanningServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanningServiceTests.swift; sourceTree = "<group>"; };
 		A5F1C1BAC812EC2A5FFBB0ED /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
-		A663322A791BA2B3E365376D /* FoodCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodCaptureService.swift; sourceTree = "<group>"; };
 		A6706225FC9F05BDD4511CA8 /* ProgressAndHierarchyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressAndHierarchyTests.swift; sourceTree = "<group>"; };
 		A9F621BE905857FEB3E0B267 /* ProfileGoalsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileGoalsView.swift; sourceTree = "<group>"; };
 		BD82E4B5D3273000FF862511 /* ProgressEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressEngine.swift; sourceTree = "<group>"; };
@@ -144,7 +142,6 @@
 			children = (
 				55F7D1F805EAE2850186A7FE /* CategoryHierarchy.swift */,
 				78943876F88DB77027A69003 /* CategoryProgressEngine.swift */,
-				A663322A791BA2B3E365376D /* FoodCaptureService.swift */,
 				71336B7D9F2F80BB5303A4D3 /* ImprovementTemplates.swift */,
 				CDDCC3A1F13B93070395E397 /* LifeOSBackupService.swift */,
 				4A7C22D36339973B2F083F70 /* PersistenceSupport.swift */,
@@ -421,7 +418,6 @@
 				9DEB65FA95807B256D662CD9 /* DesignSystem.swift in Sources */,
 				DBFDB074D4EB6AE1C7608E8F /* EditGoalViews.swift in Sources */,
 				38DE59695CEDC04F09806282 /* EditTaskView.swift in Sources */,
-				D2F6740EF079027D82CD1BEB /* FoodCaptureService.swift in Sources */,
 				3F76161965A8024182D7236B /* FoodTrackerView.swift in Sources */,
 				26DFD94DCDFBA070AC33A146 /* ImprovementCategoriesView.swift in Sources */,
 				91FCDF8AFE7A6B213D60E987 /* ImprovementCategoryDetailView.swift in Sources */,
@@ -504,13 +500,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 74WQCZFJFM;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = LifeOS;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Scan food barcodes and photograph nutrition labels.";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -721,13 +717,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 74WQCZFJFM;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = LifeOS;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Scan food barcodes and photograph nutrition labels.";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (

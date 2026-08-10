@@ -23,7 +23,7 @@ LifeOS is a local-first iPhone app for turning improvement areas into scheduled 
 - Today timeline and interactive weekly calendar
 - Editable category hierarchy, relationships, targets and reminders
 - Flexible task repetition by weekday, count and exact minute interval
-- Food capture by barcode, nutrition-label photo or manual entry
+- Manual nutrition logging with editable servings/macros, water and weekly meal planning
 - Weight tracking in kilograms or pounds
 - Generic sport training and workload tracking using each user's editable Sport Area
 - Multiple separate adult, child or individual profiles
@@ -41,6 +41,12 @@ Parent-managed profiles work locally on the parent's device today. Self-managed 
 Open `LifeOS.xcodeproj` in Xcode, select an iPhone simulator or trusted physical iPhone, and press **Command-R**. Physical devices require Automatic Signing, an Apple Personal Team, Developer Mode and trust for the developer profile.
 
 The app requires iOS 17 or later and stores its working data on-device with SwiftData.
+
+## App Store information
+
+- Privacy policy: `docs/privacy.html`
+- Support page: `docs/support.html`
+- V1 does not compile or request camera access. Barcode lookup and nutrition-label capture remain deferred.
 
 ## Project layout
 
