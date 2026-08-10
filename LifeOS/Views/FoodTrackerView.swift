@@ -284,6 +284,11 @@ private struct AddFoodEntryView: View {
     @State private var water = 0.0
     @State private var note = ""
 
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            calories > 0 || protein > 0 || carbs > 0 || fat > 0 || water > 0
+    }
+
     init(profile: Profile, initialMeal: MealType = .breakfast, initialDate: Date = .now) {
         self.profile = profile
         _date = State(initialValue: initialDate)
@@ -295,7 +300,7 @@ private struct AddFoodEntryView: View {
             Form {
                 Section("Meal") {
                     Picker("Type", selection: $mealType) { ForEach(MealType.allCases) { Text($0.rawValue).tag($0) } }
-                    TextField("Food or meal", text: $name)
+                    TextField("Food or meal (optional)", text: $name)
                     Stepper("Servings: \(servings.formatted(.number.precision(.fractionLength(0...2))))", value: $servings, in: 0.25...20, step: 0.25)
                     DatePicker("Time", selection: $date)
                 }
@@ -311,7 +316,7 @@ private struct AddFoodEntryView: View {
             .navigationTitle("Add Food")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("Add", action: save).disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
+                ToolbarItem(placement: .confirmationAction) { Button("Add", action: save).disabled(!canSave) }
             }
         }
     }
@@ -323,7 +328,10 @@ private struct AddFoodEntryView: View {
     }
 
     private func save() {
-        let entry = FoodEntry(profile: profile, date: date, mealType: mealType, name: name.trimmingCharacters(in: .whitespacesAndNewlines), calories: calories, proteinGrams: protein, carbohydrateGrams: carbs, fatGrams: fat, waterMilliliters: water, note: note, nutritionSource: "Manual", servings: servings)
+        guard canSave else { return }
+        let enteredName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let entryName = enteredName.isEmpty ? mealType.rawValue : enteredName
+        let entry = FoodEntry(profile: profile, date: date, mealType: mealType, name: entryName, calories: calories, proteinGrams: protein, carbohydrateGrams: carbs, fatGrams: fat, waterMilliliters: water, note: note, nutritionSource: "Manual", servings: servings)
         modelContext.insert(entry)
         if modelContext.saveOrReport() { dismiss() } else { modelContext.delete(entry) }
     }

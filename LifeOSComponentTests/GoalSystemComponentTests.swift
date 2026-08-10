@@ -8,6 +8,25 @@ import UIKit
 
 @MainActor
 final class GoalSystemComponentTests: XCTestCase {
+    func testManualNutritionEntryImmediatelyContributesCaloriesAndProtein() throws {
+        let container = try LifeOSDataStore.makeContainer(inMemory: true)
+        let context = container.mainContext
+        let profile = Profile(name: "Player", kind: .individual, colorToken: "blue")
+        let entry = FoodEntry(
+            profile: profile, date: .now, mealType: .breakfast, name: "Breakfast",
+            calories: 450, proteinGrams: 30, nutritionSource: "Manual"
+        )
+        context.insert(profile)
+        context.insert(entry)
+        try context.save()
+
+        let today = try context.fetch(FetchDescriptor<FoodEntry>()).filter {
+            $0.profile?.id == profile.id && !$0.isMealPlanItem && Calendar.current.isDateInToday($0.date)
+        }
+        XCTAssertEqual(today.reduce(0) { $0 + $1.calories }, 450)
+        XCTAssertEqual(today.reduce(0) { $0 + $1.proteinGrams }, 30)
+    }
+
     func testDuplicatePlansMergeWithoutLosingTasksGoalsOrSportHistory() throws {
         let container = try LifeOSDataStore.makeContainer(inMemory: true)
         let context = container.mainContext
