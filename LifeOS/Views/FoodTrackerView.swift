@@ -50,6 +50,7 @@ struct FoodTrackerView: View {
                         Image(systemName: "calendar.badge.clock")
                     }
                     .accessibilityLabel("Weekly Meal Plan")
+                    .accessibilityIdentifier("nutrition.weeklyPlan")
                     Button { showingGoals = true } label: { Image(systemName: "slider.horizontal.3") }
                         .accessibilityLabel("Nutrition targets")
                 }
@@ -169,6 +170,7 @@ private struct NutritionHero: View {
                 Text("Actual intake today").font(.caption).foregroundStyle(.secondary)
                 Button(action: addFood) { Label("Add food", systemImage: "plus.circle.fill").frame(maxWidth: .infinity) }
                     .buttonStyle(LifeOSPrimaryButtonStyle())
+                    .accessibilityIdentifier("nutrition.addFood")
             }
         }
         .lifeOSGlassCard(tint: .green, cornerRadius: LifeOSRadius.xl)

@@ -86,6 +86,7 @@ struct EditTaskView: View {
             Form {
                 Section("Task") {
                     TextField("Name", text: $name)
+                        .accessibilityIdentifier("task.name")
                     Picker("Plan", selection: $categoryID) {
                         Text("Choose a Plan").tag(UUID?.none)
                         ForEach(profileCategories) { area in
@@ -122,6 +123,7 @@ struct EditTaskView: View {
                         weekdayPicker
                     }
                     DatePicker(repeatType == .once ? "Date" : "Start date", selection: $startDate, displayedComponents: .date)
+                        .accessibilityIdentifier("task.startDate")
                     if repeatType != .once {
                         Toggle("Set an end date", isOn: $hasEndDate)
                         if hasEndDate {
@@ -130,13 +132,16 @@ struct EditTaskView: View {
                     }
                     DatePicker("Start time", selection: $plannedStart, displayedComponents: .hourAndMinute)
                     numberField("Duration in minutes", value: $durationMinutes, range: 1...1440)
+                        .accessibilityIdentifier("task.duration")
                 }
             }
             .navigationTitle("Edit Task")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save).disabled(!canSave)
+                    Button("Save", action: save)
+                        .disabled(!canSave)
+                        .accessibilityIdentifier("task.save")
                 }
             }
         }
@@ -356,6 +361,7 @@ struct TaskDetailView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(LifeOSPrimaryButtonStyle())
+                    .accessibilityIdentifier("task.edit")
                     .accessibilityHint("Edit the Task name, Plan, target, schedule, time, and duration")
                 }
 

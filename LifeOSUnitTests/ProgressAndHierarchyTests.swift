@@ -2,6 +2,17 @@ import XCTest
 @testable import LifeOS
 
 final class ProgressAndHierarchyTests: XCTestCase {
+    func testResultTargetsAndEntriesRejectInvalidValuesWithoutRejectingZero() {
+        assertTargetValidationRequiresDirectionallyCorrectValues()
+        assertRatingTargetsStayInsideFivePointScale()
+        assertResultValidationDistinguishesMissingFromZero()
+    }
+
+    func testStarterTemplatesRemainCompleteEditableStartingPoints() {
+        assertEveryAreaTemplateContainsEditableStarterActions()
+        assertGoalTemplatesProvideMeasurableEditableStartingPoints()
+    }
+
     func testDailyProgressSumsOnlySelectedProfileAndDay() {
         let profile = TestFixtures.profile()
         let other = TestFixtures.profile("Other")
@@ -158,7 +169,7 @@ final class ProgressAndHierarchyTests: XCTestCase {
         XCTAssertEqual(timing.end.timeIntervalSince(timing.start), 37 * 60, accuracy: 0.001)
     }
 
-    func testTargetValidationRequiresDirectionallyCorrectValues() {
+    private func assertTargetValidationRequiresDirectionallyCorrectValues() {
         XCTAssertTrue(ResultMeasureValidation.isValidTarget(
             valueType: .number, direction: .increase,
             baseline: 60, target: 70, minimum: nil, maximum: nil
@@ -177,7 +188,7 @@ final class ProgressAndHierarchyTests: XCTestCase {
         ))
     }
 
-    func testRatingTargetsStayInsideFivePointScale() {
+    private func assertRatingTargetsStayInsideFivePointScale() {
         XCTAssertTrue(ResultMeasureValidation.isValidTarget(
             valueType: .rating, direction: .increase,
             baseline: 2, target: 5, minimum: nil, maximum: nil
@@ -188,7 +199,7 @@ final class ProgressAndHierarchyTests: XCTestCase {
         ))
     }
 
-    func testResultValidationDistinguishesMissingFromZero() {
+    private func assertResultValidationDistinguishesMissingFromZero() {
         XCTAssertFalse(ResultMeasureValidation.isValidEntry(
             valueType: .number, numericValue: nil, textValue: ""
         ))
@@ -225,7 +236,7 @@ final class ProgressAndHierarchyTests: XCTestCase {
         XCTAssertFalse(measure.shouldScheduleReminder)
     }
 
-    func testEveryAreaTemplateContainsEditableStarterActions() {
+    private func assertEveryAreaTemplateContainsEditableStarterActions() {
         XCTAssertFalse(ImprovementTemplates.all.isEmpty)
         for template in ImprovementTemplates.all {
             XCTAssertFalse(template.name.isEmpty)
@@ -235,7 +246,7 @@ final class ProgressAndHierarchyTests: XCTestCase {
         }
     }
 
-    func testGoalTemplatesProvideMeasurableEditableStartingPoints() {
+    private func assertGoalTemplatesProvideMeasurableEditableStartingPoints() {
         XCTAssertGreaterThanOrEqual(GoalStarterTemplates.all.count, 5)
         XCTAssertEqual(Set(GoalStarterTemplates.all.map(\.id)).count, GoalStarterTemplates.all.count)
         for template in GoalStarterTemplates.all {

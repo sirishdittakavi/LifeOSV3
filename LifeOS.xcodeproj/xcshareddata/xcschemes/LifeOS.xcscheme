@@ -62,6 +62,17 @@
                ReferencedContainer = "container:LifeOS.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A10000000000000000000006"
+               BuildableName = "LifeOSUITests.xctest"
+               BlueprintName = "LifeOSUITests"
+               ReferencedContainer = "container:LifeOS.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

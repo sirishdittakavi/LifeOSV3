@@ -254,6 +254,128 @@ final class GoalSystemComponentTests: XCTestCase {
         XCTAssertEqual(try context.fetch(FetchDescriptor<CalendarItem>()).count, 6)
     }
 
+    func testGoalWithMixedTaskSchedulesDrivesExpectedHomeStateAfterPartialCompletion() throws {
+        // GIVEN one Goal is supported by three Tasks with distinct schedules:
+        // daily, three chosen days per week, and one chosen day per week.
+        let container = try makeContainer()
+        let context = container.mainContext
+        let today = TestDate.make(2026, 8, 10) // Monday in the fixed test calendar.
+        let profile = Profile(name: "Vihaan", kind: .child, colorToken: "blue")
+        let baseball = AppCategory(
+            profile: profile, name: "Baseball", symbol: "figure.baseball",
+            colorToken: "orange", pillar: .sport, trackingKind: .sport
+        )
+        let goal = Goal(
+            profile: profile, name: "Become a Complete Baseball Player",
+            purpose: "Improve all three core skills."
+        )
+        let contribution = GoalAreaContribution(
+            goal: goal, category: baseball,
+            statement: "Balanced Baseball practice supports this Goal."
+        )
+        let tasks = [
+            Activity(
+                profile: profile, category: baseball, name: "Hitting",
+                targetValue: 10, targetUnit: "min", repeatType: .daily,
+                weekdays: Array(1...7), plannedStartMinutes: 18 * 60,
+                estimatedDurationMinutes: 10, startDate: today
+            ),
+            Activity(
+                profile: profile, category: baseball, name: "Pitching",
+                targetValue: 10, targetUnit: "min", repeatType: .timesPerWeek,
+                weekdays: [2, 4, 6], occurrencesPerWeek: 3,
+                plannedStartMinutes: 18 * 60 + 15,
+                estimatedDurationMinutes: 10, startDate: today
+            ),
+            Activity(
+                profile: profile, category: baseball, name: "Fielding",
+                targetValue: 10, targetUnit: "min", repeatType: .timesPerWeek,
+                weekdays: [2], occurrencesPerWeek: 1,
+                plannedStartMinutes: 18 * 60 + 30,
+                estimatedDurationMinutes: 10, startDate: today
+            )
+        ]
+        context.insert(profile)
+        context.insert(baseball)
+        context.insert(goal)
+        context.insert(contribution)
+        tasks.forEach(context.insert)
+        try context.save()
+
+        // WHEN Home generates Monday's plan, each Task contributes exactly one
+        // occurrence despite their different weekly recurrence definitions.
+        try PlanningService.insertMissingCalendarItems(
+            profile: profile, date: today, activities: tasks,
+            context: context, calendar: TestDate.calendar
+        )
+        try PlanningService.insertMissingCalendarItems(
+            profile: profile, date: today, activities: tasks,
+            context: context, calendar: TestDate.calendar
+        )
+        try context.save()
+
+        let homeItems = try context.fetch(FetchDescriptor<CalendarItem>())
+            .filter { TestDate.calendar.isDate($0.date, inSameDayAs: today) }
+            .sorted { ($0.plannedStart ?? .distantFuture) < ($1.plannedStart ?? .distantFuture) }
+        XCTAssertEqual(homeItems.compactMap { $0.activity?.name }, ["Hitting", "Pitching", "Fielding"])
+        XCTAssertEqual(homeItems.count, 3, "Repeated Home refreshes must not duplicate occurrences")
+        XCTAssertEqual(Set(homeItems.compactMap {
+            PlanningService.occurrenceIdentity(for: $0, calendar: TestDate.calendar)
+        }).count, 3)
+
+        // WHEN two Tasks are completed and one is deliberately left planned.
+        for name in ["Hitting", "Pitching"] {
+            let item = try XCTUnwrap(homeItems.first { $0.activity?.name == name })
+            item.status = .done
+            item.actualStart = item.plannedStart
+            item.actualEnd = item.plannedStart.flatMap {
+                TestDate.calendar.date(byAdding: .minute, value: 10, to: $0)
+            }
+            context.insert(ActivitySession(
+                activity: item.activity, calendarItem: item, date: today,
+                startedAt: item.actualStart, endedAt: item.actualEnd,
+                actualActiveSeconds: 600, recordedValue: 10
+            ))
+        }
+        try context.save()
+
+        // THEN Home shows 67%, two complete, one remaining, and Fielding as the
+        // only active Task. Completed Tasks remain in the collapsed history.
+        let summary = ProgressEngine.completionSummary(
+            items: PlanningService.plannedItems(homeItems)
+        )
+        XCTAssertEqual(summary.total, 3)
+        XCTAssertEqual(summary.done, 2)
+        XCTAssertEqual(summary.remaining, 1)
+        XCTAssertEqual(summary.skipped, 0)
+        XCTAssertEqual(summary.percentComplete, 2.0 / 3.0, accuracy: 0.0001)
+        XCTAssertEqual(homeItems.filter { $0.status == .planned }.compactMap { $0.activity?.name }, ["Fielding"])
+        XCTAssertEqual(homeItems.filter { $0.status == .done }.count, 2)
+
+        let goalProgress = GoalProgressEngine.progress(
+            goal: goal, period: .day, now: today,
+            categories: [baseball], contributions: [contribution],
+            measures: [], entries: [], activities: tasks,
+            calendarItems: homeItems, calendar: TestDate.calendar
+        )
+        XCTAssertEqual(goalProgress.contributions.first?.plannedActions, 3)
+        XCTAssertEqual(goalProgress.contributions.first?.completedActions, 2)
+        XCTAssertEqual(try XCTUnwrap(goalProgress.effortFraction), 2.0 / 3.0, accuracy: 0.0001)
+
+        // AND another Home refresh preserves completion/history and still has
+        // exactly three occurrences.
+        try PlanningService.insertMissingCalendarItems(
+            profile: profile, date: today, activities: tasks,
+            context: context, calendar: TestDate.calendar
+        )
+        try context.save()
+        let refreshed = try context.fetch(FetchDescriptor<CalendarItem>())
+            .filter { TestDate.calendar.isDate($0.date, inSameDayAs: today) }
+        XCTAssertEqual(refreshed.count, 3)
+        XCTAssertEqual(refreshed.filter { $0.status == .done }.count, 2)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<ActivitySession>()).count, 2)
+    }
+
     func testVersionOneSchemaRosterAndMigrationContainer() throws {
         let expectedNames = Set([
             "Profile", "SavedCategoryTemplate", "AppCategory", "Goal",

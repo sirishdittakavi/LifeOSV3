@@ -69,7 +69,10 @@ struct RecordActualView: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }.bold().disabled(actualDurationMinutes < 1)
+                    Button("Save") { save() }
+                        .bold()
+                        .disabled(actualDurationMinutes < 1)
+                        .accessibilityIdentifier("completion.save")
                 }
             }
         }

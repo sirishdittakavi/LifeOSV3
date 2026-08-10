@@ -2,6 +2,16 @@ import XCTest
 @testable import LifeOS
 
 final class GoalProgressEngineTests: XCTestCase {
+    func testPaceComparisonCoversAheadAndBehindResults() {
+        assertIncreasingResultAheadOfExpectedPaceIsOnTrack()
+        assertIncreasingResultBehindExpectedPaceNeedsReview()
+    }
+
+    func testInvalidDirectionalTargetsNeverReportGoalReached() {
+        assertIncreaseTargetBelowBaselineNeverReportsGoalReached()
+        assertDecreaseTargetAboveBaselineNeverReportsGoalReached()
+    }
+
     func testCompletedActionsDoNotPretendMissingOutcomeImproved() {
         let profile = TestFixtures.profile()
         let area = TestFixtures.area(profile: profile)
@@ -30,7 +40,7 @@ final class GoalProgressEngineTests: XCTestCase {
         XCTAssertTrue(result.nextAction.contains("Action completion alone"))
     }
 
-    func testIncreasingResultAheadOfExpectedPaceIsOnTrack() {
+    private func assertIncreasingResultAheadOfExpectedPaceIsOnTrack() {
         let profile = TestFixtures.profile()
         let goal = TestFixtures.goal(profile: profile)
         let measure = TestFixtures.measure(goal: goal, baseline: 0, target: 100)
@@ -46,7 +56,7 @@ final class GoalProgressEngineTests: XCTestCase {
         XCTAssertEqual(result.confidence, .medium)
     }
 
-    func testIncreasingResultBehindExpectedPaceNeedsReview() {
+    private func assertIncreasingResultBehindExpectedPaceNeedsReview() {
         let profile = TestFixtures.profile()
         let goal = TestFixtures.goal(profile: profile)
         let measure = TestFixtures.measure(goal: goal, baseline: 0, target: 100)
@@ -75,7 +85,7 @@ final class GoalProgressEngineTests: XCTestCase {
         XCTAssertEqual(result.resultFraction ?? -1, 1, accuracy: 0.0001)
     }
 
-    func testIncreaseTargetBelowBaselineNeverReportsGoalReached() {
+    private func assertIncreaseTargetBelowBaselineNeverReportsGoalReached() {
         let profile = TestFixtures.profile()
         let goal = TestFixtures.goal(profile: profile)
         let measure = TestFixtures.measure(
@@ -90,7 +100,7 @@ final class GoalProgressEngineTests: XCTestCase {
         XCTAssertTrue(result.nextAction.contains("Correct the Result"))
     }
 
-    func testDecreaseTargetAboveBaselineNeverReportsGoalReached() {
+    private func assertDecreaseTargetAboveBaselineNeverReportsGoalReached() {
         let profile = TestFixtures.profile()
         let goal = TestFixtures.goal(profile: profile)
         let measure = TestFixtures.measure(

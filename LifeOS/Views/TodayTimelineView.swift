@@ -118,6 +118,7 @@ struct TodayTimelineView: View {
                             .contentShape(Rectangle())
                     }
                     .accessibilityLabel("Add Task")
+                    .accessibilityIdentifier("today.addTask")
                     .accessibilityHint("Opens the new Task form")
                 }
             }
@@ -202,6 +203,7 @@ struct TodayTimelineView: View {
         .padding(.vertical, 10)
         .background(.ultraThinMaterial)
         .accessibilityHint("Record an unscheduled Task, meal, weight, or sport session")
+        .accessibilityIdentifier("today.logWhatHappened")
     }
 
     private var compactDailyProgress: some View {
@@ -227,6 +229,7 @@ struct TodayTimelineView: View {
         .lifeOSGlassCard(tint: .blue, cornerRadius: 20)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Today's progress, \(percent) percent, \(summary.done) of \(summary.total) Tasks complete")
+        .accessibilityIdentifier("today.progress")
     }
 
     private var dailySignals: some View {
@@ -297,35 +300,37 @@ struct TodayTimelineView: View {
     private var overviewGrid: some View {
         let profile = selection.profile
         return VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("OVERVIEW", symbol: "square.grid.2x2.fill")
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                TodayOverviewTile(
-                    title: "Tasks", symbol: "checklist", tint: .blue,
-                    value: "\(summary.done)/\(summary.total)",
-                    detail: summary.remaining == 0 && summary.total > 0 ? "Plan complete" : "\(summary.remaining) remaining",
-                    progress: summary.percentComplete,
-                    action: { showingTaskOverview = true }
-                )
-                TodayOverviewTile(
-                    title: "Check-ins", symbol: "list.clipboard.fill", tint: .orange,
-                    value: "\(dueResultMeasures.count)",
-                    detail: dueResultMeasures.isEmpty ? "Nothing due" : "Results due",
-                    progress: nil,
-                    action: { resultMeasureToRecord = dueResultMeasures.first }
-                )
-                ForEach(Array(overviewPlans.prefix(3))) { plan in
-                    let snapshot = overviewSnapshot(for: plan, profile: profile)
-                    TodayOverviewTile(
-                        title: plan.name,
-                        symbol: plan.symbol,
-                        tint: ColorToken.color(for: plan.colorToken),
-                        value: snapshot.value,
-                        detail: snapshot.detail,
-                        progress: snapshot.progress,
-                        action: { selectedOverviewPlan = plan }
-                    )
+            HStack {
+                sectionLabel("PLANS", symbol: "rectangle.3.group.fill")
+                Spacer()
+                if overviewPlans.count > 3 {
+                    Label("Swipe for more", systemImage: "arrow.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
                 }
             }
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 8) {
+                    ForEach(overviewPlans) { plan in
+                        let snapshot = overviewSnapshot(for: plan, profile: profile)
+                        TodayOverviewTile(
+                            title: plan.name,
+                            symbol: plan.symbol,
+                            tint: ColorToken.color(for: plan.colorToken),
+                            value: snapshot.value,
+                            detail: snapshot.detail,
+                            progress: snapshot.progress,
+                            action: { selectedOverviewPlan = plan }
+                        )
+                        .containerRelativeFrame(.horizontal, count: 3, span: 1, spacing: 8)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.viewAligned)
+            .frame(height: 146)
+            .accessibilityLabel("Plans, horizontal list")
+            .accessibilityHint("Swipe left or right to see more Plans")
 
             Button {
                 showingAddPlan = true
@@ -337,13 +342,6 @@ struct TodayTimelineView: View {
             .buttonStyle(.plain)
             .foregroundStyle(.blue)
 
-            if overviewPlans.count > 3 {
-                Text("Only 3 Plans are kept on Home. Your other \(overviewPlans.count - 3) Plan\(overviewPlans.count == 4 ? "" : "s") remain available in Plans.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .multilineTextAlignment(.center)
-            }
         }
     }
 
@@ -443,6 +441,7 @@ struct TodayTimelineView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("today.completedSection")
                     .accessibilityLabel("Enter \(measure.name) result for \(measure.goal?.name ?? "goal")")
                 }
             }
@@ -452,6 +451,13 @@ struct TodayTimelineView: View {
 
     private var todaySections: some View {
         VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                sectionLabel("TODAY'S TASKS", symbol: "checklist")
+                Spacer()
+                Button("View all") { showingTaskOverview = true }
+                    .font(.caption.weight(.semibold))
+                    .accessibilityIdentifier("today.tasksOverview")
+            }
             if todayItems.isEmpty {
                 ContentUnavailableView(
                     "Nothing Scheduled",
@@ -509,6 +515,7 @@ struct TodayTimelineView: View {
             onStart: { feedbackTrigger += 1; start(item) },
             onDone: { feedbackTrigger += 1; recordingItem = item },
             onSkip: { feedbackTrigger += 1; skip(item) },
+            onUndoSkip: { feedbackTrigger += 1; undoSkip(item) },
             onDetails: { selectedTask = item.activity },
             isOverdue: PlanningService.isOverdue(item)
         )
@@ -548,6 +555,12 @@ struct TodayTimelineView: View {
         let previousStatus = item.status
         item.status = .skipped
         if !modelContext.saveOrReport() { item.status = previousStatus }
+    }
+
+    private func undoSkip(_ item: CalendarItem) {
+        guard item.status == .skipped else { return }
+        item.status = .planned
+        if !modelContext.saveOrReport() { item.status = .skipped }
     }
 }
 
@@ -723,7 +736,7 @@ private struct TodayOverviewTile: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Text(title)
                         .font(.subheadline.weight(.bold))
@@ -738,9 +751,9 @@ private struct TodayOverviewTile: View {
                 Spacer(minLength: 0)
 
                 Image(systemName: symbol)
-                    .font(.title2.weight(.semibold))
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(tint)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 36, height: 36)
                     .background(tint.opacity(0.11), in: Circle())
 
                 VStack(alignment: .leading, spacing: 5) {
@@ -760,19 +773,20 @@ private struct TodayOverviewTile: View {
                         .tint(tint)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 150, alignment: .leading)
-            .padding(16)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .frame(maxWidth: .infinity, minHeight: 122, alignment: .leading)
+            .padding(12)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .stroke(.white.opacity(0.16), lineWidth: 0.75)
             }
-            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title), \(value), \(detail)")
         .accessibilityHint("Opens \(title)")
+        .accessibilityIdentifier("today.overview.\(title.lowercased().replacingOccurrences(of: " ", with: "-"))")
     }
 }
 
@@ -827,6 +841,7 @@ private struct TodayTaskOverviewView: View {
                             }
                             .buttonStyle(.plain)
                             .accessibilityHint("Shows all Task details")
+                            .accessibilityIdentifier("today.task.\(item.activity?.name.lowercased() ?? "unknown")")
                         }
                     }
                 } header: {
@@ -858,6 +873,7 @@ private struct CalendarItemRow: View {
     let onStart: () -> Void
     let onDone: () -> Void
     let onSkip: () -> Void
+    let onUndoSkip: () -> Void
     let onDetails: () -> Void
     let isOverdue: Bool
 
@@ -915,6 +931,7 @@ private struct CalendarItemRow: View {
         }
         .lifeOSGlassCard(tint: categoryColor, cornerRadius: 22)
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("today.card.\(taskIdentifier)")
     }
 
     @ViewBuilder
@@ -928,18 +945,22 @@ private struct CalendarItemRow: View {
                 Button("Done", action: onDone)
                     .buttonStyle(LifeOSInlineButtonStyle(tint: .green, filled: true))
                     .accessibilityHint("Opens the result and notes form")
+                    .accessibilityIdentifier("today.done.\(taskIdentifier)")
                 Button("Skip", action: onSkip)
                     .buttonStyle(LifeOSInlineButtonStyle(tint: .secondary))
                     .accessibilityHint("Marks this Task skipped")
+                    .accessibilityIdentifier("today.skip.\(taskIdentifier)")
             }
         case .inProgress:
             HStack(spacing: 8) {
                 Button("Finish", action: onDone)
                     .buttonStyle(LifeOSInlineButtonStyle(tint: .green, filled: true))
                     .accessibilityHint("Opens the result and notes form")
+                    .accessibilityIdentifier("today.done.\(taskIdentifier)")
                 Button("Skip", action: onSkip)
                     .buttonStyle(LifeOSInlineButtonStyle(tint: .secondary))
                     .accessibilityHint("Marks this Task skipped")
+                    .accessibilityIdentifier("today.skip.\(taskIdentifier)")
             }
         case .done:
             HStack(spacing: 6) {
@@ -947,7 +968,12 @@ private struct CalendarItemRow: View {
                 Text(completionText).font(.caption).foregroundStyle(.secondary)
             }
             .frame(minHeight: 44)
-        case .skipped, .rescheduled, .unplanned:
+        case .skipped:
+            Button("Undo Skip", action: onUndoSkip)
+                .buttonStyle(LifeOSInlineButtonStyle(tint: .blue))
+                .accessibilityHint("Returns this occurrence to the active Home plan")
+                .accessibilityIdentifier("today.undoSkip.\(taskIdentifier)")
+        case .rescheduled, .unplanned:
             EmptyView()
         }
     }
@@ -956,6 +982,12 @@ private struct CalendarItemRow: View {
         guard let target = item.activity?.targetValue,
               let unit = item.activity?.targetUnit else { return "Completed" }
         return "Completed · target \(target.formatted(.number.precision(.fractionLength(0...1)))) \(unit)"
+    }
+
+    private var taskIdentifier: String {
+        (item.activity?.name ?? "unknown")
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "-")
     }
 }
 

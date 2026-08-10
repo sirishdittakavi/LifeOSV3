@@ -30,6 +30,18 @@ final class LifeOSStore {
     private(set) var persistentStoreFailed = false
 
     init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing") {
+            do {
+                let container = try LifeOSDataStore.makeContainer(inMemory: true)
+                try Self.prepareUITestFixture(container)
+                self.container = container
+                return
+            } catch {
+                fatalError("LifeOS UI-test fixture failed: \(error.localizedDescription)")
+            }
+        }
+        #endif
         do {
             let container = try LifeOSDataStore.makeContainer(inMemory: false)
             try Self.prepare(container)
@@ -55,6 +67,84 @@ final class LifeOSStore {
     private static func prepare(_ container: ModelContainer) throws {
         try SeedData.seedIfNeeded(context: container.mainContext)
     }
+
+    #if DEBUG
+    /// A small, deterministic workspace used only by XCUITest. Release and
+    /// TestFlight builds do not contain this test-data path.
+    private static func prepareUITestFixture(_ container: ModelContainer) throws {
+        UserDefaults.standard.set(true, forKey: "LifeOS.onboarding.v1.completed")
+        UserDefaults.standard.removeObject(forKey: SelectedProfile.lastProfileKey)
+
+        let context = container.mainContext
+        let profile = Profile(name: "UI Test Athlete", kind: .individual, colorToken: "blue")
+        let baseball = AppCategory(
+            profile: profile, name: "Baseball", symbol: "baseball.fill",
+            colorToken: "orange", pillar: .sport, trackingKind: .sport,
+            purpose: "Build dependable baseball skills.",
+            weeklyTargetSessions: 21, weeklyTargetMinutes: 210
+        )
+        let nutrition = AppCategory(
+            profile: profile, name: "Nutrition", symbol: "fork.knife",
+            colorToken: "green", pillar: .nutrition, trackingKind: .nutrition,
+            purpose: "Fuel training and recovery.",
+            weeklyTargetSessions: 7, weeklyTargetMinutes: 0
+        )
+        context.insert(profile)
+        context.insert(baseball)
+        context.insert(nutrition)
+
+        let goal = Goal(
+            profile: profile, name: "Become a Complete Baseball Player",
+            purpose: "Improve batting, pitching, and fielding through a balanced plan."
+        )
+        let contribution = GoalAreaContribution(
+            goal: goal, category: baseball,
+            statement: "Baseball practice supports this Goal.",
+            weeklyTargetSessions: 11, weeklyTargetMinutes: 110
+        )
+        context.insert(goal)
+        context.insert(contribution)
+
+        let todayWeekday = Calendar.current.component(.weekday, from: .now)
+        let otherWeekdays = (1...7).filter { $0 != todayWeekday }.prefix(2)
+        let tasks = [
+            Activity(
+                profile: profile, category: baseball, name: "Hitting",
+                source: .manual, targetValue: 10, targetUnit: "min",
+                repeatType: .daily, weekdays: Array(1...7),
+                plannedStartMinutes: 18 * 60, estimatedDurationMinutes: 10,
+                startDate: Calendar.current.startOfDay(for: .now)
+            ),
+            Activity(
+                profile: profile, category: baseball, name: "Pitching",
+                source: .manual, targetValue: 10, targetUnit: "min",
+                repeatType: .timesPerWeek,
+                weekdays: ([todayWeekday] + Array(otherWeekdays)).sorted(),
+                occurrencesPerWeek: 3,
+                plannedStartMinutes: 18 * 60 + 15, estimatedDurationMinutes: 10,
+                startDate: Calendar.current.startOfDay(for: .now)
+            ),
+            Activity(
+                profile: profile, category: baseball, name: "Fielding",
+                source: .manual, targetValue: 10, targetUnit: "min",
+                repeatType: .timesPerWeek, weekdays: [todayWeekday],
+                occurrencesPerWeek: 1,
+                plannedStartMinutes: 18 * 60 + 30, estimatedDurationMinutes: 10,
+                startDate: Calendar.current.startOfDay(for: .now)
+            )
+        ]
+        tasks.forEach(context.insert)
+
+        context.insert(Activity(
+            profile: profile, category: baseball, name: "Future Conditioning",
+            source: .manual, targetValue: 10, targetUnit: "min",
+            repeatType: .daily, weekdays: Array(1...7),
+            plannedStartMinutes: 19 * 60, estimatedDurationMinutes: 10,
+            startDate: Calendar.current.date(byAdding: .day, value: 1, to: .now) ?? .now
+        ))
+        try context.save()
+    }
+    #endif
 
     private static func makeFallbackContainer() -> ModelContainer {
         do {

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10000000000000000000001 /* LifeOSUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* LifeOSUITests.swift */; };
 		12622E1A22DA370EE36385DF /* SchemaVersioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 591D05654CEDC34BDF4C3EEC /* SchemaVersioning.swift */; };
 		14EAFD7F341772B2A55053C2 /* ImprovementDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9AAA0DFB09417257C7322E2 /* ImprovementDashboardView.swift */; };
 		156B7C224336DE2D8ADCDCD6 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9628B470CB2D29FB799F92 /* Models.swift */; };
@@ -54,6 +55,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		A10000000000000000000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98645262B9197BD6057E1C1C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AD5DB9344CDCD6867ABB9D4E;
+			remoteInfo = LifeOS;
+		};
 		2DF5045004F210554FAF54D2 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 98645262B9197BD6057E1C1C /* Project object */;
@@ -71,13 +79,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A10000000000000000000002 /* LifeOSUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeOSUITests.swift; sourceTree = "<group>"; };
+		A10000000000000000000004 /* LifeOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LifeOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		005D6CDEEC34ED5565B337DF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		034D9080C0B31279987A0CD7 /* LifeOSComponentTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LifeOSComponentTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		12478936D140093B18A81E4C /* ProfilePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePicker.swift; sourceTree = "<group>"; };
 		1DFCE9143795B69EB5748B5D /* TodayTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayTimelineView.swift; sourceTree = "<group>"; };
 		236B524C8D1AD5290BDBF78D /* ImprovementCategoriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImprovementCategoriesView.swift; sourceTree = "<group>"; };
 		27E775220D569D469F979936 /* BackupCenterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupCenterView.swift; sourceTree = "<group>"; };
-		35C6B98C8F971900A44C84BF /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		35C6B98C8F971900A44C84BF /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		435730B566CC4241E3E8EFBB /* ReminderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderService.swift; sourceTree = "<group>"; };
 		46AC7BCC0343BDFD1C809C3B /* WeightTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightTrackerView.swift; sourceTree = "<group>"; };
 		499BF422BE2A1E261CED49CF /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
@@ -111,7 +121,7 @@
 		CDDCC3A1F13B93070395E397 /* LifeOSBackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeOSBackupService.swift; sourceTree = "<group>"; };
 		CE1EDE1219CF03BE2D0BD6CA /* GoalSystemComponentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalSystemComponentTests.swift; sourceTree = "<group>"; };
 		E3ADED4567B9BD9952F48311 /* PlanningService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanningService.swift; sourceTree = "<group>"; };
-		E865D330E9C7C91599A676D7 /* LifeOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = LifeOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E865D330E9C7C91599A676D7 /* LifeOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LifeOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EEADFA7666774116F5750CE0 /* SportTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportTrackerView.swift; sourceTree = "<group>"; };
 		EF29D3EFDCB9336FED403538 /* LifeOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeOSApp.swift; sourceTree = "<group>"; };
 		F11A6A30395261FA5B84442F /* PortableMetricServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortableMetricServiceTests.swift; sourceTree = "<group>"; };
@@ -121,6 +131,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		A10000000000000000000005 /* LifeOSUITests */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000002 /* LifeOSUITests.swift */,
+			);
+			path = LifeOSUITests;
+			sourceTree = "<group>";
+		};
 		3160C338B24A8CF792372096 /* Engine */ = {
 			isa = PBXGroup;
 			children = (
@@ -152,6 +170,7 @@
 				E865D330E9C7C91599A676D7 /* LifeOS.app */,
 				034D9080C0B31279987A0CD7 /* LifeOSComponentTests.xctest */,
 				728DCA23C0F156C88D04362A /* LifeOSUnitTests.xctest */,
+				A10000000000000000000004 /* LifeOSUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -226,6 +245,7 @@
 				B89422FB6DE20924CDA8C2E2 /* LifeOS */,
 				62810B1E68C934A897BD92F2 /* LifeOSComponentTests */,
 				BA6E4ED4299E08545F6548D3 /* LifeOSUnitTests */,
+				A10000000000000000000005 /* LifeOSUITests */,
 				6BBD885734BE07D038423D8A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -233,6 +253,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A10000000000000000000006 /* LifeOSUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1000000000000000000000C /* Build configuration list for PBXNativeTarget "LifeOSUITests" */;
+			buildPhases = (
+				A10000000000000000000007 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A10000000000000000000009 /* PBXTargetDependency */,
+			);
+			name = LifeOSUITests;
+			packageProductDependencies = (
+			);
+			productName = LifeOSUITests;
+			productReference = A10000000000000000000004 /* LifeOSUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		014CD19C415DDEF3B9081E4D /* LifeOSComponentTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 9BF4B307849E850B56FCC3AF /* Build configuration list for PBXNativeTarget "LifeOSComponentTests" */;
@@ -296,6 +334,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 2660;
 				TargetAttributes = {
+					A10000000000000000000006 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = AD5DB9344CDCD6867ABB9D4E;
+					};
 					AD5DB9344CDCD6867ABB9D4E = {
 						ProvisioningStyle = Automatic;
 					};
@@ -318,6 +360,7 @@
 				AD5DB9344CDCD6867ABB9D4E /* LifeOS */,
 				3D8F66BC07EADA6380A8A49C /* LifeOSUnitTests */,
 				014CD19C415DDEF3B9081E4D /* LifeOSComponentTests */,
+				A10000000000000000000006 /* LifeOSUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -335,6 +378,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		A10000000000000000000007 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* LifeOSUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1988456EAE5E4B6A4F696B76 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -401,6 +452,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		A10000000000000000000009 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AD5DB9344CDCD6867ABB9D4E /* LifeOS */;
+			targetProxy = A10000000000000000000003 /* PBXContainerItemProxy */;
+		};
 		D6F1B3407AA589B0D62E90B8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = AD5DB9344CDCD6867ABB9D4E /* LifeOS */;
@@ -414,6 +470,36 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		A1000000000000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 74WQCZFJFM;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sirishdittakavi.lifeos.ui-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = LifeOS;
+			};
+			name = Debug;
+		};
+		A1000000000000000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 74WQCZFJFM;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sirishdittakavi.lifeos.ui-tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = LifeOS;
+			};
+			name = Release;
+		};
 		092C4502900BF23E2898CB24 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -421,6 +507,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 74WQCZFJFM;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = LifeOS;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Scan food barcodes and photograph nutrition labels.";
@@ -637,6 +724,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 74WQCZFJFM;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = LifeOS;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Scan food barcodes and photograph nutrition labels.";
@@ -658,6 +746,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		A1000000000000000000000C /* Build configuration list for PBXNativeTarget "LifeOSUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000000000000000000000A /* Debug */,
+				A1000000000000000000000B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		24DF66001BD257C948B118A1 /* Build configuration list for PBXProject "LifeOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

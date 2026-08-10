@@ -3,6 +3,14 @@ import SwiftData
 @testable import LifeOS
 
 final class PlanningServiceTests: XCTestCase {
+    func testOccurrenceIdentityPreventsDuplicatesWithoutCollapsingLegitimateWork() {
+        assertGenerationDoesNotDuplicateExistingOccurrence()
+        assertGenerationUsesMinuteIdentityWhenStoredOccurrenceHasSeconds()
+        assertOccurrenceIdentitySeparatesLegitimateNeighbors()
+        assertManualEntryNeverCollidesWithScheduledOccurrence()
+        assertAllRequestedSameDayOccurrencesRemainDistinct()
+    }
+
     func testLifecycleBoundariesNeverScheduleOutsideInclusiveStartAndEndDates() {
         let profile = TestFixtures.profile()
         let area = TestFixtures.area(profile: profile)
@@ -234,7 +242,7 @@ final class PlanningServiceTests: XCTestCase {
         XCTAssertTrue(tuesday.isEmpty)
     }
 
-    func testGenerationDoesNotDuplicateExistingOccurrence() {
+    private func assertGenerationDoesNotDuplicateExistingOccurrence() {
         let profile = TestFixtures.profile()
         let area = TestFixtures.area(profile: profile)
         let date = TestFixtures.date(2026, 1, 6)
@@ -258,7 +266,7 @@ final class PlanningServiceTests: XCTestCase {
         XCTAssertEqual(generated.first?.plannedStart, TestFixtures.date(2026, 1, 6, hour: 10, minute: 30))
     }
 
-    func testGenerationUsesMinuteIdentityWhenStoredOccurrenceHasSeconds() {
+    private func assertGenerationUsesMinuteIdentityWhenStoredOccurrenceHasSeconds() {
         let profile = TestFixtures.profile()
         let area = TestFixtures.area(profile: profile)
         let date = TestFixtures.date(2026, 1, 6)
@@ -292,7 +300,7 @@ final class PlanningServiceTests: XCTestCase {
         ).map(\.id), [planned.id])
     }
 
-    func testOccurrenceIdentitySeparatesLegitimateNeighbors() {
+    private func assertOccurrenceIdentitySeparatesLegitimateNeighbors() {
         let p1 = TestFixtures.profile(), p2 = TestFixtures.profile("Other")
         let area = TestFixtures.area(profile: p1), day = TestFixtures.date(2026, 1, 6)
         let a1 = Activity(profile: p1, category: area, name: "A", plannedStartMinutes: 600, estimatedDurationMinutes: 10)
@@ -307,7 +315,7 @@ final class PlanningServiceTests: XCTestCase {
         XCTAssertTrue(PlanningService.duplicateCalendarItems(in: items, calendar: TestFixtures.calendar).isEmpty)
     }
 
-    func testManualEntryNeverCollidesWithScheduledOccurrence() {
+    private func assertManualEntryNeverCollidesWithScheduledOccurrence() {
         let profile = TestFixtures.profile(), area = TestFixtures.area(profile: profile)
         let action = Activity(profile: profile, category: area, name: "Practice", plannedStartMinutes: 600, estimatedDurationMinutes: 10)
         let day = TestFixtures.date(2026, 1, 6), start = TestFixtures.date(2026, 1, 6, hour: 10)
@@ -328,7 +336,7 @@ final class PlanningServiceTests: XCTestCase {
         XCTAssertTrue(PlanningService.duplicateCalendarItems(in: [done, skipped], calendar: TestFixtures.calendar).isEmpty)
     }
 
-    func testAllRequestedSameDayOccurrencesRemainDistinct() {
+    private func assertAllRequestedSameDayOccurrencesRemainDistinct() {
         let profile = TestFixtures.profile(), area = TestFixtures.area(profile: profile)
         let action = Activity(profile: profile, category: area, name: "Practice", repeatType: .timesPerDay,
                               occurrencesPerDay: 4, repeatIntervalMinutes: 15, plannedStartMinutes: 600,
