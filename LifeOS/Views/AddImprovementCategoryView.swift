@@ -126,6 +126,15 @@ private struct ConfigureImprovementCategoryView: View {
     @State private var symbol: String
     @State private var colorToken: String
 
+    private var duplicatePlanExists: Bool {
+        let normalized = CategoryHierarchy.normalizedName(name)
+        guard !normalized.isEmpty else { return false }
+        return allCategories.contains {
+            $0.profile?.id == profile.id && $0.parentCategoryID == parentCategoryID &&
+            CategoryHierarchy.normalizedName($0.name) == normalized
+        }
+    }
+
     init(
         profile: Profile,
         parentCategory: AppCategory?,
@@ -219,13 +228,19 @@ private struct ConfigureImprovementCategoryView: View {
             Section {
                 Button("Create Area", action: create)
                     .frame(maxWidth: .infinity)
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || duplicatePlanExists)
+                if duplicatePlanExists {
+                    Text("This Plan already exists. Open it from Plans to add or edit Tasks.")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
             }
         }
         .navigationTitle(template == nil ? "New Area" : "Review Area")
     }
 
     private func create() {
+        guard !duplicatePlanExists else { return }
         let category = AppCategory(
             profile: profile,
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),

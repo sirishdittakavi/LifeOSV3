@@ -20,11 +20,11 @@ let package = Package(
                 "Assets.xcassets",
                 "LifeOSApp.swift",
                 "PrivacyInfo.xcprivacy",
-                "Models/SeedData.swift",
                 "Engine/ReminderService.swift"
             ],
             sources: [
                 "Models/Models.swift",
+                "Models/SeedData.swift",
                 "Models/SchemaVersioning.swift",
                 "Engine/CategoryHierarchy.swift",
                 "Engine/CategoryProgressEngine.swift",

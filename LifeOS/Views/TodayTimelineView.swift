@@ -302,10 +302,12 @@ struct TodayTimelineView: View {
     private var overviewPlans: [AppCategory] {
         guard let profile = selection.profile else { return [] }
         let profilePlans = categories.filter { $0.profile?.id == profile.id && $0.isActive }
-        return profilePlans
-            .filter { CategoryHierarchy.isTopLevel($0, in: profilePlans) }
+        return CategoryHierarchy.uniqueTopLevelCategories(in: profilePlans)
             .sorted {
-                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                let comparison = $0.name.localizedCaseInsensitiveCompare($1.name)
+                return comparison == .orderedSame
+                    ? $0.id.uuidString < $1.id.uuidString
+                    : comparison == .orderedAscending
             }
     }
 

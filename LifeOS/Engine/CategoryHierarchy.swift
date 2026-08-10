@@ -4,6 +4,34 @@ import Foundation
 /// user-defined programs, subjects, teams, or projects. Containment remains
 /// separate from cross-area relationships.
 enum CategoryHierarchy {
+    struct Identity: Hashable {
+        let profileID: UUID?
+        let parentID: UUID?
+        let normalizedName: String
+    }
+
+    static func identity(for category: AppCategory) -> Identity {
+        Identity(
+            profileID: category.profile?.id,
+            parentID: category.parentCategoryID,
+            normalizedName: normalizedName(category.name)
+        )
+    }
+
+    static func normalizedName(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+    }
+
+    static func uniqueTopLevelCategories(in categories: [AppCategory]) -> [AppCategory] {
+        var identities = Set<Identity>()
+        return categories.filter {
+            isTopLevel($0, in: categories) && identities.insert(identity(for: $0)).inserted
+        }
+    }
+
     static func parent(of category: AppCategory, in categories: [AppCategory]) -> AppCategory? {
         guard let parentID = category.parentCategoryID else { return nil }
         return categories.first { $0.id == parentID }

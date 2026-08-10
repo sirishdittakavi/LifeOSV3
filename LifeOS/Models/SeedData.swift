@@ -8,6 +8,7 @@ enum SeedData {
             seedFreshWorkspace(context: context)
         }
         try upgradeImprovementCategoriesIfNeeded(context: context)
+        try repairDuplicateCategories(context: context)
         try context.save()
     }
 
@@ -109,5 +110,51 @@ enum SeedData {
         if category.purpose.isEmpty { category.purpose = "Organise consistent actions that support measurable Goals." }
         guard AreaTrackingKind(rawValue: category.trackingKindRaw) == nil else { return }
         category.trackingKind = .legacyDefault(name: category.name, pillar: category.pillar)
+    }
+
+    /// A Plan is unique within a profile and parent by its normalized name.
+    /// Legacy and interrupted onboarding data can contain two records with
+    /// different UUIDs for the same Plan. Merge their relationships so no
+    /// Tasks, history, Goals, or sport logs are discarded.
+    static func repairDuplicateCategories(context: ModelContext) throws {
+        let categories = try context.fetch(FetchDescriptor<AppCategory>())
+        let activities = try context.fetch(FetchDescriptor<Activity>())
+        let contributions = try context.fetch(FetchDescriptor<GoalAreaContribution>())
+        let sportEntries = try context.fetch(FetchDescriptor<SportEntry>())
+        let groups = Dictionary(grouping: categories, by: CategoryHierarchy.identity)
+
+        for duplicates in groups.values where duplicates.count > 1 {
+            let ranked = duplicates.sorted { lhs, rhs in
+                let lhsReferences = activities.filter { $0.category?.id == lhs.id }.count
+                    + contributions.filter { $0.category?.id == lhs.id }.count
+                    + sportEntries.filter { $0.category?.id == lhs.id }.count
+                let rhsReferences = activities.filter { $0.category?.id == rhs.id }.count
+                    + contributions.filter { $0.category?.id == rhs.id }.count
+                    + sportEntries.filter { $0.category?.id == rhs.id }.count
+                if lhsReferences != rhsReferences { return lhsReferences > rhsReferences }
+                if lhs.isActive != rhs.isActive { return lhs.isActive && !rhs.isActive }
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+            guard let keeper = ranked.first else { continue }
+            let removed = Array(ranked.dropFirst())
+            let removedIDs = Set(removed.map(\.id))
+
+            activities.filter { $0.category.map { removedIDs.contains($0.id) } == true }
+                .forEach { $0.category = keeper }
+            contributions.filter { $0.category.map { removedIDs.contains($0.id) } == true }
+                .forEach { $0.category = keeper }
+            sportEntries.filter { $0.category.map { removedIDs.contains($0.id) } == true }
+                .forEach { $0.category = keeper }
+            categories.filter { $0.parentCategoryID.map(removedIDs.contains) == true }
+                .forEach { $0.parentCategoryID = keeper.id }
+
+            let mergedRelated = Set((keeper.relatedCategoryIDs + removed.flatMap(\.relatedCategoryIDs)).map {
+                removedIDs.contains($0) ? keeper.id : $0
+            }).subtracting([keeper.id])
+            keeper.relatedCategoryIDs = Array(mergedRelated).sorted { $0.uuidString < $1.uuidString }
+            keeper.isActive = duplicates.contains(where: \.isActive)
+            keeper.reminderEnabled = duplicates.contains(where: \.reminderEnabled)
+            removed.forEach(context.delete)
+        }
     }
 }

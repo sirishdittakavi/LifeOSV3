@@ -8,6 +8,33 @@ import UIKit
 
 @MainActor
 final class GoalSystemComponentTests: XCTestCase {
+    func testDuplicatePlansMergeWithoutLosingTasksGoalsOrSportHistory() throws {
+        let container = try LifeOSDataStore.makeContainer(inMemory: true)
+        let context = container.mainContext
+        let profile = Profile(name: "Player", kind: .individual, colorToken: "blue")
+        let first = AppCategory(profile: profile, name: "Baseball", symbol: "baseball.fill", colorToken: "orange")
+        let duplicate = AppCategory(profile: profile, name: "  BASEBALL  ", symbol: "figure.baseball", colorToken: "blue")
+        let hitting = Activity(profile: profile, category: first, name: "Hitting", plannedStartMinutes: 600, estimatedDurationMinutes: 10)
+        let pitching = Activity(profile: profile, category: duplicate, name: "Pitching", plannedStartMinutes: 660, estimatedDurationMinutes: 10)
+        let goal = Goal(profile: profile, name: "Improve baseball")
+        let contribution = GoalAreaContribution(goal: goal, category: duplicate)
+        let sport = SportEntry(profile: profile, category: duplicate, sessionName: "Fielding", durationMinutes: 10)
+        context.insert(profile); context.insert(first); context.insert(duplicate)
+        context.insert(hitting); context.insert(pitching); context.insert(goal)
+        context.insert(contribution); context.insert(sport)
+        try context.save()
+
+        try SeedData.repairDuplicateCategories(context: context)
+        try context.save()
+
+        let plans = try context.fetch(FetchDescriptor<AppCategory>())
+        XCTAssertEqual(plans.count, 1)
+        let keeper = try XCTUnwrap(plans.first)
+        XCTAssertEqual(Set(try context.fetch(FetchDescriptor<Activity>()).compactMap { $0.category?.id }), Set([keeper.id]))
+        XCTAssertEqual(try context.fetch(FetchDescriptor<GoalAreaContribution>()).first?.category?.id, keeper.id)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<SportEntry>()).first?.category?.id, keeper.id)
+    }
+
     func testDamagedBackupIsRejectedBeforeItCanMutateTheStore() throws {
         let id = UUID()
         let profile = ProfileBackup(

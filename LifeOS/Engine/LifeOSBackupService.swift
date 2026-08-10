@@ -392,6 +392,7 @@ enum LifeOSBackupService {
             item.taskBlueprintData = record.taskBlueprintData; item.createdAt = record.createdAt
             context.insert(item); templateIDs.insert(record.id)
         }
+        try SeedData.repairDuplicateCategories(context: context)
         try context.save()
     }
 

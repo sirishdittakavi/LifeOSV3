@@ -19,7 +19,7 @@ struct ImprovementCategoriesView: View {
     }
 
     private var topLevelCategories: [AppCategory] {
-        profileCategories.filter { CategoryHierarchy.isTopLevel($0, in: profileCategories) }
+        CategoryHierarchy.uniqueTopLevelCategories(in: profileCategories)
     }
 
     var body: some View {
@@ -63,7 +63,12 @@ struct ImprovementCategoriesView: View {
                 }
 
                 ForEach(ImprovementPillar.allCases) { pillar in
-                    let roots = topLevelCategories.filter { $0.pillar == pillar }.sorted { $0.name < $1.name }
+                    let roots = topLevelCategories.filter { $0.pillar == pillar }.sorted {
+                        let comparison = $0.name.localizedCaseInsensitiveCompare($1.name)
+                        return comparison == .orderedSame
+                            ? $0.id.uuidString < $1.id.uuidString
+                            : comparison == .orderedAscending
+                    }
                     if !roots.isEmpty {
                         Section(pillar.rawValue) {
                             ForEach(roots) { category in
