@@ -40,6 +40,16 @@ struct ImprovementDashboardView: View {
         }
     }
 
+    private var reportInterval: DateInterval { period.interval(containing: .now) }
+    private var report: PeriodCompletionReport? {
+        guard let profile = selection.profile else { return nil }
+        return ProgressEngine.periodCompletionReport(profile: profile, interval: reportInterval, items: calendarItems)
+    }
+    private var topLevelPlans: [AppCategory] {
+        profileCategories.filter { CategoryHierarchy.isTopLevel($0, in: profileCategories) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -48,6 +58,13 @@ struct ImprovementDashboardView: View {
                         ForEach(DashboardPeriod.allCases) { Text($0.rawValue).tag($0) }
                     }
                     .pickerStyle(.segmented)
+
+                    if let report {
+                        PeriodActivityReportCard(report: report, period: period)
+                        planBreakdown
+                    }
+
+                    Text("GOAL OUTCOMES").font(.caption.bold()).foregroundStyle(.secondary)
 
                     GoalCoverageSummary(progresses: progresses, period: period)
 
@@ -142,6 +159,30 @@ struct ImprovementDashboardView: View {
         }
     }
 
+    private var planBreakdown: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("PLANS").font(.caption.bold()).foregroundStyle(.secondary)
+                Spacer()
+                Text("Tap for Tasks").font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(topLevelPlans) { plan in
+                let ids = CategoryHierarchy.idsIncludingDescendants(of: plan, in: profileCategories)
+                let items = PlanningService.plannedItems(calendarItems.filter {
+                    reportInterval.contains($0.date) && $0.activity?.category.map { ids.contains($0.id) } == true && $0.status != .rescheduled
+                })
+                NavigationLink { ImprovementCategoryDetailView(selection: selection, category: plan) } label: {
+                    PlanReportRow(plan: plan, summary: ProgressEngine.completionSummary(items: items))
+                }
+                .buttonStyle(.plain)
+            }
+            if topLevelPlans.isEmpty {
+                Text("Create a Plan to group Tasks and see its activity here.")
+                    .font(.subheadline).foregroundStyle(.secondary).lifeOSCard()
+            }
+        }
+    }
+
     private var goalIndex: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("GOALS BY PLAN").font(.caption.bold()).foregroundStyle(.secondary)
@@ -184,6 +225,67 @@ struct ImprovementDashboardView: View {
             GoalIndexTile(progress: progress, tint: category.map { ColorToken.color(for: $0.colorToken) } ?? .blue)
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct PeriodActivityReportCard: View {
+    let report: PeriodCompletionReport
+    let period: DashboardPeriod
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("TASK ACTIVITY").font(.caption.bold()).foregroundStyle(.secondary)
+                    Text("\(report.done) of \(report.total) complete").font(.title2.bold())
+                }
+                Spacer()
+                Text(report.percentComplete, format: .percent.precision(.fractionLength(0))).font(.title.bold()).foregroundStyle(.blue)
+            }
+            Chart(report.buckets) { bucket in
+                BarMark(x: .value("Day", bucket.date, unit: .day), y: .value("Completed", bucket.done)).foregroundStyle(Color.blue.gradient)
+            }
+            .chartYAxis(.hidden)
+            .chartXAxis {
+                if period != .month {
+                    AxisMarks(values: .stride(by: .day)) { _ in AxisValueLabel(format: .dateTime.weekday(.narrow)) }
+                }
+            }
+            .frame(height: 112)
+            HStack(spacing: 8) {
+                ReportStatusPill(value: report.done, label: "done", color: .green)
+                ReportStatusPill(value: report.skipped, label: "skipped", color: .orange)
+                ReportStatusPill(value: report.missed, label: "missed", color: .red)
+                ReportStatusPill(value: report.remaining, label: "left", color: .blue)
+            }
+        }
+        .lifeOSGlassCard(tint: .blue, cornerRadius: 26)
+    }
+}
+
+private struct ReportStatusPill: View {
+    let value: Int; let label: String; let color: Color
+    var body: some View {
+        VStack(spacing: 2) { Text("\(value)").font(.subheadline.bold()); Text(label).font(.caption2) }
+            .frame(maxWidth: .infinity).padding(.vertical, 8).foregroundStyle(color)
+            .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private struct PlanReportRow: View {
+    let plan: AppCategory; let summary: CompletionSummary
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: plan.symbol).font(.headline).foregroundStyle(ColorToken.color(for: plan.colorToken))
+                .frame(width: 42, height: 42).background(ColorToken.color(for: plan.colorToken).opacity(0.12), in: Circle())
+            VStack(alignment: .leading, spacing: 5) {
+                HStack { Text(plan.name).font(.headline); Spacer(); Text("\(summary.done)/\(summary.total)").font(.subheadline.bold()).foregroundStyle(.secondary) }
+                ProgressView(value: summary.percentComplete).tint(ColorToken.color(for: plan.colorToken))
+                Text(summary.total == 0 ? "No Tasks in this period" : "\(summary.remaining) remaining · \(summary.skipped) skipped")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.tertiary)
+        }
+        .lifeOSCard().accessibilityElement(children: .combine).accessibilityHint("Shows this Plan's Tasks and history")
     }
 }
 

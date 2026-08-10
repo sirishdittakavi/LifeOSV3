@@ -40,7 +40,48 @@ struct CompletionSummary {
     }
 }
 
+struct CompletionBucket: Identifiable {
+    let date: Date
+    let done: Int
+    let total: Int
+    var id: Date { date }
+}
+
+struct PeriodCompletionReport {
+    let done: Int
+    let skipped: Int
+    let missed: Int
+    let remaining: Int
+    let buckets: [CompletionBucket]
+    var total: Int { done + skipped + missed + remaining }
+    var percentComplete: Double { total == 0 ? 0 : Double(done) / Double(total) }
+}
+
 enum ProgressEngine {
+
+    static func periodCompletionReport(
+        profile: Profile, interval: DateInterval, items: [CalendarItem],
+        now: Date = .now, calendar: Calendar = .current
+    ) -> PeriodCompletionReport {
+        let planned = items.filter {
+            $0.profile?.id == profile.id && $0.source == .schedule &&
+            interval.contains($0.date) && $0.status != .rescheduled
+        }
+        let today = calendar.startOfDay(for: now)
+        let done = planned.filter { $0.status == .done }.count
+        let skipped = planned.filter { $0.status == .skipped }.count
+        let pending = planned.filter { $0.status == .planned || $0.status == .inProgress }
+        let missed = pending.filter { calendar.startOfDay(for: $0.date) < today }.count
+        var date = calendar.startOfDay(for: interval.start)
+        var buckets: [CompletionBucket] = []
+        while date < interval.end {
+            let dayItems = planned.filter { calendar.isDate($0.date, inSameDayAs: date) }
+            buckets.append(CompletionBucket(date: date, done: dayItems.filter { $0.status == .done }.count, total: dayItems.count))
+            guard let next = calendar.date(byAdding: .day, value: 1, to: date) else { break }
+            date = next
+        }
+        return PeriodCompletionReport(done: done, skipped: skipped, missed: missed, remaining: pending.count - missed, buckets: buckets)
+    }
 
     /// Section 10a: target vs. actual for every tracked (targetValue != nil)
     /// activity belonging to `profile`, for a single day. Activities without

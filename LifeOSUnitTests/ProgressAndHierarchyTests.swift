@@ -65,6 +65,25 @@ final class ProgressAndHierarchyTests: XCTestCase {
         XCTAssertEqual(summary.percentComplete, 0.25, accuracy: 0.0001)
     }
 
+    func testPeriodReportSeparatesProfilesManualLogsAndTaskStates() {
+        let profile = TestFixtures.profile(), other = TestFixtures.profile("Other")
+        let day = TestFixtures.date(2026, 1, 6)
+        let items = [
+            CalendarItem(profile: profile, activity: nil, date: day, status: .done),
+            CalendarItem(profile: profile, activity: nil, date: day, status: .skipped),
+            CalendarItem(profile: profile, activity: nil, date: day, status: .planned),
+            CalendarItem(profile: profile, activity: nil, date: day, status: .done, source: .manual),
+            CalendarItem(profile: other, activity: nil, date: day, status: .done)
+        ]
+        let report = ProgressEngine.periodCompletionReport(
+            profile: profile,
+            interval: DateInterval(start: day, end: TestFixtures.date(2026, 1, 8)),
+            items: items, now: TestFixtures.date(2026, 1, 7, hour: 12), calendar: TestFixtures.calendar
+        )
+        XCTAssertEqual([report.done, report.skipped, report.missed, report.remaining, report.total], [1, 1, 1, 0, 3])
+        XCTAssertEqual(report.buckets.map(\.total), [3, 0])
+    }
+
     func testPlannedSummaryExcludesManualCompletedWork() {
         let profile = TestFixtures.profile()
         let area = TestFixtures.area(profile: profile)
