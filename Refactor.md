@@ -595,3 +595,26 @@ Files: `LifeOS/Engine/CalendarRepository.swift` (new),
 (derived state/actions removed, delegates to `viewModel`), `Package.swift`
 (both new files added to the testable target), `LifeOSUnitTests/TodayViewModelTests.swift`
 (new, 3 focused tests). App builds; focused tests pass.
+
+### Step 6 — Nutrition V2 (STOPPED — migration safety)
+
+Inspected before touching anything, per instruction. Current `FoodEntry` is
+a single flat model conflating reusable-definition and actual-record
+concerns (no `FoodDefinition`/`MealTemplate` exist; "planned meal" is a
+string flag `nutritionSource == "Meal Plan"` on the same row type). The
+target shape (`FoodDefinition`, `FoodLogEntry`, `NutritionSnapshot`,
+`MealTemplate`, `MealTemplateItem`) requires a genuine model split, not an
+additive/optional change.
+
+`SchemaVersioning.swift` already documents the required process for this
+exact situation: preserve V1 types immutably, define `LifeOSSchemaV2`, add
+a tested `MigrationStage`, and test against a real V1-store data fixture
+before shipping. That fixture does not exist yet, so a migration cannot be
+verified safe before being written. There is also an unresolved product
+decision inside the migration itself: whether existing `FoodEntry` rows
+should retroactively link to auto-created `FoodDefinition`/`MealTemplate`
+records (grouped by name) or migrate unlinked — a design call, not an
+engineering default to pick silently.
+
+No schema files changed. Reported as a blocker; awaiting a decision before
+any Nutrition V2 work proceeds.
