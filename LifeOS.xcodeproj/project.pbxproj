@@ -14,6 +14,8 @@
 		15DCF3BE2B28A3C813B3D24E /* ProfileGoalsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F621BE905857FEB3E0B267 /* ProfileGoalsView.swift */; };
 		17C01F883F087EC6143F6A2A /* ProfileManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D4E3B744C27472F06F91DAB /* ProfileManagerView.swift */; };
 		1E91C64C0CCCE1AEFBF8447E /* PlanningService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3ADED4567B9BD9952F48311 /* PlanningService.swift */; };
+		5F69BE281BC2C3059D6BC1C0 /* CalendarRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02777BA2DFF794368D772802 /* CalendarRepository.swift */; };
+		4244C3D969EEC5B631454764 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC2CFDDEFEF31569CA113C9 /* TodayViewModel.swift */; };
 		1EBBDDA0597BD7E0612DC90A /* ImprovementTemplates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71336B7D9F2F80BB5303A4D3 /* ImprovementTemplates.swift */; };
 		20B95C947978C7DC760EF8BD /* GoalProgressEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7362C092FD349A2E60B7559 /* GoalProgressEngineTests.swift */; };
 		25626A01A87437B9D35B52C4 /* ProgressEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD82E4B5D3273000FF862511 /* ProgressEngine.swift */; };
@@ -119,6 +121,8 @@
 		CDDCC3A1F13B93070395E397 /* LifeOSBackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeOSBackupService.swift; sourceTree = "<group>"; };
 		CE1EDE1219CF03BE2D0BD6CA /* GoalSystemComponentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalSystemComponentTests.swift; sourceTree = "<group>"; };
 		E3ADED4567B9BD9952F48311 /* PlanningService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanningService.swift; sourceTree = "<group>"; };
+		02777BA2DFF794368D772802 /* CalendarRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarRepository.swift; sourceTree = "<group>"; };
+		9FC2CFDDEFEF31569CA113C9 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
 		E865D330E9C7C91599A676D7 /* LifeOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LifeOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EEADFA7666774116F5750CE0 /* SportTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportTrackerView.swift; sourceTree = "<group>"; };
 		EF29D3EFDCB9336FED403538 /* LifeOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeOSApp.swift; sourceTree = "<group>"; };
@@ -146,6 +150,8 @@
 				CDDCC3A1F13B93070395E397 /* LifeOSBackupService.swift */,
 				4A7C22D36339973B2F083F70 /* PersistenceSupport.swift */,
 				E3ADED4567B9BD9952F48311 /* PlanningService.swift */,
+				02777BA2DFF794368D772802 /* CalendarRepository.swift */,
+				9FC2CFDDEFEF31569CA113C9 /* TodayViewModel.swift */,
 				63317EE8BB5E28D2329FF026 /* PortableMetricService.swift */,
 				BD82E4B5D3273000FF862511 /* ProgressEngine.swift */,
 				435730B566CC4241E3E8EFBB /* ReminderService.swift */,
@@ -428,6 +434,8 @@
 				156B7C224336DE2D8ADCDCD6 /* Models.swift in Sources */,
 				54956C7DE301E1EDE7AB47F0 /* PersistenceSupport.swift in Sources */,
 				1E91C64C0CCCE1AEFBF8447E /* PlanningService.swift in Sources */,
+				5F69BE281BC2C3059D6BC1C0 /* CalendarRepository.swift in Sources */,
+				4244C3D969EEC5B631454764 /* TodayViewModel.swift in Sources */,
 				34B14035AF8A082CE58CED0A /* PortableMetricService.swift in Sources */,
 				15DCF3BE2B28A3C813B3D24E /* ProfileGoalsView.swift in Sources */,
 				17C01F883F087EC6143F6A2A /* ProfileManagerView.swift in Sources */,

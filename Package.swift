@@ -33,7 +33,9 @@ let package = Package(
                 "Engine/PortableMetricService.swift",
                 "Engine/PlanningService.swift",
                 "Engine/PersistenceSupport.swift",
-                "Engine/ProgressEngine.swift"
+                "Engine/ProgressEngine.swift",
+                "Engine/CalendarRepository.swift",
+                "Engine/TodayViewModel.swift"
             ]
         ),
         .testTarget(

@@ -40,51 +40,15 @@ struct TodayTimelineView: View {
 
     private let clock = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
-    private var todayItems: [CalendarItem] {
-        guard let profile = selection.profile else { return [] }
-        let calendar = Calendar.current
-        return allItems
-            .filter { $0.profile?.id == profile.id && calendar.isSameDay($0.date, as: currentTime) }
-            .sorted { ($0.plannedStart ?? .distantPast) < ($1.plannedStart ?? .distantPast) }
-    }
-
-    private var summary: CompletionSummary {
-        ProgressEngine.completionSummary(items: PlanningService.plannedItems(todayItems))
-    }
-
-    private var activeItems: [CalendarItem] {
-        todayItems.filter { $0.status == .planned || $0.status == .inProgress }
-    }
-    private var decidedItems: [CalendarItem] {
-        todayItems.filter {
-            $0.status == .done || $0.status == .skipped
-                || $0.status == .rescheduled || $0.status == .unplanned
-        }
-    }
-    private var overdueItems: [CalendarItem] {
-        activeItems.filter { PlanningService.isOverdue($0, now: currentTime) }
-    }
-    private var nextItem: CalendarItem? {
-        activeItems.first { $0.status == .inProgress }
-            ?? activeItems.first { !PlanningService.isOverdue($0, now: currentTime) }
-    }
-    private var restOfDayItems: [CalendarItem] {
-        activeItems.filter {
-            $0.id != nextItem?.id && !PlanningService.isOverdue($0, now: currentTime)
-        }
-    }
-
-    private var dueResultMeasures: [ResultMeasure] {
-        guard let profile = selection.profile else { return [] }
-        let startOfToday = Calendar.current.startOfDay(for: currentTime)
-        return resultMeasures
-            .filter { measure in
-                guard measure.isActive,
-                      measure.goal?.profile?.id == profile.id,
-                      let nextDate = measure.nextCheckInDate else { return false }
-                return Calendar.current.startOfDay(for: nextDate) <= startOfToday
-            }
-            .sorted { ($0.nextCheckInDate ?? .distantFuture) < ($1.nextCheckInDate ?? .distantFuture) }
+    /// Refactor.md Step 4: recreated fresh on every access from this View's
+    /// live @Query results, so all derived Today state and actions route
+    /// through TodayViewModel instead of living on the View directly.
+    private var viewModel: TodayViewModel {
+        TodayViewModel(
+            profile: selection.profile, items: allItems, activities: activities,
+            resultMeasures: resultMeasures, currentTime: currentTime,
+            repository: SwiftDataCalendarRepository(context: modelContext)
+        )
     }
 
     var body: some View {
@@ -132,7 +96,7 @@ struct TodayTimelineView: View {
             }
             .sensoryFeedback(.selection, trigger: feedbackTrigger)
             .onAppear { refresh(at: .now, generate: true) }
-            .onChange(of: selection.profile?.id) { generateTodayItemsIfNeeded() }
+            .onChange(of: selection.profile?.id) { viewModel.generateTodayItemsIfNeeded() }
             .onReceive(clock) { refresh(at: $0) }
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
                 refresh(at: .now, generate: true)
@@ -151,7 +115,7 @@ struct TodayTimelineView: View {
             }
             .sheet(item: $selectedTask) { TaskDetailView(activity: $0) }
             .sheet(isPresented: $showingTaskOverview) {
-                TodayTaskOverviewView(items: todayItems)
+                TodayTaskOverviewView(items: viewModel.todayItems)
             }
             .sheet(isPresented: $showingFoodTracker) {
                 FoodTrackerView(selection: selection)
@@ -187,17 +151,17 @@ struct TodayTimelineView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(currentTime.formatted(.dateTime.weekday(.wide).month(.wide).day()))
                     .font(.title2.weight(.bold))
-                Text(summary.remaining == 0 && summary.total > 0
+                Text(viewModel.summary.remaining == 0 && viewModel.summary.total > 0
                      ? "Your plan is complete."
                      : "One clear Task at a time.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 12)
-            Image(systemName: summary.remaining == 0 && summary.total > 0
+            Image(systemName: viewModel.summary.remaining == 0 && viewModel.summary.total > 0
                   ? "checkmark.seal.fill" : "sun.max.fill")
                 .font(.title2)
-                .foregroundStyle(summary.remaining == 0 && summary.total > 0 ? .green : .orange)
+                .foregroundStyle(viewModel.summary.remaining == 0 && viewModel.summary.total > 0 ? .green : .orange)
                 .accessibilityHidden(true)
         }
         .padding(.horizontal, 4)
@@ -219,7 +183,7 @@ struct TodayTimelineView: View {
     }
 
     private var compactDailyProgress: some View {
-        let percent = Int((summary.percentComplete * 100).rounded())
+        let percent = Int((viewModel.summary.percentComplete * 100).rounded())
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Today's progress")
@@ -229,18 +193,18 @@ struct TodayTimelineView: View {
                     .font(.subheadline.weight(.bold).monospacedDigit())
                     .foregroundStyle(.blue)
             }
-            ProgressView(value: summary.percentComplete)
-                .tint(summary.remaining == 0 && summary.total > 0 ? .green : .blue)
+            ProgressView(value: viewModel.summary.percentComplete)
+                .tint(viewModel.summary.remaining == 0 && viewModel.summary.total > 0 ? .green : .blue)
                 .scaleEffect(y: 1.7)
-            Text(summary.total == 0
+            Text(viewModel.summary.total == 0
                  ? "No Tasks scheduled today"
-                 : "\(summary.done) of \(summary.total) Tasks complete")
+                 : "\(viewModel.summary.done) of \(viewModel.summary.total) Tasks complete")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .lifeOSGlassCard(tint: .blue, cornerRadius: 20)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Today's progress, \(percent) percent, \(summary.done) of \(summary.total) Tasks complete")
+        .accessibilityLabel("Today's progress, \(percent) percent, \(viewModel.summary.done) of \(viewModel.summary.total) Tasks complete")
         .accessibilityIdentifier("today.progress")
     }
 
@@ -361,7 +325,7 @@ struct TodayTimelineView: View {
 
     private func overviewSnapshot(for plan: AppCategory, profile: Profile?) -> TodayPlanSnapshot {
         let planIDs = CategoryHierarchy.idsIncludingDescendants(of: plan, in: categories)
-        let planItems = todayItems.filter {
+        let planItems = viewModel.todayItems.filter {
             $0.activity?.category.map { planIDs.contains($0.id) } == true
         }
         let planSummary = ProgressEngine.completionSummary(
@@ -411,12 +375,12 @@ struct TodayTimelineView: View {
 
     @ViewBuilder
     private var dueResults: some View {
-        if !dueResultMeasures.isEmpty {
+        if !viewModel.dueResultMeasures.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     sectionLabel("RESULT CHECK-INS", symbol: "scope")
                     Spacer()
-                    Text("\(dueResultMeasures.count) due")
+                    Text("\(viewModel.dueResultMeasures.count) due")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(.orange)
                         .padding(.horizontal, 9)
@@ -424,7 +388,7 @@ struct TodayTimelineView: View {
                         .background(.orange.opacity(0.12), in: Capsule())
                 }
 
-                ForEach(dueResultMeasures.prefix(3)) { measure in
+                ForEach(viewModel.dueResultMeasures.prefix(3)) { measure in
                     Button {
                         feedbackTrigger += 1
                         resultMeasureToRecord = measure
@@ -472,7 +436,7 @@ struct TodayTimelineView: View {
                     .font(.caption.weight(.semibold))
                     .accessibilityIdentifier("today.tasksOverview")
             }
-            if todayItems.isEmpty {
+            if viewModel.todayItems.isEmpty {
                 ContentUnavailableView(
                     "Nothing Scheduled",
                     systemImage: "calendar.badge.plus",
@@ -481,16 +445,16 @@ struct TodayTimelineView: View {
                 .frame(maxWidth: .infinity, minHeight: 230)
                 .lifeOSGlassCard(tint: .blue)
             } else {
-                if let nextItem {
+                if let nextItem = viewModel.nextItem {
                     sectionLabel("NEXT TASK", symbol: "arrow.forward.circle.fill")
                     itemRow(nextItem)
                 }
-                if !restOfDayItems.isEmpty {
+                if !viewModel.restOfDayItems.isEmpty {
                     sectionLabel("REST OF DAY", symbol: "calendar.day.timeline.left")
                         .padding(.top, 6)
-                    ForEach(restOfDayItems) { item in itemRow(item) }
+                    ForEach(viewModel.restOfDayItems) { item in itemRow(item) }
                 }
-                if !overdueItems.isEmpty {
+                if !viewModel.overdueItems.isEmpty {
                     VStack(alignment: .leading, spacing: 2) {
                         sectionLabel("OVERDUE", symbol: "clock.badge.exclamationmark.fill")
                             .foregroundStyle(.orange)
@@ -499,16 +463,16 @@ struct TodayTimelineView: View {
                             .foregroundStyle(.secondary)
                     }
                     .padding(.top, 6)
-                    ForEach(overdueItems) { item in itemRow(item) }
+                    ForEach(viewModel.overdueItems) { item in itemRow(item) }
                 }
-                if !decidedItems.isEmpty {
+                if !viewModel.decidedItems.isEmpty {
                     Button {
                         withAnimation(.lifeOSReveal) { completedExpanded.toggle() }
                     } label: {
                         HStack {
                             sectionLabel("COMPLETED & DECIDED", symbol: "checkmark.circle.fill")
                             Spacer()
-                            Text("\(decidedItems.count)").font(.caption.weight(.bold))
+                            Text("\(viewModel.decidedItems.count)").font(.caption.weight(.bold))
                             Image(systemName: completedExpanded ? "chevron.up" : "chevron.down")
                         }
                         .frame(minHeight: 44)
@@ -516,7 +480,7 @@ struct TodayTimelineView: View {
                     }
                     .buttonStyle(.plain)
                     if completedExpanded {
-                        ForEach(decidedItems) { item in itemRow(item) }
+                        ForEach(viewModel.decidedItems) { item in itemRow(item) }
                     }
                 }
             }
@@ -526,10 +490,10 @@ struct TodayTimelineView: View {
     private func itemRow(_ item: CalendarItem) -> some View {
         CalendarItemRow(
             item: item,
-            onStart: { feedbackTrigger += 1; start(item) },
+            onStart: { feedbackTrigger += 1; viewModel.start(item) },
             onDone: { feedbackTrigger += 1; recordingItem = item },
-            onSkip: { feedbackTrigger += 1; skip(item) },
-            onUndoSkip: { feedbackTrigger += 1; undoSkip(item) },
+            onSkip: { feedbackTrigger += 1; viewModel.skip(item) },
+            onUndoSkip: { feedbackTrigger += 1; viewModel.undoSkip(item) },
             onDetails: { selectedTask = item.activity },
             isOverdue: PlanningService.isOverdue(item, now: currentTime)
         )
@@ -542,45 +506,10 @@ struct TodayTimelineView: View {
             .foregroundStyle(.secondary)
     }
 
-    private func generateTodayItemsIfNeeded() {
-        guard let profile = selection.profile else { return }
-        do {
-            let newItems = try PlanningService.insertMissingCalendarItems(
-                profile: profile, date: currentTime, activities: activities, context: modelContext
-            )
-            if !newItems.isEmpty || modelContext.hasChanges { _ = modelContext.saveOrReport() }
-        } catch {
-            PersistenceIssueCenter.shared.report(error)
-        }
-    }
-
     private func refresh(at date: Date, generate: Bool = false) {
         let changedDay = !Calendar.current.isSameDay(currentTime, as: date)
         currentTime = date
-        if generate || changedDay { generateTodayItemsIfNeeded() }
-    }
-
-    private func start(_ item: CalendarItem) {
-        let previousStatus = item.status
-        let previousStart = item.actualStart
-        item.status = .inProgress
-        item.actualStart = .now
-        if !modelContext.saveOrReport() {
-            item.status = previousStatus
-            item.actualStart = previousStart
-        }
-    }
-
-    private func skip(_ item: CalendarItem) {
-        let previousStatus = item.status
-        item.status = .skipped
-        if !modelContext.saveOrReport() { item.status = previousStatus }
-    }
-
-    private func undoSkip(_ item: CalendarItem) {
-        guard item.status == .skipped else { return }
-        item.status = .planned
-        if !modelContext.saveOrReport() { item.status = .skipped }
+        if generate || changedDay { viewModel.generateTodayItemsIfNeeded() }
     }
 }
 
