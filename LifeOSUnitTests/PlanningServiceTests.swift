@@ -185,6 +185,61 @@ final class PlanningServiceTests: XCTestCase {
         ))
     }
 
+    /// Step 3 (Refactor.md): backs the delete-vs-archive decision for
+    /// EditTaskView — an Activity with only untouched planned occurrences
+    /// (however many, on however many days) has no history to lose and is
+    /// safe to delete outright; anything decided, manual, or annotated means
+    /// it must be archived instead.
+    func testHasAnyHistoryDistinguishesUntouchedPlansFromRealRecords() {
+        let profile = TestFixtures.profile()
+        let area = TestFixtures.area(profile: profile)
+        let task = Activity(
+            profile: profile, category: area, name: "Practice",
+            repeatType: .daily, plannedStartMinutes: 420,
+            estimatedDurationMinutes: 10, startDate: TestFixtures.date(2026, 8, 9)
+        )
+        let untouchedToday = CalendarItem(
+            profile: profile, activity: task, date: TestFixtures.date(2026, 8, 9),
+            plannedStart: TestFixtures.date(2026, 8, 9, hour: 7)
+        )
+        let untouchedTomorrow = CalendarItem(
+            profile: profile, activity: task, date: TestFixtures.date(2026, 8, 10),
+            plannedStart: TestFixtures.date(2026, 8, 10, hour: 7)
+        )
+        XCTAssertFalse(PlanningService.hasAnyHistory(for: task, in: [untouchedToday, untouchedTomorrow]))
+
+        let skipped = CalendarItem(
+            profile: profile, activity: task, date: TestFixtures.date(2026, 8, 9),
+            plannedStart: TestFixtures.date(2026, 8, 9, hour: 7), status: .skipped
+        )
+        XCTAssertTrue(
+            PlanningService.hasAnyHistory(for: task, in: [untouchedToday, untouchedTomorrow, skipped]),
+            "a decided occurrence (even just Skipped, not Done) counts as history"
+        )
+
+        let otherTask = Activity(
+            profile: profile, category: area, name: "Other",
+            plannedStartMinutes: 480, estimatedDurationMinutes: 10, startDate: TestFixtures.date(2026, 8, 9)
+        )
+        let otherDone = CalendarItem(
+            profile: profile, activity: otherTask, date: TestFixtures.date(2026, 8, 9),
+            plannedStart: TestFixtures.date(2026, 8, 9, hour: 8), status: .done
+        )
+        XCTAssertFalse(
+            PlanningService.hasAnyHistory(for: task, in: [untouchedToday, otherDone]),
+            "another Activity's history must never leak into this one's delete-safety check"
+        )
+
+        let manualEntry = CalendarItem(
+            profile: profile, activity: task, date: TestFixtures.date(2026, 8, 9),
+            plannedStart: TestFixtures.date(2026, 8, 9, hour: 7), source: .manual
+        )
+        XCTAssertTrue(
+            PlanningService.hasAnyHistory(for: task, in: [manualEntry]),
+            "a manual entry counts as history even while still status .planned"
+        )
+    }
+
     func testReusableManualWorkBeginsTomorrowAndDoesNotCreateAnotherTodayTask() {
         let loggedDate = TestFixtures.date(2026, 8, 9, hour: 18)
         let firstDate = PlanningService.firstReusableDate(

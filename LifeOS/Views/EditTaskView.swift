@@ -26,6 +26,7 @@ struct EditTaskView: View {
     @State private var hasEndDate: Bool
     @State private var endDate: Date
     @State private var isActive: Bool
+    @State private var showingDeleteConfirmation = false
 
     private let weekdaySymbols = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
@@ -61,6 +62,10 @@ struct EditTaskView: View {
     private var firstStartMinute: Int {
         Calendar.current.component(.hour, from: plannedStart) * 60
             + Calendar.current.component(.minute, from: plannedStart)
+    }
+
+    private var hasHistory: Bool {
+        PlanningService.hasAnyHistory(for: activity, in: allCalendarItems)
     }
 
     private var canSave: Bool {
@@ -134,6 +139,17 @@ struct EditTaskView: View {
                     numberField("Duration in minutes", value: $durationMinutes, range: 1...1440)
                         .accessibilityIdentifier("task.duration")
                 }
+
+                Section("Task Management") {
+                    Button(hasHistory ? "Archive Task" : "Delete Task", role: .destructive) {
+                        showingDeleteConfirmation = true
+                    }
+                    .accessibilityIdentifier("task.delete")
+                    Text(hasHistory
+                        ? "This Task has history, so it will be archived instead of deleted. It keeps its history but stops appearing in future schedules."
+                        : "This Task has no history yet, so it can be safely deleted.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
             .navigationTitle("Edit Task")
             .toolbar {
@@ -144,7 +160,48 @@ struct EditTaskView: View {
                         .accessibilityIdentifier("task.save")
                 }
             }
+            .confirmationDialog(
+                hasHistory ? "Archive \(activity.name)?" : "Delete \(activity.name)?",
+                isPresented: $showingDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button(hasHistory ? "Archive Task" : "Delete Task", role: .destructive, action: deleteOrArchive)
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(hasHistory
+                    ? "Existing history remains saved. The Task stops appearing in future schedules."
+                    : "This Task has no recorded history, so this permanently removes it.")
+            }
         }
+    }
+
+    /// Deletes an Activity outright only when it has never produced a real
+    /// record; otherwise archives it (mirrors the Area "Hide" flow) so
+    /// history is never silently discarded. See DESIGN.md §4.
+    private func deleteOrArchive() {
+        let category = activity.category
+        let historyExists = hasHistory
+
+        if historyExists {
+            activity.isActive = false
+            PlanningService.reconcileUntouchedOccurrences(
+                for: activity, in: allCalendarItems
+            ).forEach(modelContext.delete)
+        } else {
+            allCalendarItems
+                .filter { $0.activity?.id == activity.id }
+                .forEach(modelContext.delete)
+            modelContext.delete(activity)
+        }
+
+        guard modelContext.saveOrReport() else { return }
+        if let category {
+            let remainingActivities = allActivities.filter {
+                $0.category?.id == category.id && (historyExists || $0.id != activity.id)
+            }
+            Task { await ReminderService.updateReminders(for: category, activities: remainingActivities) }
+        }
+        dismiss()
     }
 
     private func numberField(

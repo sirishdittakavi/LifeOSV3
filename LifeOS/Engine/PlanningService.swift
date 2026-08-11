@@ -393,8 +393,22 @@ enum PlanningService {
         items.contains { item in
             item.activity?.id == activity.id
                 && calendar.isSameDay(item.date, as: date)
-                && (item.source == .manual || !isUntouchedPlanned(item))
+                && isHistoryBearing(item)
         }
+    }
+
+    /// Whether an Activity has ever produced a real record — manually logged,
+    /// or decided (done/skipped/rescheduled/annotated) — as opposed to only
+    /// untouched planned placeholders. Used to decide whether deleting an
+    /// Activity is safe (nothing to lose) or must archive instead, per
+    /// DESIGN.md §4's "Universal Editability" (reusable definitions archive;
+    /// historical records are never silently discarded).
+    static func hasAnyHistory(for activity: Activity, in items: [CalendarItem]) -> Bool {
+        items.contains { $0.activity?.id == activity.id && isHistoryBearing($0) }
+    }
+
+    private static func isHistoryBearing(_ item: CalendarItem) -> Bool {
+        item.source == .manual || !isUntouchedPlanned(item)
     }
 
     static func isOverdue(_ item: CalendarItem, now: Date = .now) -> Bool {
