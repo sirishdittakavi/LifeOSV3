@@ -395,4 +395,62 @@ final class ProgressAndHierarchyTests: XCTestCase {
         )
         XCTAssertEqual(goalProgress.contributions.first?.plannedActions, canonical.count)
     }
+
+    /// Step 7 (Refactor.md): FoodTrackerView and TodayTimelineView's
+    /// nutrition plan card used to compute today's calories/protein
+    /// independently and identically — exactly the "independent Protein
+    /// totals on Dashboard and Nutrition" duplication DESIGN.md §9 warns
+    /// against. Both now call this one function.
+    func testNutritionTotalsExcludesMealPlanItemsOtherProfilesAndOtherDays() {
+        let profile = TestFixtures.profile(), other = TestFixtures.profile("Other")
+        let today = TestFixtures.date(2026, 1, 6, hour: 12)
+        let actual = FoodEntry(
+            profile: profile, date: TestFixtures.date(2026, 1, 6, hour: 8),
+            mealType: .breakfast, name: "Oats", calories: 300, proteinGrams: 20
+        )
+        let planned = FoodEntry(
+            profile: profile, date: TestFixtures.date(2026, 1, 6, hour: 8),
+            mealType: .breakfast, name: "Planned oats", calories: 999, proteinGrams: 999,
+            nutritionSource: FoodEntry.mealPlanSource
+        )
+        let otherProfileEntry = FoodEntry(
+            profile: other, date: TestFixtures.date(2026, 1, 6, hour: 8),
+            mealType: .breakfast, name: "Not mine", calories: 999, proteinGrams: 999
+        )
+        let yesterdayEntry = FoodEntry(
+            profile: profile, date: TestFixtures.date(2026, 1, 5, hour: 8),
+            mealType: .breakfast, name: "Yesterday", calories: 999, proteinGrams: 999
+        )
+
+        let totals = ProgressEngine.nutritionTotals(
+            profile: profile, date: today,
+            entries: [actual, planned, otherProfileEntry, yesterdayEntry],
+            calendar: TestFixtures.calendar
+        )
+
+        XCTAssertEqual(totals.calories, 300)
+        XCTAssertEqual(totals.protein, 20)
+    }
+
+    /// Step 7: ProgressMetricBuilder wraps the already-canonical engines
+    /// (CategoryProgressEngine, GoalProgressEngine — unified in Step 1)
+    /// into one generic shape, per DESIGN.md §8's "do not create separate
+    /// hard-coded dashboard logic for Protein, Baseball, Coding, etc."
+    func testProgressMetricBuilderWrapsCategoryAndGoalProgressGenerically() {
+        let profile = TestFixtures.profile()
+        let area = TestFixtures.area(profile: profile)
+        let categoryProgress = CategoryProgressEngine.progress(
+            profile: profile, category: area, period: .week,
+            activities: [], calendarItems: [], foodEntries: [], weightEntries: [], sportEntries: []
+        )
+        let metric = ProgressMetricBuilder.metric(from: categoryProgress)
+        XCTAssertEqual(metric.title, area.name)
+        XCTAssertEqual(metric.id, area.id)
+
+        let goal = TestFixtures.goal(profile: profile)
+        let goalProgress = TestFixtures.progress(goal: goal)
+        let goalMetric = ProgressMetricBuilder.metric(from: goalProgress)
+        XCTAssertEqual(goalMetric.title, goal.name)
+        XCTAssertEqual(goalMetric.targetValue, 100)
+    }
 }

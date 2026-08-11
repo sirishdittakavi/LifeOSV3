@@ -334,17 +334,13 @@ struct TodayTimelineView: View {
 
         switch plan.trackingKind {
         case .nutrition:
-            let entries = foodEntries.filter {
-                $0.profile?.id == profile?.id && !$0.isMealPlanItem
-                    && Calendar.current.isDateInToday($0.date)
-            }
-            let calories = entries.reduce(0.0) { $0 + $1.calories }
-            let protein = entries.reduce(0.0) { $0 + $1.proteinGrams }
-            let target = max(profile?.proteinGoalGrams ?? 0, 1)
+            guard let profile else { return TodayPlanSnapshot(value: "0 kcal", detail: "No profile", progress: nil) }
+            let totals = ProgressEngine.nutritionTotals(profile: profile, date: currentTime, entries: foodEntries)
+            let target = max(profile.proteinGoalGrams, 1)
             return TodayPlanSnapshot(
-                value: "\(Int(calories)) kcal",
-                detail: "\(Int(protein))/\(Int(profile?.proteinGoalGrams ?? 0))g protein",
-                progress: min(protein / target, 1)
+                value: "\(Int(totals.calories)) kcal",
+                detail: "\(Int(totals.protein))/\(Int(profile.proteinGoalGrams))g protein",
+                progress: min(totals.protein / target, 1)
             )
         case .bodyWeight:
             let latest = weightEntries.first { $0.profile?.id == profile?.id }

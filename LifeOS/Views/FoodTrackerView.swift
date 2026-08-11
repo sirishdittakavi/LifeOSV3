@@ -21,7 +21,10 @@ struct FoodTrackerView: View {
         actualEntries.filter { Calendar.current.isDateInToday($0.date) }
     }
 
-    private var totals: NutritionTotals { NutritionTotals(entries: todayEntries) }
+    private var totals: NutritionTotals {
+        guard let profile = selection.profile else { return NutritionTotals() }
+        return ProgressEngine.nutritionTotals(profile: profile, date: .now, entries: entries)
+    }
 
     var body: some View {
         NavigationStack {
@@ -123,24 +126,6 @@ struct FoodTrackerView: View {
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: LifeOSRadius.lg, style: .continuous))
             }
             .buttonStyle(.plain)
-        }
-    }
-}
-
-private struct NutritionTotals {
-    var calories = 0.0
-    var protein = 0.0
-    var carbs = 0.0
-    var fat = 0.0
-    var water = 0.0
-
-    init(entries: [FoodEntry]) {
-        for entry in entries {
-            calories += entry.calories
-            protein += entry.proteinGrams
-            carbs += entry.carbohydrateGrams
-            fat += entry.fatGrams
-            water += entry.waterMilliliters
         }
     }
 }

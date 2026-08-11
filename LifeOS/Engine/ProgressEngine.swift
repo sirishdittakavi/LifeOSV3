@@ -57,7 +57,37 @@ struct PeriodCompletionReport {
     var percentComplete: Double { total == 0 ? 0 : Double(done) / Double(total) }
 }
 
+/// Actual nutrition intake for one day. Previously computed independently
+/// (and identically) in FoodTrackerView and TodayTimelineView's plan-card
+/// nutrition snapshot — DESIGN.md §9 explicitly warns against "independent
+/// Protein totals on Dashboard and Nutrition." Both now call
+/// ProgressEngine.nutritionTotals instead.
+struct NutritionTotals {
+    var calories = 0.0
+    var protein = 0.0
+    var carbs = 0.0
+    var fat = 0.0
+    var water = 0.0
+}
+
 enum ProgressEngine {
+    static func nutritionTotals(
+        profile: Profile, date: Date, entries: [FoodEntry], calendar: Calendar = .current
+    ) -> NutritionTotals {
+        let dayEntries = entries.filter {
+            $0.profile?.id == profile.id && !$0.isMealPlanItem && calendar.isSameDay($0.date, as: date)
+        }
+        var totals = NutritionTotals()
+        for entry in dayEntries {
+            totals.calories += entry.calories
+            totals.protein += entry.proteinGrams
+            totals.carbs += entry.carbohydrateGrams
+            totals.fat += entry.fatGrams
+            totals.water += entry.waterMilliliters
+        }
+        return totals
+    }
+
 
     static func periodCompletionReport(
         profile: Profile, interval: DateInterval, items: [CalendarItem],

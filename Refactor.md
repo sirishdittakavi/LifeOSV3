@@ -618,3 +618,27 @@ engineering default to pick silently.
 
 No schema files changed. Reported as a blocker; awaiting a decision before
 any Nutrition V2 work proceeds.
+
+### Step 7 — Unified Today/Progress model (done)
+
+Two concrete deliverables, scoped conservatively:
+
+1. **Removed a real duplicate.** `FoodTrackerView` and `TodayTimelineView`'s
+   nutrition plan card each computed today's calories/protein
+   independently (same filter, same reduce, two places) — exactly the
+   "independent Protein totals on Dashboard and Nutrition" duplication
+   DESIGN.md §9 names directly. Both now call
+   `ProgressEngine.nutritionTotals(profile:date:entries:)`.
+2. **Added `ProgressMetric`** (`LifeOS/Engine/ProgressMetric.swift`): the
+   generic `title/current/target/unit/status/destination` shape from
+   DESIGN.md §8, plus `ProgressMetricBuilder` functions wrapping the
+   already-canonical `CategoryProgress`/`GoalProgress`/`DailyActivityProgress`
+   (no new calculations — Step 1 already made these canonical). **Not wired
+   into any View** — per "do not redesign UI/UX yet," this is the shared
+   read-model piece ready for a future UI consolidation pass, not a
+   dashboard rewrite today.
+
+Files: `LifeOS/Engine/ProgressEngine.swift` (+`NutritionTotals`),
+`LifeOS/Engine/ProgressMetric.swift` (new), `LifeOS/Views/FoodTrackerView.swift`,
+`LifeOS/Views/TodayTimelineView.swift`, `Package.swift`,
+`LifeOSUnitTests/ProgressAndHierarchyTests.swift` (+2 focused tests).
