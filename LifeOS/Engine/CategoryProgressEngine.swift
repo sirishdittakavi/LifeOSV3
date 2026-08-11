@@ -101,15 +101,11 @@ enum CategoryProgressEngine {
         }
         let completedItems = categoryItems.filter { $0.status == .done }
 
-        let scheduledDates = dates(in: interval, calendar: calendar)
-        let scheduledOccurrences = scheduledDates.flatMap { date in
-            categoryActivities.flatMap { activity in
-                PlanningService.scheduledStartMinutes(activity, on: date, calendar: calendar).compactMap { minute in
-                    calendar.date(byAdding: .minute, value: minute, to: calendar.startOfDay(for: date)).map {
-                        (activity: activity, plannedStart: $0)
-                    }
-                }
-            }
+        let scheduledOccurrences = PlanningService.reconstructedOccurrences(
+            profile: profile, interval: interval, activities: categoryActivities,
+            calendarItems: calendarItems, calendar: calendar
+        ).compactMap { occurrence -> (activity: Activity, plannedStart: Date)? in
+            occurrence.activity.map { (activity: $0, plannedStart: occurrence.plannedStart) }
         }
         let scheduledThroughNow = scheduledOccurrences.filter { $0.plannedStart <= now }.count
         let futureScheduled = scheduledOccurrences.filter { $0.plannedStart > now }.count
@@ -230,16 +226,6 @@ enum CategoryProgressEngine {
         )
     }
 
-    private static func dates(in interval: DateInterval, calendar: Calendar) -> [Date] {
-        var dates: [Date] = []
-        var current = calendar.startOfDay(for: interval.start)
-        while current < interval.end {
-            dates.append(current)
-            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
-            current = next
-        }
-        return dates
-    }
 }
 
 // MARK: - Goal outcome and supporting-effort comparison
@@ -314,19 +300,19 @@ enum GoalProgressEngine {
     ) -> GoalProgress {
         let goalContributions = contributions.filter { $0.goal?.id == goal.id && $0.isActive }
         let interval = period.interval(containing: now, calendar: calendar)
-        let dates = dates(in: interval, calendar: calendar)
 
         let contributionProgress = goalContributions.compactMap { contribution -> GoalContributionProgress? in
-            guard let category = contribution.category else { return nil }
+            // A Goal always belongs to a Profile (DESIGN.md §21.1); this guard
+            // is defensive only and mirrors the `contribution.category` guard.
+            guard let category = contribution.category, let profile = goal.profile else { return nil }
             let includedIDs = CategoryHierarchy.idsIncludingDescendants(of: category, in: categories)
             let includedActivities = activities.filter {
                 $0.isActive && $0.category.map { includedIDs.contains($0.id) } == true
             }
-            let planned = dates.reduce(0) { count, date in
-                count + includedActivities.reduce(0) {
-                    $0 + PlanningService.scheduledStartMinutes($1, on: date, calendar: calendar).count
-                }
-            }
+            let occurrences = PlanningService.reconstructedOccurrences(
+                profile: profile, interval: interval, activities: includedActivities,
+                calendarItems: calendarItems, calendar: calendar
+            )
             let items = PlanningService.plannedItems(calendarItems.filter {
                 interval.contains($0.date) &&
                 $0.activity?.category.map { includedIDs.contains($0.id) } == true
@@ -335,19 +321,14 @@ enum GoalProgressEngine {
             return GoalContributionProgress(
                 contribution: contribution,
                 completedActions: completed.count,
-                plannedActions: max(planned, items.count),
+                plannedActions: max(occurrences.count, items.count),
                 completedMinutes: completed.reduce(0) { total, item in
                     if let start = item.actualStart, let end = item.actualEnd, end > start {
                         return total + max(1, Int(end.timeIntervalSince(start) / 60))
                     }
                     return total + (item.activity?.estimatedDurationMinutes ?? 0)
                 },
-                plannedMinutes: dates.reduce(0) { total, date in
-                    total + includedActivities.reduce(0) { partial, activity in
-                        partial + PlanningService.scheduledStartMinutes(activity, on: date, calendar: calendar).count
-                            * activity.estimatedDurationMinutes
-                    }
-                }
+                plannedMinutes: occurrences.reduce(0) { $0 + ($1.activity?.estimatedDurationMinutes ?? 0) }
             )
         }
 
@@ -509,14 +490,4 @@ enum GoalProgressEngine {
         }
     }
 
-    private static func dates(in interval: DateInterval, calendar: Calendar) -> [Date] {
-        var result: [Date] = []
-        var date = calendar.startOfDay(for: interval.start)
-        while date < interval.end {
-            result.append(date)
-            guard let next = calendar.date(byAdding: .day, value: 1, to: date) else { break }
-            date = next
-        }
-        return result
-    }
 }

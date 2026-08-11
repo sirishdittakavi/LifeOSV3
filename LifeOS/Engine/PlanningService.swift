@@ -306,6 +306,84 @@ enum PlanningService {
         items.filter { $0.source == .schedule && $0.status != .unplanned }
     }
 
+    /// One occurrence of a scheduled Activity within a reconstructed period —
+    /// either a real stored `CalendarItem` or a synthesized placeholder for a
+    /// slot the schedule implies but that has no item yet. `activity` is nil
+    /// only for `includeUnlinked` orphan items whose relationship was lost.
+    struct ReconstructedOccurrence {
+        let activity: Activity?
+        let calendarItem: CalendarItem?
+        let date: Date
+        let plannedStart: Date
+        let status: CalendarItemStatus
+    }
+
+    /// The canonical occurrence-reconstruction path shared by every progress
+    /// engine. It merges real stored schedule-sourced `CalendarItem`s with
+    /// occurrences implied by `scheduledStartMinutes` for the given
+    /// `activities`, deduped by `OccurrenceIdentity` so a slot with a real
+    /// item is never double-counted against its own synthesized placeholder.
+    ///
+    /// `activities` also scopes which stored items are considered: an item
+    /// is only merged in if its Activity is one of the ones passed in (or,
+    /// with `includeUnlinked`, if it has no Activity at all). Callers that
+    /// want a whole-profile view pass every Activity for that profile;
+    /// callers that want a category/contribution-scoped view pass just the
+    /// relevant subset. Rescheduled items are excluded from the merge — that
+    /// slot reverts to an ordinary `.planned` placeholder, per
+    /// `periodCompletionReport`'s original behavior, so the count of what
+    /// still needs a decision is preserved rather than lost through the move.
+    static func reconstructedOccurrences(
+        profile: Profile,
+        interval: DateInterval,
+        activities: [Activity],
+        calendarItems: [CalendarItem],
+        includeUnlinked: Bool = false,
+        calendar: Calendar = .current
+    ) -> [ReconstructedOccurrence] {
+        let activityIDs = Set(activities.map(\.id))
+        let stored = calendarItems.filter {
+            $0.profile?.id == profile.id && $0.source == .schedule &&
+            interval.contains($0.date) && $0.status != .rescheduled &&
+            ($0.activity.map { activityIDs.contains($0.id) } ?? includeUnlinked)
+        }
+
+        var occurrences: [OccurrenceIdentity: ReconstructedOccurrence] = [:]
+        var unlinked: [ReconstructedOccurrence] = []
+        for item in stored {
+            let occurrence = ReconstructedOccurrence(
+                activity: item.activity, calendarItem: item,
+                date: item.date, plannedStart: item.plannedStart ?? item.date,
+                status: item.status
+            )
+            guard let identity = occurrenceIdentity(for: item, calendar: calendar) else {
+                unlinked.append(occurrence)
+                continue
+            }
+            occurrences[identity] = occurrence
+        }
+
+        var date = calendar.startOfDay(for: interval.start)
+        while date < interval.end {
+            for activity in activities where activity.profile?.id == profile.id {
+                for minute in scheduledStartMinutes(activity, on: date, calendar: calendar) {
+                    guard let plannedStart = calendar.date(byAdding: .minute, value: minute, to: date) else { continue }
+                    let identity = OccurrenceIdentity(profileID: profile.id, activityID: activity.id, day: date, startMinute: minute)
+                    if occurrences[identity] == nil {
+                        occurrences[identity] = ReconstructedOccurrence(
+                            activity: activity, calendarItem: nil,
+                            date: date, plannedStart: plannedStart, status: .planned
+                        )
+                    }
+                }
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: date) else { break }
+            date = next
+        }
+
+        return Array(occurrences.values) + unlinked
+    }
+
     static func hasHistory(
         for activity: Activity,
         on date: Date,

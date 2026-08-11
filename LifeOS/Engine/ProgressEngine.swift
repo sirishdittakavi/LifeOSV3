@@ -64,46 +64,10 @@ enum ProgressEngine {
         activities: [Activity] = [],
         now: Date = .now, calendar: Calendar = .current
     ) -> PeriodCompletionReport {
-        struct Occurrence {
-            let date: Date
-            let plannedStart: Date
-            let status: CalendarItemStatus
-        }
-
-        let stored = items.filter {
-            $0.profile?.id == profile.id && $0.source == .schedule &&
-            interval.contains($0.date) && $0.status != .rescheduled
-        }
-        var occurrences: [PlanningService.OccurrenceIdentity: Occurrence] = [:]
-        var unlinkedOccurrences: [Occurrence] = []
-        for item in stored {
-            let plannedStart = item.plannedStart ?? item.date
-            guard let identity = PlanningService.occurrenceIdentity(for: item) else {
-                unlinkedOccurrences.append(Occurrence(date: item.date, plannedStart: plannedStart, status: item.status))
-                continue
-            }
-            occurrences[identity] = Occurrence(date: item.date, plannedStart: plannedStart, status: item.status)
-        }
-
-        var date = calendar.startOfDay(for: interval.start)
-        while date < interval.end {
-            for activity in activities where activity.profile?.id == profile.id {
-                for minute in PlanningService.scheduledStartMinutes(activity, on: date, calendar: calendar) {
-                    guard let plannedStart = calendar.date(byAdding: .minute, value: minute, to: date) else { continue }
-                    let identity = PlanningService.OccurrenceIdentity(
-                        profileID: profile.id, activityID: activity.id,
-                        day: date, startMinute: minute
-                    )
-                    if occurrences[identity] == nil {
-                        occurrences[identity] = Occurrence(date: date, plannedStart: plannedStart, status: .planned)
-                    }
-                }
-            }
-            guard let next = calendar.date(byAdding: .day, value: 1, to: date) else { break }
-            date = next
-        }
-
-        let planned = Array(occurrences.values) + unlinkedOccurrences
+        let planned = PlanningService.reconstructedOccurrences(
+            profile: profile, interval: interval, activities: activities,
+            calendarItems: items, includeUnlinked: true, calendar: calendar
+        )
         let done = planned.filter { $0.status == .done }.count
         let skipped = planned.filter { $0.status == .skipped }.count
         let pending = planned.filter { $0.status == .planned || $0.status == .inProgress }

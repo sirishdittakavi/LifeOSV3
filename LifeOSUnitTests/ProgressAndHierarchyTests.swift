@@ -332,4 +332,67 @@ final class ProgressAndHierarchyTests: XCTestCase {
         )
         XCTAssertEqual(afterLogging.completedSessions, 1)
     }
+
+    /// Step 1 of Refactor.md: ProgressEngine, CategoryProgressEngine and
+    /// GoalProgressEngine used to reconstruct scheduled occurrences with
+    /// three separate inline implementations. This proves they now agree,
+    /// using a record that a naive re-derivation from `scheduledStartMinutes`
+    /// alone would miss: a stored, already-decided CalendarItem whose
+    /// `plannedStart` no longer matches the Activity's current schedule
+    /// config (e.g. left behind by an edited schedule). The canonical
+    /// `PlanningService.reconstructedOccurrences` counts it as a second,
+    /// distinct occurrence alongside today's 10:00 slot (still `.planned`,
+    /// now overdue); before this refactor, CategoryProgressEngine and
+    /// GoalProgressEngine ignored it entirely and undercounted at 1.
+    func testAllThreeProgressEnginesAgreeOnReconstructedOccurrenceCount() {
+        let profile = TestFixtures.profile()
+        let area = TestFixtures.area(profile: profile)
+        let day = TestFixtures.date(2026, 1, 6)
+        let now = TestFixtures.date(2026, 1, 6, hour: 12)
+        let activity = Activity(
+            profile: profile, category: area, name: "Throwing drill",
+            repeatType: .daily, plannedStartMinutes: 600, // 10:00 — still open today
+            estimatedDurationMinutes: 30, startDate: TestFixtures.date(2026, 1, 1)
+        )
+        // A historical record at 14:00 that no longer matches the Activity's
+        // current schedule slot, but is real, decided work that happened.
+        let strayDecidedItem = CalendarItem(
+            profile: profile, activity: activity, date: day,
+            plannedStart: TestFixtures.date(2026, 1, 6, hour: 14),
+            status: .done, source: .schedule
+        )
+
+        let interval = DashboardPeriod.day.interval(containing: now, calendar: TestFixtures.calendar)
+        let canonical = PlanningService.reconstructedOccurrences(
+            profile: profile, interval: interval, activities: [activity],
+            calendarItems: [strayDecidedItem], calendar: TestFixtures.calendar
+        )
+        XCTAssertEqual(canonical.count, 2, "expected today's open 10:00 slot plus the stray 14:00 record")
+
+        let report = ProgressEngine.periodCompletionReport(
+            profile: profile, interval: interval, items: [strayDecidedItem],
+            activities: [activity], now: now, calendar: TestFixtures.calendar
+        )
+        XCTAssertEqual(report.total, canonical.count)
+        XCTAssertEqual(report.done, 1)
+        XCTAssertEqual(report.missed, 1, "the still-open 10:00 slot is before `now` (noon), so it's overdue")
+        XCTAssertEqual(report.remaining, 0)
+
+        let categoryProgress = CategoryProgressEngine.progress(
+            profile: profile, category: area, period: .day, now: now,
+            activities: [activity], calendarItems: [strayDecidedItem],
+            foodEntries: [], weightEntries: [], sportEntries: [],
+            calendar: TestFixtures.calendar
+        )
+        XCTAssertEqual(categoryProgress.targetSessions, canonical.count)
+
+        let goal = TestFixtures.goal(profile: profile)
+        let contribution = GoalAreaContribution(goal: goal, category: area)
+        let goalProgress = TestFixtures.progress(
+            goal: goal, contributions: [contribution],
+            activities: [activity], items: [strayDecidedItem],
+            now: now, period: .day
+        )
+        XCTAssertEqual(goalProgress.contributions.first?.plannedActions, canonical.count)
+    }
 }
