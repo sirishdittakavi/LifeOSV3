@@ -642,3 +642,24 @@ Files: `LifeOS/Engine/ProgressEngine.swift` (+`NutritionTotals`),
 `LifeOS/Engine/ProgressMetric.swift` (new), `LifeOS/Views/FoodTrackerView.swift`,
 `LifeOS/Views/TodayTimelineView.swift`, `Package.swift`,
 `LifeOSUnitTests/ProgressAndHierarchyTests.swift` (+2 focused tests).
+
+### Step 7 follow-up — wired ProgressMetric into Today's Plan cards
+
+Per explicit follow-up request. `TodayTimelineView.overviewSnapshot`'s four
+tracking-kind cases (nutrition/bodyWeight/sport/tasks) each hand-computed
+and capped their own progress fraction. The progress-bearing calculation
+now flows through `ProgressMetric.progress` (nutrition: protein vs. goal,
+via `ProgressMetricBuilder.metric(nutrition:profile:)`; sport/tasks: done
+vs. total, via an inline `ProgressMetric`). `bodyWeight` is unchanged — it
+has no target/progress in this card, same as before.
+
+Deliberately did not consolidate the *display text* (calories, latest
+weight, "X min") — nutrition's card shows two independent numbers
+(calories shown, protein progress-bearing) that don't fit one
+ProgressMetric, and DESIGN.md's ProgressMetric owns current/target/unit,
+not presentation strings. Rendered output is unchanged; only the fraction
+source moved. New test
+`testProgressMetricAgreesWithCompletionSummaryForDoneOverTotal` pins the
+done/total equivalence so the two can't silently diverge later.
+
+Tests: 80/80 pass. App builds.

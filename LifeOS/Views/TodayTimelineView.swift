@@ -323,6 +323,13 @@ struct TodayTimelineView: View {
         }
     }
 
+    /// Refactor.md Step 7 follow-up: the progress fraction each case shows
+    /// now flows through ProgressMetric (current/target/unit -> .progress)
+    /// instead of each case hand-computing and capping its own fraction.
+    /// Display text stays bespoke per domain — a single ProgressMetric
+    /// can't carry nutrition's two independent numbers (calories shown,
+    /// protein progress-bearing), so this only consolidates the
+    /// progress-bearing calculation, not the presentation strings.
     private func overviewSnapshot(for plan: AppCategory, profile: Profile?) -> TodayPlanSnapshot {
         let planIDs = CategoryHierarchy.idsIncludingDescendants(of: plan, in: categories)
         let planItems = viewModel.todayItems.filter {
@@ -331,16 +338,21 @@ struct TodayTimelineView: View {
         let planSummary = ProgressEngine.completionSummary(
             items: PlanningService.plannedItems(planItems)
         )
+        let taskMetric = ProgressMetric(
+            id: plan.id, title: plan.name, currentValue: Double(planSummary.done),
+            targetValue: planSummary.total > 0 ? Double(planSummary.total) : nil,
+            unit: "tasks", statusText: "", destinationCategoryID: plan.id, destinationGoalID: nil
+        )
 
         switch plan.trackingKind {
         case .nutrition:
             guard let profile else { return TodayPlanSnapshot(value: "0 kcal", detail: "No profile", progress: nil) }
             let totals = ProgressEngine.nutritionTotals(profile: profile, date: currentTime, entries: foodEntries)
-            let target = max(profile.proteinGoalGrams, 1)
+            let metric = ProgressMetricBuilder.metric(nutrition: totals, profile: profile)
             return TodayPlanSnapshot(
                 value: "\(Int(totals.calories)) kcal",
-                detail: "\(Int(totals.protein))/\(Int(profile.proteinGoalGrams))g protein",
-                progress: min(totals.protein / target, 1)
+                detail: "\(Int(metric.currentValue))/\(Int(metric.targetValue ?? 0))g protein",
+                progress: metric.progress
             )
         case .bodyWeight:
             let latest = weightEntries.first { $0.profile?.id == profile?.id }
@@ -359,12 +371,12 @@ struct TodayTimelineView: View {
                 ? "\(planSummary.done)/\(planSummary.total) Tasks done"
                 : "Open training details"
             return TodayPlanSnapshot(value: "\(minutes) min", detail: taskDetail,
-                                     progress: planSummary.total > 0 ? planSummary.percentComplete : nil)
+                                     progress: taskMetric.targetValue != nil ? taskMetric.progress : nil)
         case .tasks:
             return TodayPlanSnapshot(
                 value: "\(planSummary.done)/\(planSummary.total)",
                 detail: planSummary.total == 0 ? "No Tasks today" : "\(planSummary.remaining) remaining",
-                progress: planSummary.total > 0 ? planSummary.percentComplete : nil
+                progress: taskMetric.targetValue != nil ? taskMetric.progress : nil
             )
         }
     }

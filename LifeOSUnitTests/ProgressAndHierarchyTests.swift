@@ -453,4 +453,25 @@ final class ProgressAndHierarchyTests: XCTestCase {
         XCTAssertEqual(goalMetric.title, goal.name)
         XCTAssertEqual(goalMetric.targetValue, 100)
     }
+
+    /// TodayTimelineView's Plan cards now derive their progress bar fraction
+    /// from ProgressMetric.progress instead of hand-computing
+    /// CompletionSummary.percentComplete directly. Since done is always a
+    /// subset of total, both must agree — this pins that down so a future
+    /// change to either can't silently diverge them.
+    func testProgressMetricAgreesWithCompletionSummaryForDoneOverTotal() {
+        let items = [
+            CalendarItem(profile: nil, activity: nil, date: .now, status: .done),
+            CalendarItem(profile: nil, activity: nil, date: .now, status: .done),
+            CalendarItem(profile: nil, activity: nil, date: .now, status: .planned),
+            CalendarItem(profile: nil, activity: nil, date: .now, status: .planned)
+        ]
+        let summary = ProgressEngine.completionSummary(items: items)
+        let metric = ProgressMetric(
+            id: UUID(), title: "Plan", currentValue: Double(summary.done),
+            targetValue: Double(summary.total), unit: "tasks", statusText: "",
+            destinationCategoryID: nil, destinationGoalID: nil
+        )
+        XCTAssertEqual(metric.progress, summary.percentComplete, accuracy: 0.0001)
+    }
 }
