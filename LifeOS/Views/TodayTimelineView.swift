@@ -967,7 +967,7 @@ private struct CalendarItemRow: View {
                     .accessibilityHint("Opens the result and notes form")
                     .accessibilityIdentifier("today.done.\(taskIdentifier)")
                 Button("Skip", action: onSkip)
-                    .buttonStyle(LifeOSInlineButtonStyle(tint: .secondary))
+                    .buttonStyle(LifeOSInlineButtonStyle(tint: .primary))
                     .accessibilityHint("Marks this Task skipped")
                     .accessibilityIdentifier("today.skip.\(taskIdentifier)")
             }
@@ -978,7 +978,7 @@ private struct CalendarItemRow: View {
                     .accessibilityHint("Opens the result and notes form")
                     .accessibilityIdentifier("today.done.\(taskIdentifier)")
                 Button("Skip", action: onSkip)
-                    .buttonStyle(LifeOSInlineButtonStyle(tint: .secondary))
+                    .buttonStyle(LifeOSInlineButtonStyle(tint: .primary))
                     .accessibilityHint("Marks this Task skipped")
                     .accessibilityIdentifier("today.skip.\(taskIdentifier)")
             }
