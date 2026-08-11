@@ -480,7 +480,7 @@ private struct WeekItemDetailView: View {
             .sheet(isPresented: $recording) { RecordActualView(item: item) }
             .sheet(isPresented: $editingTask) {
                 if let activity = item.activity {
-                    EditTaskView(activity: activity)
+                    EditTaskView(activity: activity, onActivityDeleted: { dismiss() })
                 }
             }
         }

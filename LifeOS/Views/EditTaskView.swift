@@ -3,6 +3,12 @@ import SwiftUI
 
 struct EditTaskView: View {
     let activity: Activity
+    /// Called after a true delete (not archive) so a presenter holding a
+    /// direct reference to this Activity — or to one of its CalendarItems,
+    /// which a no-history delete also removes — can dismiss itself too.
+    /// Without this, the presenter re-renders a deleted SwiftData object as
+    /// a blank "Task" row instead of closing.
+    var onActivityDeleted: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -30,8 +36,9 @@ struct EditTaskView: View {
 
     private let weekdaySymbols = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
-    init(activity: Activity) {
+    init(activity: Activity, onActivityDeleted: @escaping () -> Void = {}) {
         self.activity = activity
+        self.onActivityDeleted = onActivityDeleted
         _name = State(initialValue: activity.name)
         _categoryID = State(initialValue: activity.category?.id)
         _hasTarget = State(initialValue: activity.targetValue != nil)
@@ -201,6 +208,7 @@ struct EditTaskView: View {
             }
             Task { await ReminderService.updateReminders(for: category, activities: remainingActivities) }
         }
+        if !historyExists { onActivityDeleted() }
         dismiss()
     }
 
@@ -499,7 +507,9 @@ struct TaskDetailView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingEdit) { EditTaskView(activity: activity) }
+            .sheet(isPresented: $showingEdit) {
+                EditTaskView(activity: activity, onActivityDeleted: { dismiss() })
+            }
         }
     }
 

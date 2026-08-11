@@ -709,4 +709,120 @@ final class PlanningServiceTests: XCTestCase {
         )
         XCTAssertEqual(Set(items.compactMap { PlanningService.occurrenceIdentity(for: $0, calendar: TestFixtures.calendar) }).count, 3)
     }
+
+    /// Reproduces the exact sequence EditTaskView.deleteOrArchive() runs,
+    /// through a real ModelContext/save — not bare Swift objects — because
+    /// SwiftData's default relationship behavior on delete (nullify vs.
+    /// cascade) can only surface through a real persistence round-trip.
+    /// Also mirrors real app usage: today's item generated via
+    /// insertMissingCalendarItems (as TodayTimelineView does) *and* a
+    /// future item pre-generated ahead of time (as WeeklyScheduleView's
+    /// generateVisibleWeek does for the whole visible week).
+    @MainActor
+    func testDeletingActivityWithNoHistoryRemovesTodayAndFutureItemsWithoutOrphaning() throws {
+        let container = try ModelContainer(
+            for: Profile.self, SavedCategoryTemplate.self, AppCategory.self, Goal.self,
+            GoalAreaContribution.self, ResultMeasure.self, ResultEntry.self, Activity.self,
+            CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = container.mainContext
+        let profile = TestFixtures.profile()
+        let area = TestFixtures.area(profile: profile)
+        let today = TestFixtures.date(2026, 1, 6)
+        let tomorrow = TestFixtures.date(2026, 1, 7)
+        let action = Activity(
+            profile: profile, category: area, name: "Practice",
+            repeatType: .daily, plannedStartMinutes: 600,
+            estimatedDurationMinutes: 20, startDate: today
+        )
+        context.insert(profile)
+        context.insert(area)
+        context.insert(action)
+        try context.save()
+
+        try PlanningService.insertMissingCalendarItems(
+            profile: profile, date: today, activities: [action], context: context,
+            calendar: TestFixtures.calendar
+        )
+        try PlanningService.insertMissingCalendarItems(
+            profile: profile, date: tomorrow, activities: [action], context: context,
+            calendar: TestFixtures.calendar
+        )
+        try context.save()
+        XCTAssertEqual(try context.fetch(FetchDescriptor<CalendarItem>()).count, 2)
+
+        // Exactly EditTaskView.deleteOrArchive()'s no-history branch.
+        let allItems = try context.fetch(FetchDescriptor<CalendarItem>())
+        XCTAssertFalse(PlanningService.hasAnyHistory(for: action, in: allItems))
+        allItems.filter { $0.activity?.id == action.id }.forEach(context.delete)
+        context.delete(action)
+        try context.save()
+
+        let remainingItems = try context.fetch(FetchDescriptor<CalendarItem>())
+        XCTAssertTrue(remainingItems.isEmpty, "today's and tomorrow's occurrences must both be gone, not orphaned")
+        XCTAssertTrue(try context.fetch(FetchDescriptor<Activity>()).isEmpty)
+    }
+
+    /// Same real-persistence setup, but today's occurrence already has
+    /// history (Done) before the delete/archive action runs — the activity
+    /// must be archived, not deleted, and today's decided item must survive
+    /// with its Activity link intact (never orphaned to a blank "Task" row),
+    /// while tomorrow's still-untouched placeholder is cleaned up.
+    @MainActor
+    func testArchivingActivityWithTodayHistoryKeepsTodayLinkedAndDropsFuturePlaceholder() throws {
+        let container = try ModelContainer(
+            for: Profile.self, SavedCategoryTemplate.self, AppCategory.self, Goal.self,
+            GoalAreaContribution.self, ResultMeasure.self, ResultEntry.self, Activity.self,
+            CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = container.mainContext
+        let profile = TestFixtures.profile()
+        let area = TestFixtures.area(profile: profile)
+        let today = TestFixtures.date(2026, 1, 6)
+        let tomorrow = TestFixtures.date(2026, 1, 7)
+        let action = Activity(
+            profile: profile, category: area, name: "Practice",
+            repeatType: .daily, plannedStartMinutes: 600,
+            estimatedDurationMinutes: 20, startDate: today
+        )
+        context.insert(profile)
+        context.insert(area)
+        context.insert(action)
+        try context.save()
+
+        try PlanningService.insertMissingCalendarItems(
+            profile: profile, date: today, activities: [action], context: context,
+            calendar: TestFixtures.calendar
+        )
+        try PlanningService.insertMissingCalendarItems(
+            profile: profile, date: tomorrow, activities: [action], context: context,
+            calendar: TestFixtures.calendar
+        )
+        try context.save()
+
+        let todayItem = try XCTUnwrap(try context.fetch(FetchDescriptor<CalendarItem>()).first {
+            TestFixtures.calendar.isSameDay($0.date, as: today)
+        })
+        todayItem.status = .done
+        try context.save()
+
+        // Exactly EditTaskView.deleteOrArchive()'s history branch.
+        let allItems = try context.fetch(FetchDescriptor<CalendarItem>())
+        XCTAssertTrue(PlanningService.hasAnyHistory(for: action, in: allItems))
+        action.isActive = false
+        PlanningService.reconcileUntouchedOccurrences(
+            for: action, in: allItems, calendar: TestFixtures.calendar
+        ).forEach(context.delete)
+        try context.save()
+
+        let remainingItems = try context.fetch(FetchDescriptor<CalendarItem>())
+        XCTAssertEqual(remainingItems.count, 1)
+        let survivor = try XCTUnwrap(remainingItems.first)
+        XCTAssertTrue(TestFixtures.calendar.isSameDay(survivor.date, as: today))
+        XCTAssertNotNil(survivor.activity, "today's decided occurrence must stay linked to its Activity, never orphaned")
+        XCTAssertEqual(survivor.activity?.id, action.id)
+        XCTAssertFalse(try XCTUnwrap(try context.fetch(FetchDescriptor<Activity>()).first).isActive)
+    }
 }
