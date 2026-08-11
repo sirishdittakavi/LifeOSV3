@@ -7,6 +7,7 @@ struct SportTrackerView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \SportEntry.date, order: .reverse) private var entries: [SportEntry]
     @State private var showingAddEntry = false
+    @State private var editingEntry: SportEntry?
 
     private var profileEntries: [SportEntry] {
         guard let profile = selection.profile else { return [] }
@@ -17,6 +18,10 @@ struct SportTrackerView: View {
 
     private var todayEntries: [SportEntry] {
         profileEntries.filter { Calendar.current.isDateInToday($0.date) }
+    }
+
+    private var previousEntries: [SportEntry] {
+        Array(profileEntries.filter { !Calendar.current.isDateInToday($0.date) }.prefix(10))
     }
 
     private var weekEntries: [SportEntry] {
@@ -52,7 +57,10 @@ struct SportTrackerView: View {
                         )
                     } else {
                         ForEach(todayEntries) { entry in
-                            SportEntryRow(entry: entry, symbol: category.symbol)
+                            Button { editingEntry = entry } label: {
+                                SportEntryRow(entry: entry, symbol: category.symbol)
+                            }
+                            .buttonStyle(.plain)
                         }
                         .onDelete(perform: deleteEntries)
                     }
@@ -60,9 +68,13 @@ struct SportTrackerView: View {
 
                 if profileEntries.count > todayEntries.count {
                     Section("Previous sessions") {
-                        ForEach(profileEntries.filter { !Calendar.current.isDateInToday($0.date) }.prefix(10)) { entry in
-                            SportEntryRow(entry: entry, symbol: category.symbol)
+                        ForEach(previousEntries) { entry in
+                            Button { editingEntry = entry } label: {
+                                SportEntryRow(entry: entry, symbol: category.symbol)
+                            }
+                            .buttonStyle(.plain)
                         }
+                        .onDelete(perform: deletePreviousEntries)
                     }
                 }
             }
@@ -79,11 +91,17 @@ struct SportTrackerView: View {
                     AddSportEntryView(profile: profile, category: category)
                 }
             }
+            .sheet(item: $editingEntry) { EditSportEntryView(entry: $0) }
         }
     }
 
     private func deleteEntries(at offsets: IndexSet) {
         offsets.map { todayEntries[$0] }.forEach(modelContext.delete)
+        modelContext.saveOrReport()
+    }
+
+    private func deletePreviousEntries(at offsets: IndexSet) {
+        offsets.map { previousEntries[$0] }.forEach(modelContext.delete)
         modelContext.saveOrReport()
     }
 }
@@ -298,5 +316,84 @@ private struct AddSportEntryView: View {
         modelContext.insert(entry)
         if modelContext.saveOrReport() { dismiss() }
         else { modelContext.delete(entry) }
+    }
+}
+
+private struct EditSportEntryView: View {
+    let entry: SportEntry
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var date: Date
+    @State private var sessionName: String
+    @State private var repetitions: Int
+    @State private var minutes: Int
+    @State private var perceivedEffort: Int
+    @State private var soreness: Int
+    @State private var note: String
+    @State private var showingDeleteConfirmation = false
+
+    init(entry: SportEntry) {
+        self.entry = entry
+        _date = State(initialValue: entry.date)
+        _sessionName = State(initialValue: entry.sessionName)
+        _repetitions = State(initialValue: entry.repetitions)
+        _minutes = State(initialValue: entry.durationMinutes)
+        _perceivedEffort = State(initialValue: entry.perceivedEffort)
+        _soreness = State(initialValue: entry.soreness)
+        _note = State(initialValue: entry.note)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Session") {
+                    TextField("Session name", text: $sessionName)
+                    DatePicker("Date", selection: $date)
+                    Stepper("Duration: \(minutes) min", value: $minutes, in: 0...360, step: 5)
+                    Stepper("Repetitions: \(repetitions)", value: $repetitions, in: 0...5000, step: 5)
+                }
+                Section("Athlete feedback") {
+                    Stepper("Effort: \(perceivedEffort)/10", value: $perceivedEffort, in: 1...10)
+                    Stepper("Soreness: \(soreness)/10", value: $soreness, in: 0...10)
+                }
+                Section("Notes") { TextField("Optional", text: $note, axis: .vertical) }
+                Section {
+                    Button("Delete Session", role: .destructive) { showingDeleteConfirmation = true }
+                }
+            }
+            .navigationTitle("Edit Session")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save", action: save)
+                        .disabled(sessionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .confirmationDialog(
+                "Delete this session?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible
+            ) {
+                Button("Delete Session", role: .destructive, action: delete)
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Weekly workload recalculates immediately. This can't be undone.")
+            }
+        }
+    }
+
+    private func save() {
+        entry.date = date
+        entry.sessionName = sessionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        entry.repetitions = repetitions
+        entry.durationMinutes = minutes
+        entry.perceivedEffort = perceivedEffort
+        entry.soreness = soreness
+        entry.note = note
+        if modelContext.saveOrReport() { dismiss() }
+    }
+
+    private func delete() {
+        modelContext.delete(entry)
+        if modelContext.saveOrReport() { dismiss() }
     }
 }

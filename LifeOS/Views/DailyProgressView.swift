@@ -14,6 +14,7 @@ struct DailyProgressView: View {
 
     @Query private var activities: [Activity]
     @Query(sort: \ActivitySession.date) private var sessions: [ActivitySession]
+    @State private var selectedActivity: Activity?
 
     private var todayProgress: [DailyActivityProgress] {
         guard let profile = selection.profile else { return [] }
@@ -49,7 +50,10 @@ struct DailyProgressView: View {
 
                         VStack(spacing: 12) {
                             ForEach(todayProgress) { progress in
-                                ProgressBarRow(progress: progress)
+                                Button { selectedActivity = progress.activity } label: {
+                                    ProgressBarRow(progress: progress)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                         .padding(.horizontal)
@@ -72,7 +76,119 @@ struct DailyProgressView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { ProfilePicker(selection: selection) }
             }
+            .sheet(item: $selectedActivity) { ActivitySessionHistoryView(activity: $0) }
         }
+    }
+}
+
+private struct ActivitySessionHistoryView: View {
+    let activity: Activity
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @Query private var allSessions: [ActivitySession]
+    @State private var editingSession: ActivitySession?
+
+    private var sessions: [ActivitySession] {
+        allSessions.filter { $0.activity?.id == activity.id }
+            .sorted { $0.date > $1.date }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if sessions.isEmpty {
+                    ContentUnavailableView(
+                        "No Sessions Logged",
+                        systemImage: "list.bullet",
+                        description: Text("Sessions recorded for \(activity.name) will appear here.")
+                    )
+                } else {
+                    ForEach(sessions) { session in
+                        Button { editingSession = session } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(session.date.formatted(date: .abbreviated, time: .shortened))
+                                    if !session.note.isEmpty {
+                                        Text(session.note).font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Text("\(session.recordedValue.formatted(.number.precision(.fractionLength(0...2)))) \(activity.targetUnit ?? "")")
+                                    .font(.headline)
+                            }
+                            .foregroundStyle(.primary)
+                        }
+                    }
+                    .onDelete(perform: deleteSessions)
+                }
+            }
+            .navigationTitle(activity.name)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .sheet(item: $editingSession) { EditActivitySessionView(session: $0) }
+        }
+    }
+
+    private func deleteSessions(at offsets: IndexSet) {
+        offsets.map { sessions[$0] }.forEach(modelContext.delete)
+        modelContext.saveOrReport()
+    }
+}
+
+private struct EditActivitySessionView: View {
+    let session: ActivitySession
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @State private var date: Date
+    @State private var recordedValue: Double
+    @State private var note: String
+    @State private var showingDeleteConfirmation = false
+
+    init(session: ActivitySession) {
+        self.session = session
+        _date = State(initialValue: session.date)
+        _recordedValue = State(initialValue: session.recordedValue)
+        _note = State(initialValue: session.note)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Session") {
+                    DatePicker("Date", selection: $date)
+                    TextField("Recorded value", value: $recordedValue, format: .number)
+                        .keyboardType(.decimalPad)
+                }
+                Section("Notes") { TextField("Optional", text: $note, axis: .vertical) }
+                Section {
+                    Button("Delete Session", role: .destructive) { showingDeleteConfirmation = true }
+                }
+            }
+            .navigationTitle("Edit Session")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button("Save", action: save) }
+            }
+            .confirmationDialog(
+                "Delete this session?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible
+            ) {
+                Button("Delete Session", role: .destructive, action: delete)
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Today's progress and the 7-day trend recalculate immediately. This can't be undone.")
+            }
+        }
+    }
+
+    private func save() {
+        session.date = date
+        session.recordedValue = recordedValue
+        session.note = note
+        if modelContext.saveOrReport() { dismiss() }
+    }
+
+    private func delete() {
+        modelContext.delete(session)
+        if modelContext.saveOrReport() { dismiss() }
     }
 }
 

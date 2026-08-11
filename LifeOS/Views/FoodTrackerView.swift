@@ -351,6 +351,7 @@ private struct EditFoodEntryView: View {
     @State private var fat: Double
     @State private var water: Double
     @State private var note: String
+    @State private var showingDeleteConfirmation = false
 
     init(entry: FoodEntry) {
         self.entry = entry
@@ -385,6 +386,9 @@ private struct EditFoodEntryView: View {
                     TextField("Water milliliters", value: $water, format: .number).keyboardType(.decimalPad)
                 }
                 Section("Notes") { TextField("Optional", text: $note, axis: .vertical) }
+                Section {
+                    Button("Delete Food Log", role: .destructive) { showingDeleteConfirmation = true }
+                }
             }
             .navigationTitle("Edit Food")
             .toolbar {
@@ -393,6 +397,14 @@ private struct EditFoodEntryView: View {
                     Button("Save", action: save)
                         .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
+            }
+            .confirmationDialog(
+                "Delete this food log?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible
+            ) {
+                Button("Delete Food Log", role: .destructive, action: delete)
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Daily totals recalculate immediately. This can't be undone.")
             }
         }
     }
@@ -408,6 +420,11 @@ private struct EditFoodEntryView: View {
         entry.fatGrams = fat
         entry.waterMilliliters = water
         entry.note = note
+        if modelContext.saveOrReport() { dismiss() }
+    }
+
+    private func delete() {
+        modelContext.delete(entry)
         if modelContext.saveOrReport() { dismiss() }
     }
 }

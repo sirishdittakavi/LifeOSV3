@@ -8,6 +8,7 @@ struct WeightTrackerView: View {
     @Query(sort: \WeightEntry.date, order: .reverse) private var entries: [WeightEntry]
     @State private var showingAddEntry = false
     @State private var showingGoals = false
+    @State private var editingEntry: WeightEntry?
 
     private var profileEntries: [WeightEntry] {
         guard let profile = selection.profile else { return [] }
@@ -51,18 +52,21 @@ struct WeightTrackerView: View {
                         )
                     } else if let profile = selection.profile {
                         ForEach(profileEntries) { entry in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(entry.date.formatted(date: .abbreviated, time: .shortened))
-                                    if !entry.note.isEmpty {
-                                        Text(entry.note).font(.caption).foregroundStyle(.secondary)
+                            Button { editingEntry = entry } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(entry.date.formatted(date: .abbreviated, time: .shortened))
+                                        if !entry.note.isEmpty {
+                                            Text(entry.note).font(.caption).foregroundStyle(.secondary)
+                                        }
                                     }
+                                    Spacer()
+                                    Text(profile.weightUnit.displayValue(kilograms: entry.kilograms),
+                                         format: .number.precision(.fractionLength(1)))
+                                        .font(.headline)
+                                    Text(profile.weightUnit.rawValue).foregroundStyle(.secondary)
                                 }
-                                Spacer()
-                                Text(profile.weightUnit.displayValue(kilograms: entry.kilograms),
-                                     format: .number.precision(.fractionLength(1)))
-                                    .font(.headline)
-                                Text(profile.weightUnit.rawValue).foregroundStyle(.secondary)
+                                .foregroundStyle(.primary)
                             }
                         }
                         .onDelete(perform: deleteEntries)
@@ -89,12 +93,78 @@ struct WeightTrackerView: View {
                     ProfileGoalsView(profile: profile)
                 }
             }
+            .sheet(item: $editingEntry) { EditWeightEntryView(entry: $0) }
         }
     }
 
     private func deleteEntries(at offsets: IndexSet) {
         offsets.map { profileEntries[$0] }.forEach(modelContext.delete)
         modelContext.saveOrReport()
+    }
+}
+
+private struct EditWeightEntryView: View {
+    let entry: WeightEntry
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @State private var date: Date
+    @State private var displayWeight: Double
+    @State private var note: String
+    @State private var showingDeleteConfirmation = false
+
+    private var unit: WeightUnit { entry.profile?.weightUnit ?? .kilograms }
+
+    init(entry: WeightEntry) {
+        self.entry = entry
+        _date = State(initialValue: entry.date)
+        _displayWeight = State(initialValue: (entry.profile?.weightUnit ?? .kilograms).displayValue(kilograms: entry.kilograms))
+        _note = State(initialValue: entry.note)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Measurement") {
+                    HStack {
+                        TextField("Weight", value: $displayWeight, format: .number.precision(.fractionLength(1)))
+                            .keyboardType(.decimalPad)
+                        Text(unit.rawValue).foregroundStyle(.secondary)
+                    }
+                    DatePicker("Date", selection: $date)
+                }
+                Section("Notes") { TextField("Optional", text: $note, axis: .vertical) }
+                Section {
+                    Button("Delete Weight Entry", role: .destructive) { showingDeleteConfirmation = true }
+                }
+            }
+            .navigationTitle("Edit Weight")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save", action: save).disabled(displayWeight <= 0)
+                }
+            }
+            .confirmationDialog(
+                "Delete this weight entry?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible
+            ) {
+                Button("Delete Weight Entry", role: .destructive, action: delete)
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("The trend recalculates from the remaining entries. This can't be undone.")
+            }
+        }
+    }
+
+    private func save() {
+        entry.date = date
+        entry.kilograms = unit.kilograms(from: displayWeight)
+        entry.note = note
+        if modelContext.saveOrReport() { dismiss() }
+    }
+
+    private func delete() {
+        modelContext.delete(entry)
+        if modelContext.saveOrReport() { dismiss() }
     }
 }
 
