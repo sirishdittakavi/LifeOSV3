@@ -152,4 +152,34 @@ enum ProgressEngine {
         let remaining = items.filter { $0.status == .planned || $0.status == .inProgress }.count
         return CompletionSummary(done: done, skipped: skipped, remaining: remaining, total: items.count)
     }
+
+    /// Refactor.md Phase 2 / DOMAIN_MODEL_V2_PROPOSAL.md §2.9c: sums the
+    /// MeasurementEntry values for one MeasurementDefinition, optionally
+    /// bounded to a date range. Matches by the entry's live
+    /// `measurementDefinition` link when present; falls back to a
+    /// `nameSnapshot` match when it's nil (a definition renamed, archived,
+    /// or deleted since the entry was recorded) — this is what lets a
+    /// historical entry keep contributing to totals even after its
+    /// definition no longer exists, per the entry's own historical-snapshot
+    /// design (Models.swift's MeasurementEntry doc comment).
+    ///
+    /// Not wired into any Goal, View, or ViewModel yet — this is the
+    /// generalization of the same `min(current/target, 1)` shape
+    /// `ProgressMetric.progress` already uses, applied to a summed series
+    /// instead of a single scalar. No new progress formula is introduced.
+    static func measurementTotal(
+        for definition: MeasurementDefinition,
+        entries: [MeasurementEntry],
+        interval: DateInterval? = nil
+    ) -> Double {
+        entries
+            .filter { entry in
+                let matchesDefinition = entry.measurementDefinition?.id == definition.id
+                    || (entry.measurementDefinition == nil && entry.nameSnapshot == definition.name)
+                guard matchesDefinition else { return false }
+                guard let interval else { return true }
+                return interval.contains(entry.recordedAt)
+            }
+            .reduce(0.0) { $0 + ($1.numericValue ?? 0) }
+    }
 }
