@@ -1,5 +1,25 @@
 import Foundation
 
+/// A data-driven measurement to attach to an ImprovementTaskTemplate's
+/// created Activity — Refactor.md Run 4. Deliberately just data (name/type/
+/// unit/target); nothing here is specific to any sport, instrument, or
+/// domain. Turned into a real MeasurementDefinition only when the template
+/// is applied (AddImprovementCategoryView.create()), alongside the
+/// existing single targetValue/targetUnit, not instead of it.
+struct MeasurementBlueprint {
+    let name: String
+    let type: MeasurementType
+    let unit: String?
+    let targetValue: Double?
+
+    init(name: String, type: MeasurementType, unit: String? = nil, targetValue: Double? = nil) {
+        self.name = name
+        self.type = type
+        self.unit = unit
+        self.targetValue = targetValue
+    }
+}
+
 struct ImprovementTaskTemplate: Identifiable {
     let id = UUID()
     let name: String
@@ -9,6 +29,7 @@ struct ImprovementTaskTemplate: Identifiable {
     let durationMinutes: Int
     let targetValue: Double?
     let targetUnit: String?
+    let measurements: [MeasurementBlueprint]
 
     let occurrencesPerDay: Int
     let occurrencesPerWeek: Int
@@ -18,6 +39,7 @@ struct ImprovementTaskTemplate: Identifiable {
         name: String, repeatType: RepeatType, weekdays: [Int],
         startMinutes: Int, durationMinutes: Int,
         targetValue: Double?, targetUnit: String?,
+        measurements: [MeasurementBlueprint] = [],
         occurrencesPerDay: Int = 1, occurrencesPerWeek: Int = 1,
         repeatIntervalMinutes: Int = 60
     ) {
@@ -28,6 +50,7 @@ struct ImprovementTaskTemplate: Identifiable {
         self.durationMinutes = durationMinutes
         self.targetValue = targetValue
         self.targetUnit = targetUnit
+        self.measurements = measurements
         self.occurrencesPerDay = occurrencesPerDay
         self.occurrencesPerWeek = occurrencesPerWeek
         self.repeatIntervalMinutes = repeatIntervalMinutes
@@ -46,6 +69,33 @@ struct ImprovementCategoryTemplate: Identifiable {
     let weeklyMinutes: Int
     let relatedNames: [String]
     let tasks: [ImprovementTaskTemplate]
+    /// The id of another ImprovementCategoryTemplate this one nests inside
+    /// when applied — e.g. a "Baseball" discipline template under a
+    /// "Sports" category template. Data-driven: any template may declare
+    /// any other template's id here; nothing in the type system hardcodes
+    /// which categories have disciplines or what they're called. Nil means
+    /// top-level, exactly like an AppCategory with no parentCategoryID.
+    let parentTemplateID: String?
+
+    init(
+        id: String, name: String, pillar: ImprovementPillar, trackingKind: AreaTrackingKind,
+        symbol: String, colorToken: String, purpose: String,
+        weeklySessions: Int, weeklyMinutes: Int, relatedNames: [String],
+        tasks: [ImprovementTaskTemplate], parentTemplateID: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.pillar = pillar
+        self.trackingKind = trackingKind
+        self.symbol = symbol
+        self.colorToken = colorToken
+        self.purpose = purpose
+        self.weeklySessions = weeklySessions
+        self.weeklyMinutes = weeklyMinutes
+        self.relatedNames = relatedNames
+        self.tasks = tasks
+        self.parentTemplateID = parentTemplateID
+    }
 }
 
 struct GoalStarterTemplate: Identifiable {
@@ -125,17 +175,6 @@ enum GoalStarterTemplates {
 enum ImprovementTemplates {
     static let all: [ImprovementCategoryTemplate] = [
         ImprovementCategoryTemplate(
-            id: "baseball", name: "Baseball", pillar: .sport, trackingKind: .sport,
-            symbol: "figure.baseball", colorToken: "orange",
-            purpose: "Improve baseball skill through planned practice, athlete feedback and recovery.",
-            weeklySessions: 5, weeklyMinutes: 240,
-            relatedNames: ["Mobility", "Speed", "Strength", "Nutrition", "Recovery"],
-            tasks: [
-                task("Hitting Practice", .selectedWeekdays, [2, 3, 5], 18 * 60, 60, 100, "swings"),
-                task("Throwing Practice", .selectedWeekdays, [4, 7], 18 * 60, 45, 60, "throws")
-            ]
-        ),
-        ImprovementCategoryTemplate(
             id: "software", name: "Software Development", pillar: .learning, trackingKind: .tasks,
             symbol: "chevron.left.forwardslash.chevron.right", colorToken: "purple",
             purpose: "Improve engineering ability through deliberate practice and shipped work.",
@@ -214,6 +253,68 @@ enum ImprovementTemplates {
             weeklySessions: 7, weeklyMinutes: 70,
             relatedNames: ["Baseball", "Mobility", "Strength", "Speed"],
             tasks: [task("Recovery Check-in", .daily, [], 20 * 60 + 30, 10, 10, "min")]
+        ),
+
+        // MARK: - Category -> Discipline -> Activity Template -> Measurements
+        // (Refactor.md Run 4). These are illustrative data entries, not new
+        // Swift types — "Sports" and "Music" are plain top-level
+        // ImprovementCategoryTemplate rows exactly like every entry above;
+        // "Baseball" and "Guitar" are ordinary entries that happen to set
+        // parentTemplateID. Any user-created Area could do the same via the
+        // existing "Inside" picker (AddImprovementCategoryView) — this only
+        // demonstrates it as a starter template.
+
+        ImprovementCategoryTemplate(
+            id: "sports", name: "Sports", pillar: .sport, trackingKind: .tasks,
+            symbol: "sportscourt.fill", colorToken: "orange",
+            purpose: "A home for every sport or discipline you train.",
+            weeklySessions: 0, weeklyMinutes: 0,
+            relatedNames: [], tasks: []
+        ),
+        ImprovementCategoryTemplate(
+            id: "baseball-discipline", name: "Baseball", pillar: .sport, trackingKind: .sport,
+            symbol: "figure.baseball", colorToken: "orange",
+            purpose: "Improve baseball skill through planned practice, athlete feedback and recovery.",
+            weeklySessions: 5, weeklyMinutes: 240,
+            relatedNames: ["Mobility", "Speed", "Strength", "Nutrition", "Recovery"],
+            tasks: [
+                task("Hitting Practice", .selectedWeekdays, [2, 3, 5], 18 * 60, 60, 100, "swings"),
+                task("Throwing Practice", .selectedWeekdays, [4, 7], 18 * 60, 45, 60, "throws"),
+                measuredTask(
+                    "Fielding Practice", .selectedWeekdays, [2, 4, 6], 17 * 60, 30,
+                    measurements: [
+                        MeasurementBlueprint(name: "Ground Balls", type: .count, unit: "reps", targetValue: 100),
+                        MeasurementBlueprint(name: "Catches", type: .count, unit: "reps", targetValue: 50),
+                        MeasurementBlueprint(name: "Throws", type: .count, unit: "reps", targetValue: 30)
+                    ]
+                )
+            ],
+            parentTemplateID: "sports"
+        ),
+
+        ImprovementCategoryTemplate(
+            id: "music", name: "Music", pillar: .learning, trackingKind: .tasks,
+            symbol: "music.note", colorToken: "purple",
+            purpose: "A home for every instrument or musical discipline you practice.",
+            weeklySessions: 0, weeklyMinutes: 0,
+            relatedNames: [], tasks: []
+        ),
+        ImprovementCategoryTemplate(
+            id: "guitar", name: "Guitar", pillar: .learning, trackingKind: .tasks,
+            symbol: "guitars.fill", colorToken: "purple",
+            purpose: "Build guitar skill through consistent, measured practice.",
+            weeklySessions: 5, weeklyMinutes: 100,
+            relatedNames: ["Music"],
+            tasks: [
+                measuredTask(
+                    "Guitar Practice", .selectedWeekdays, [2, 3, 4, 5, 6], 19 * 60, 20,
+                    measurements: [
+                        MeasurementBlueprint(name: "Duration", type: .duration, unit: "min"),
+                        MeasurementBlueprint(name: "Songs learned", type: .count, unit: "songs")
+                    ]
+                )
+            ],
+            parentTemplateID: "music"
         )
     ]
 
@@ -226,6 +327,21 @@ enum ImprovementTemplates {
             name: name, repeatType: repeatType, weekdays: weekdays,
             startMinutes: startMinutes, durationMinutes: durationMinutes,
             targetValue: targetValue, targetUnit: targetUnit
+        )
+    }
+
+    /// Same as `task(...)`, for the common case of several simultaneous
+    /// measurements instead of one target/unit pair — no single value is
+    /// "the" target, so targetValue/targetUnit stay nil here.
+    private static func measuredTask(
+        _ name: String, _ repeatType: RepeatType, _ weekdays: [Int],
+        _ startMinutes: Int, _ durationMinutes: Int,
+        measurements: [MeasurementBlueprint]
+    ) -> ImprovementTaskTemplate {
+        ImprovementTaskTemplate(
+            name: name, repeatType: repeatType, weekdays: weekdays,
+            startMinutes: startMinutes, durationMinutes: durationMinutes,
+            targetValue: nil, targetUnit: nil, measurements: measurements
         )
     }
 }

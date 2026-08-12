@@ -276,12 +276,20 @@ final class ProgressAndHierarchyTests: XCTestCase {
         XCTAssertFalse(measure.shouldScheduleReminder)
     }
 
+    /// Container templates (Refactor.md Run 4 — something else's
+    /// parentTemplateID points at them, e.g. "Sports" for "Baseball") exist
+    /// to group disciplines, not to be logged themselves, so they may have
+    /// zero starter tasks. Leaf templates (everything else) must still
+    /// contain editable starter activities.
     private func assertEveryAreaTemplateContainsEditableStarterActions() {
         XCTAssertFalse(ImprovementTemplates.all.isEmpty)
+        let containerIDs = Set(ImprovementTemplates.all.compactMap(\.parentTemplateID))
         for template in ImprovementTemplates.all {
             XCTAssertFalse(template.name.isEmpty)
             XCTAssertFalse(template.purpose.isEmpty)
-            XCTAssertFalse(template.tasks.isEmpty, "\(template.name) unexpectedly has no starter actions")
+            if !containerIDs.contains(template.id) {
+                XCTAssertFalse(template.tasks.isEmpty, "\(template.name) unexpectedly has no starter actions")
+            }
             XCTAssertTrue(template.tasks.allSatisfy { !$0.name.isEmpty })
         }
     }
