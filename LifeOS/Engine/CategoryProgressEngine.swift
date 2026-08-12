@@ -296,6 +296,8 @@ enum GoalProgressEngine {
         entries: [ResultEntry],
         activities: [Activity],
         calendarItems: [CalendarItem],
+        measurementDefinitions: [MeasurementDefinition] = [],
+        measurementEntries: [MeasurementEntry] = [],
         calendar: Calendar = .current
     ) -> GoalProgress {
         let goalContributions = contributions.filter { $0.goal?.id == goal.id && $0.isActive }
@@ -341,13 +343,30 @@ enum GoalProgressEngine {
         } ?? []
         let latest = resultEntries.last
         let previous = resultEntries.dropLast().last
+
+        // Goal Integration: when a Result Measure is linked to a MeasurementDefinition,
+        // it becomes the permanent automatic result source — manual Result Entries are
+        // not consulted once linked, so progress never silently reverts to stale manual
+        // values. Only MeasurementEntry records recorded since the Goal was created
+        // count, so history from before the Goal existed can't inflate progress.
+        // Generic across any Activity type (Baseball, Guitar, Coding...).
+        let isLinkedToMeasurement = primary?.linkedMeasurementDefinitionID != nil
+        let linkedMeasurementValue: Double? = {
+            guard let primary, let linkedID = primary.linkedMeasurementDefinitionID,
+                  let definition = measurementDefinitions.first(where: { $0.id == linkedID }) else { return nil }
+            let interval = DateInterval(start: goal.createdAt, end: max(now, goal.createdAt))
+            return ProgressEngine.measurementTotal(for: definition, entries: measurementEntries, interval: interval)
+        }()
+        let derivedLatestValue = isLinkedToMeasurement ? linkedMeasurementValue : latest?.numericValue
+        let hasNoResultYet = isLinkedToMeasurement ? (linkedMeasurementValue == nil) : (latest == nil)
+
         let outcomeFraction: Double?
         if let primary {
-            outcomeFraction = resultFraction(for: primary, latest: latest)
+            outcomeFraction = resultFraction(for: primary, latestValue: derivedLatestValue)
         } else {
             outcomeFraction = nil
         }
-        let achieved = primary.map { isAchieved(measure: $0, latest: latest) } ?? false
+        let achieved = primary.map { isAchieved(measure: $0, latestValue: derivedLatestValue) } ?? false
         let validPrimaryTarget = primary.map { measure in
             ResultMeasureValidation.isValidTarget(
                 valueType: measure.valueType,
@@ -359,7 +378,9 @@ enum GoalProgressEngine {
             )
         } ?? false
 
-        let evidenceCount = resultEntries.count + (primary?.baselineValue == nil ? 0 : 1)
+        let evidenceCount = isLinkedToMeasurement
+            ? (primary?.baselineValue == nil ? 0 : 1) + (linkedMeasurementValue == nil ? 0 : 1)
+            : resultEntries.count + (primary?.baselineValue == nil ? 0 : 1)
         let confidence: ProgressConfidence = evidenceCount >= 3 ? .high : (evidenceCount >= 1 ? .medium : .low)
         let status: GoalProgressStatus
         let nextAction: String
@@ -370,9 +391,11 @@ enum GoalProgressEngine {
         } else if !validPrimaryTarget {
             status = .needsAttention
             nextAction = "Correct the Result baseline and target before evaluating this Goal."
-        } else if latest == nil {
+        } else if hasNoResultYet {
             status = .awaitingResult
-            nextAction = "Enter the first result check-in. Action completion alone cannot prove improvement."
+            nextAction = isLinkedToMeasurement
+                ? "Log a Session with this measurement so progress can be evaluated."
+                : "Enter the first result check-in. Action completion alone cannot prove improvement."
         } else if achieved {
             status = .achieved
             nextAction = "Target reached. Review whether to maintain it or set the next Goal."
@@ -393,7 +416,7 @@ enum GoalProgressEngine {
                 status = .needsAttention
                 nextAction = "The result is behind the target pace. Review the supporting Areas and Actions."
             }
-        } else if let latestValue = latest?.numericValue,
+        } else if let latestValue = derivedLatestValue,
                   let baseline = primary?.baselineValue,
                   isMovingInDesiredDirection(latestValue, from: baseline, measure: primary!) {
             status = .onTrack
@@ -411,8 +434,8 @@ enum GoalProgressEngine {
         )
     }
 
-    private static func resultFraction(for measure: ResultMeasure, latest: ResultEntry?) -> Double? {
-        guard let value = latest?.numericValue ?? measure.baselineValue else { return nil }
+    private static func resultFraction(for measure: ResultMeasure, latestValue: Double?) -> Double? {
+        guard let value = latestValue ?? measure.baselineValue else { return nil }
         switch measure.valueType {
         case .milestone:
             return value >= 1 ? 1 : 0
@@ -448,8 +471,8 @@ enum GoalProgressEngine {
         }
     }
 
-    private static func isAchieved(measure: ResultMeasure, latest: ResultEntry?) -> Bool {
-        guard let value = latest?.numericValue else { return false }
+    private static func isAchieved(measure: ResultMeasure, latestValue: Double?) -> Bool {
+        guard let value = latestValue else { return false }
         switch measure.valueType {
         case .milestone: return value >= 1
         case .text: return false

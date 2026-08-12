@@ -11,6 +11,8 @@ struct ImprovementDashboardView: View {
     @Query private var resultEntries: [ResultEntry]
     @Query private var activities: [Activity]
     @Query private var calendarItems: [CalendarItem]
+    @Query private var measurementDefinitions: [MeasurementDefinition]
+    @Query private var measurementEntries: [MeasurementEntry]
     @State private var period: DashboardPeriod = .week
     @State private var showingAddGoal = false
     @State private var showingAddAction = false
@@ -35,7 +37,8 @@ struct ImprovementDashboardView: View {
             GoalProgressEngine.progress(
                 goal: $0, period: period, categories: profileCategories,
                 contributions: contributions, measures: measures, entries: resultEntries,
-                activities: activities, calendarItems: calendarItems
+                activities: activities, calendarItems: calendarItems,
+                measurementDefinitions: measurementDefinitions, measurementEntries: measurementEntries
             )
         }
     }
@@ -527,6 +530,8 @@ private struct GoalDetailView: View {
     @Query private var entries: [ResultEntry]
     @Query private var activities: [Activity]
     @Query private var calendarItems: [CalendarItem]
+    @Query private var measurementDefinitions: [MeasurementDefinition]
+    @Query private var measurementEntries: [MeasurementEntry]
     @State private var selectedMeasure: ResultMeasure?
     @State private var showingAddMeasure = false
     @State private var showingEditGoal = false
@@ -544,7 +549,8 @@ private struct GoalDetailView: View {
         GoalProgressEngine.progress(
             goal: goal, period: period, categories: profileCategories,
             contributions: contributions, measures: measures, entries: entries,
-            activities: activities, calendarItems: calendarItems
+            activities: activities, calendarItems: calendarItems,
+            measurementDefinitions: measurementDefinitions, measurementEntries: measurementEntries
         )
     }
 
@@ -754,6 +760,7 @@ private struct AddGoalView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query private var categories: [AppCategory]
+    @Query private var allMeasurementDefinitions: [MeasurementDefinition]
     @State private var name = ""
     @State private var purpose = ""
     @State private var hasTargetDate = true
@@ -772,6 +779,8 @@ private struct AddGoalView: View {
     @State private var reminderEnabled = true
     @State private var reminderTime = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: .now) ?? .now
     @State private var didApplySuggestedAreas = false
+    @State private var resultSource: ResultSource = .manual
+    @State private var selectedMeasurementDefinitionID: UUID?
 
     init(profile: Profile, template: GoalStarterTemplate? = nil) {
         self.profile = profile
@@ -798,11 +807,19 @@ private struct AddGoalView: View {
         categories.filter { $0.profile?.id == profile.id && $0.isActive }
             .sorted { $0.name < $1.name }
     }
+    /// Only numeric-style measurements (not free text) can back a numeric Result.
+    /// Works identically for any Activity — Baseball, Guitar, Coding, etc.
+    private var compatibleMeasurementDefinitions: [MeasurementDefinition] {
+        allMeasurementDefinitions
+            .filter { $0.isActive && $0.type != .text && $0.activity?.profile?.id == profile.id }
+            .sorted { ($0.activity?.name ?? "", $0.sortOrder) < ($1.activity?.name ?? "", $1.sortOrder) }
+    }
     private var canSave: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !measureName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !selectedAreaIDs.isEmpty &&
-        (valueType == .text || valueType == .milestone || validNumericTarget)
+        (valueType == .text || valueType == .milestone || validNumericTarget) &&
+        (resultSource == .manual || valueType == .text || valueType == .milestone || selectedMeasurementDefinitionID != nil)
     }
     private var validNumericTarget: Bool {
         ResultMeasureValidation.isValidTarget(
@@ -842,6 +859,28 @@ private struct AddGoalView: View {
                         ForEach(ResultValueType.allCases) { Text($0.rawValue).tag($0) }
                     }
                     if valueType == .number || valueType == .rating {
+                        Picker("Result source", selection: $resultSource) {
+                            ForEach(ResultSource.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        if resultSource == .activityMeasurement {
+                            if compatibleMeasurementDefinitions.isEmpty {
+                                Text("No compatible Activity measurements yet. Add one from an Activity's Measurements section.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Picker("Measurement", selection: $selectedMeasurementDefinitionID) {
+                                    Text("Choose").tag(UUID?.none)
+                                    ForEach(compatibleMeasurementDefinitions) { definition in
+                                        Text("\(definition.activity?.name ?? "Activity") · \(definition.name)")
+                                            .tag(UUID?.some(definition.id))
+                                    }
+                                }
+                                Text("Progress will total this measurement's entries since the Goal was created — no manual check-ins needed.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                         TextField("Unit, such as %, kg, mph or seconds", text: $unit)
                         Picker("Desired result", selection: $direction) {
                             ForEach(ResultDirection.allCases) { Text($0.rawValue).tag($0) }
@@ -939,7 +978,9 @@ private struct AddGoalView: View {
             cadence: cadence, nextCheckInDate: cadence == .onDemand ? nil : nextCheckInDate,
             reminderEnabled: cadence != .onDemand && reminderEnabled,
             reminderHour: Calendar.current.component(.hour, from: reminderTime),
-            reminderMinute: Calendar.current.component(.minute, from: reminderTime)
+            reminderMinute: Calendar.current.component(.minute, from: reminderTime),
+            linkedMeasurementDefinitionID: (valueType == .number || valueType == .rating) && resultSource == .activityMeasurement
+                ? selectedMeasurementDefinitionID : nil
         )
         modelContext.insert(measure)
 
@@ -1055,10 +1096,17 @@ struct AddResultEntryView: View {
     }
 }
 
+enum ResultSource: String, CaseIterable, Identifiable {
+    case manual = "Manual check-in"
+    case activityMeasurement = "Activity measurement"
+    var id: String { rawValue }
+}
+
 private struct AddResultMeasureView: View {
     let goal: Goal
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Query private var allMeasurementDefinitions: [MeasurementDefinition]
     @State private var name = ""
     @State private var unit = ""
     @State private var baseline = 0.0
@@ -1068,6 +1116,17 @@ private struct AddResultMeasureView: View {
     @State private var nextDate = Calendar.current.date(byAdding: .month, value: 1, to: .now) ?? .now
     @State private var reminderEnabled = true
     @State private var reminderTime = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: .now) ?? .now
+    @State private var resultSource: ResultSource = .manual
+    @State private var selectedMeasurementDefinitionID: UUID?
+
+    /// Only numeric-style measurements (not free text) can back a numeric Result.
+    /// Works identically for any Activity — Baseball, Guitar, Coding, etc.
+    private var compatibleMeasurementDefinitions: [MeasurementDefinition] {
+        guard let profileID = goal.profile?.id else { return [] }
+        return allMeasurementDefinitions
+            .filter { $0.isActive && $0.type != .text && $0.activity?.profile?.id == profileID }
+            .sorted { ($0.activity?.name ?? "", $0.sortOrder) < ($1.activity?.name ?? "", $1.sortOrder) }
+    }
 
     private var validTarget: Bool {
         ResultMeasureValidation.isValidTarget(
@@ -1076,9 +1135,39 @@ private struct AddResultMeasureView: View {
         )
     }
 
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && validTarget &&
+            (resultSource == .manual || selectedMeasurementDefinitionID != nil)
+    }
+
     var body: some View {
         NavigationStack {
             Form {
+                Section("Result source") {
+                    Picker("Source", selection: $resultSource) {
+                        ForEach(ResultSource.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    if resultSource == .activityMeasurement {
+                        if compatibleMeasurementDefinitions.isEmpty {
+                            Text("No compatible Activity measurements yet. Add one from an Activity's Measurements section.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Picker("Measurement", selection: $selectedMeasurementDefinitionID) {
+                                Text("Choose").tag(UUID?.none)
+                                ForEach(compatibleMeasurementDefinitions) { definition in
+                                    Text("\(definition.activity?.name ?? "Activity") · \(definition.name)")
+                                        .tag(UUID?.some(definition.id))
+                                }
+                            }
+                            Text("Progress will total this measurement's entries since the Goal was created — no manual check-ins needed.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 Section("Supporting Result") {
                     TextField("Example: Monthly mock-test score", text: $name)
                     TextField("Unit", text: $unit)
@@ -1105,8 +1194,7 @@ private struct AddResultMeasureView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save)
-                        .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !validTarget)
+                    Button("Save", action: save).disabled(!canSave)
                 }
             }
         }
@@ -1120,7 +1208,8 @@ private struct AddResultMeasureView: View {
             cadence: cadence, nextCheckInDate: cadence == .onDemand ? nil : nextDate,
             reminderEnabled: cadence != .onDemand && reminderEnabled,
             reminderHour: Calendar.current.component(.hour, from: reminderTime),
-            reminderMinute: Calendar.current.component(.minute, from: reminderTime)
+            reminderMinute: Calendar.current.component(.minute, from: reminderTime),
+            linkedMeasurementDefinitionID: resultSource == .activityMeasurement ? selectedMeasurementDefinitionID : nil
         )
         modelContext.insert(measure)
         if modelContext.saveOrReport() {

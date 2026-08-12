@@ -14,11 +14,15 @@ struct RecordActualView: View {
     let item: CalendarItem
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Query private var allMeasurementDefinitions: [MeasurementDefinition]
 
     @State private var recordedValue: Double
     @State private var actualDurationMinutes: Int
     @State private var note: String = ""
     @State private var pendingSession: ActivitySession?
+    /// Raw text input per measurement. Blank means the user has not recorded
+    /// anything for that measurement — never prefilled with target or zero.
+    @State private var measurementInputs: [UUID: String] = [:]
 
     init(item: CalendarItem) {
         self.item = item
@@ -28,6 +32,20 @@ struct RecordActualView: View {
     }
 
     private var hasTarget: Bool { item.activity?.targetValue != nil }
+
+    private var measurementDefinitions: [MeasurementDefinition] {
+        guard let activityID = item.activity?.id else { return [] }
+        return allMeasurementDefinitions
+            .filter { $0.activity?.id == activityID && $0.isActive }
+            .sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    private func inputBinding(for definition: MeasurementDefinition) -> Binding<String> {
+        Binding(
+            get: { measurementInputs[definition.id] ?? "" },
+            set: { measurementInputs[definition.id] = $0 }
+        )
+    }
 
     var body: some View {
         NavigationStack {
@@ -56,6 +74,32 @@ struct RecordActualView: View {
                         Text("No quantitative target for this activity — marking it Done is enough.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    }
+                }
+
+                if !measurementDefinitions.isEmpty {
+                    Section {
+                        ForEach(measurementDefinitions) { definition in
+                            if definition.type == .text {
+                                TextField(definition.name, text: inputBinding(for: definition), axis: .vertical)
+                            } else {
+                                HStack {
+                                    Text(definition.name)
+                                    Spacer()
+                                    TextField("Not recorded", text: inputBinding(for: definition))
+                                        .keyboardType(.decimalPad)
+                                        .multilineTextAlignment(.trailing)
+                                        .frame(maxWidth: 120)
+                                    if let unit = definition.unit, !unit.isEmpty {
+                                        Text(unit).foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("Measurements")
+                    } footer: {
+                        Text("Leave blank to skip a measurement — nothing is recorded unless you enter a value.")
                     }
                 }
 
@@ -93,6 +137,7 @@ struct RecordActualView: View {
         item.actualEnd = timing.end
         item.status = .done
 
+        var insertedEntries: [MeasurementEntry] = []
         if pendingSession == nil {
             let session = ActivitySession(
                 activity: item.activity,
@@ -106,10 +151,49 @@ struct RecordActualView: View {
             )
             modelContext.insert(session)
             pendingSession = session
+
+            for definition in measurementDefinitions {
+                let raw = (measurementInputs[definition.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !raw.isEmpty else { continue }
+
+                if definition.type == .text {
+                    let entry = MeasurementEntry(
+                        activitySession: session,
+                        measurementDefinition: definition,
+                        nameSnapshot: definition.name,
+                        typeSnapshot: definition.type,
+                        unitSnapshot: definition.unit ?? "",
+                        textValue: raw
+                    )
+                    modelContext.insert(entry)
+                    insertedEntries.append(entry)
+                } else if let value = Double(raw) {
+                    let entry = MeasurementEntry(
+                        activitySession: session,
+                        measurementDefinition: definition,
+                        nameSnapshot: definition.name,
+                        typeSnapshot: definition.type,
+                        unitSnapshot: definition.unit ?? "",
+                        numericValue: value
+                    )
+                    modelContext.insert(entry)
+                    insertedEntries.append(entry)
+                }
+            }
         }
         item.note = note
 
-        if modelContext.saveOrReport() { dismiss() }
+        if modelContext.saveOrReport() {
+            dismiss()
+        } else {
+            for entry in insertedEntries {
+                modelContext.delete(entry)
+            }
+            if let session = pendingSession {
+                modelContext.delete(session)
+                pendingSession = nil
+            }
+        }
     }
 }
 
@@ -120,5 +204,5 @@ struct RecordActualView: View {
                              targetValue: 100, targetUnit: "swings", plannedStartMinutes: 18*60, estimatedDurationMinutes: 60)
     let item = CalendarItem(profile: profile, activity: activity, date: .now)
     RecordActualView(item: item)
-        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Goal.self, GoalAreaContribution.self, ResultMeasure.self, ResultEntry.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self], inMemory: true)
+        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Goal.self, GoalAreaContribution.self, ResultMeasure.self, ResultEntry.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self, Relationship.self, MeasurementDefinition.self, MeasurementEntry.self], inMemory: true)
 }

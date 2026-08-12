@@ -385,6 +385,10 @@ final class ResultMeasure {
     var reminderHour: Int
     var reminderMinute: Int
     var isActive: Bool
+    /// Optional link to a MeasurementDefinition so this Result's progress can be
+    /// derived from summed MeasurementEntry values instead of manual check-ins.
+    /// Generic across any Activity type (Baseball, Guitar, Coding, ...).
+    var linkedMeasurementDefinitionID: UUID?
 
     var role: ResultMeasureRole {
         get { ResultMeasureRole(rawValue: roleRaw) ?? .primary }
@@ -419,7 +423,8 @@ final class ResultMeasure {
         targetValue: Double? = nil, targetMinimum: Double? = nil,
         targetMaximum: Double? = nil, ratingLabels: [String] = [],
         cadence: ResultCheckInCadence = .monthly, nextCheckInDate: Date? = nil,
-        reminderEnabled: Bool = false, reminderHour: Int = 18, reminderMinute: Int = 0
+        reminderEnabled: Bool = false, reminderHour: Int = 18, reminderMinute: Int = 0,
+        linkedMeasurementDefinitionID: UUID? = nil
     ) {
         self.id = UUID()
         self.goal = goal
@@ -439,6 +444,7 @@ final class ResultMeasure {
         self.reminderHour = reminderHour
         self.reminderMinute = reminderMinute
         self.isActive = true
+        self.linkedMeasurementDefinitionID = linkedMeasurementDefinitionID
     }
 }
 

@@ -127,6 +127,7 @@ struct EditResultMeasureView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Query private var allMeasurementDefinitions: [MeasurementDefinition]
     @State private var name: String
     @State private var unit: String
     @State private var direction: ResultDirection
@@ -139,6 +140,8 @@ struct EditResultMeasureView: View {
     @State private var reminderEnabled: Bool
     @State private var reminderTime: Date
     @State private var isActive: Bool
+    @State private var resultSource: ResultSource
+    @State private var selectedMeasurementDefinitionID: UUID?
 
     init(measure: ResultMeasure) {
         self.measure = measure
@@ -154,10 +157,22 @@ struct EditResultMeasureView: View {
         _reminderEnabled = State(initialValue: measure.reminderEnabled)
         _reminderTime = State(initialValue: Calendar.current.date(bySettingHour: measure.reminderHour, minute: measure.reminderMinute, second: 0, of: .now) ?? .now)
         _isActive = State(initialValue: measure.isActive)
+        _resultSource = State(initialValue: measure.linkedMeasurementDefinitionID == nil ? .manual : .activityMeasurement)
+        _selectedMeasurementDefinitionID = State(initialValue: measure.linkedMeasurementDefinitionID)
+    }
+
+    /// Only numeric-style measurements (not free text) can back a numeric Result.
+    /// Works identically for any Activity — Baseball, Guitar, Coding, etc.
+    private var compatibleMeasurementDefinitions: [MeasurementDefinition] {
+        guard let profileID = measure.goal?.profile?.id else { return [] }
+        return allMeasurementDefinitions
+            .filter { $0.isActive && $0.type != .text && $0.activity?.profile?.id == profileID }
+            .sorted { ($0.activity?.name ?? "", $0.sortOrder) < ($1.activity?.name ?? "", $1.sortOrder) }
     }
 
     private var valid: Bool {
         guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        guard resultSource == .manual || selectedMeasurementDefinitionID != nil else { return false }
         if measure.valueType == .text || measure.valueType == .milestone { return true }
         return ResultMeasureValidation.isValidTarget(
             valueType: measure.valueType, direction: direction,
@@ -168,6 +183,32 @@ struct EditResultMeasureView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if measure.valueType == .number || measure.valueType == .rating {
+                    Section("Result source") {
+                        Picker("Source", selection: $resultSource) {
+                            ForEach(ResultSource.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        if resultSource == .activityMeasurement {
+                            if compatibleMeasurementDefinitions.isEmpty {
+                                Text("No compatible Activity measurements yet. Add one from an Activity's Measurements section.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Picker("Measurement", selection: $selectedMeasurementDefinitionID) {
+                                    Text("Choose").tag(UUID?.none)
+                                    ForEach(compatibleMeasurementDefinitions) { definition in
+                                        Text("\(definition.activity?.name ?? "Activity") · \(definition.name)")
+                                            .tag(UUID?.some(definition.id))
+                                    }
+                                }
+                                Text("Progress will total this measurement's entries since the Goal was created — no manual check-ins needed.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
                 Section("Result measure") {
                     TextField("Name", text: $name)
                     Toggle("Active", isOn: $isActive)
@@ -218,6 +259,7 @@ struct EditResultMeasureView: View {
         measure.reminderHour = Calendar.current.component(.hour, from: reminderTime)
         measure.reminderMinute = Calendar.current.component(.minute, from: reminderTime)
         measure.isActive = isActive
+        measure.linkedMeasurementDefinitionID = resultSource == .activityMeasurement ? selectedMeasurementDefinitionID : nil
         if modelContext.saveOrReport() {
             Task { await GoalReminderService.updateReminder(for: measure) }
             dismiss()

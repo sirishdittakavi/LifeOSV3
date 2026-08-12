@@ -14,11 +14,39 @@ struct DailyProgressView: View {
 
     @Query private var activities: [Activity]
     @Query(sort: \ActivitySession.date) private var sessions: [ActivitySession]
+    @Query private var measurementDefinitions: [MeasurementDefinition]
+    @Query private var measurementEntries: [MeasurementEntry]
     @State private var selectedActivity: Activity?
 
     private var todayProgress: [DailyActivityProgress] {
         guard let profile = selection.profile else { return [] }
         return ProgressEngine.dailyProgress(profile: profile, date: .now, activities: activities, sessions: sessions)
+    }
+
+    /// Each measurement (e.g. Ground Balls, Catches) is shown independently —
+    /// no blended score across measurements of differing units.
+    private var todayMeasurementProgress: [MeasurementProgressRow] {
+        guard let profile = selection.profile else { return [] }
+        let startOfDay = Calendar.current.startOfDay(for: .now)
+        let todayInterval = DateInterval(start: startOfDay, duration: 86_400)
+        let profileActivityIDs = Set(activities.filter { $0.profile?.id == profile.id }.map(\.id))
+
+        return measurementDefinitions
+            .filter { definition in
+                guard definition.isActive, let activityID = definition.activity?.id else { return false }
+                return profileActivityIDs.contains(activityID)
+            }
+            .sorted {
+                ($0.activity?.name ?? "", $0.sortOrder) < ($1.activity?.name ?? "", $1.sortOrder)
+            }
+            .map { definition in
+                MeasurementProgressRow(
+                    id: definition.id,
+                    activityName: definition.activity?.name ?? "",
+                    definition: definition,
+                    total: ProgressEngine.measurementTotal(for: definition, entries: measurementEntries, interval: todayInterval)
+                )
+            }
     }
 
     private var last7Days: [Date] {
@@ -32,41 +60,67 @@ struct DailyProgressView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    if todayProgress.isEmpty {
+                    if todayProgress.isEmpty && todayMeasurementProgress.isEmpty {
                         ContentUnavailableView(
                             "No Tracked Targets Yet",
                             systemImage: "chart.bar.xaxis",
-                            description: Text("Activities with a target (minutes, swings, grams...) will show progress here.")
+                            description: Text("Activities with a target (minutes, swings, grams...) or measurements will show progress here.")
                         )
                         .padding(.top, 40)
                     } else {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("TODAY'S ACTION TRACKING").font(.caption).bold().foregroundStyle(.secondary)
-                            Text("Target vs. actual — separate from completion status on Today.")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal)
-
-                        VStack(spacing: 12) {
-                            ForEach(todayProgress) { progress in
-                                Button { selectedActivity = progress.activity } label: {
-                                    ProgressBarRow(progress: progress)
-                                }
-                                .buttonStyle(.plain)
+                        // Legacy Activity.targetValue tracking and new per-measurement
+                        // tracking are independent sections — neither depends on the
+                        // other having data.
+                        if !todayProgress.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("TODAY'S ACTION TRACKING").font(.caption).bold().foregroundStyle(.secondary)
+                                Text("Target vs. actual — separate from completion status on Today.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
                             }
+                            .padding(.horizontal)
+
+                            VStack(spacing: 12) {
+                                ForEach(todayProgress) { progress in
+                                    Button { selectedActivity = progress.activity } label: {
+                                        ProgressBarRow(progress: progress)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal)
 
-                        Divider().padding(.horizontal)
+                        if !todayMeasurementProgress.isEmpty {
+                            if !todayProgress.isEmpty { Divider().padding(.horizontal) }
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("7-DAY TREND").font(.caption).bold().foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("MEASUREMENTS").font(.caption).bold().foregroundStyle(.secondary)
+                                Text("Each measurement tracked independently.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal)
+
+                            VStack(spacing: 8) {
+                                ForEach(todayMeasurementProgress) { row in
+                                    MeasurementProgressRowView(row: row)
+                                }
+                            }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal)
 
-                        ForEach(todayProgress) { progress in
-                            TrendRow(activity: progress.activity, days: last7Days, activities: activities, sessions: sessions)
+                        if !todayProgress.isEmpty {
+                            Divider().padding(.horizontal)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("7-DAY TREND").font(.caption).bold().foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal)
+
+                            ForEach(todayProgress) { progress in
+                                TrendRow(activity: progress.activity, days: last7Days, activities: activities, sessions: sessions)
+                            }
                         }
                     }
                 }
@@ -219,6 +273,51 @@ private struct ProgressBarRow: View {
     }
 }
 
+struct MeasurementProgressRow: Identifiable {
+    let id: UUID
+    let activityName: String
+    let definition: MeasurementDefinition
+    let total: Double
+}
+
+private struct MeasurementProgressRowView: View {
+    let row: MeasurementProgressRow
+
+    private var fraction: Double? {
+        guard let target = row.definition.targetValue, target > 0 else { return nil }
+        return min(row.total / target, 1.0)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("\(row.activityName) · \(row.definition.name)")
+                    .font(.subheadline)
+                Spacer()
+                if let target = row.definition.targetValue {
+                    Text("\(formatted(row.total)) / \(formatted(target)) \(row.definition.unit ?? "")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("\(formatted(row.total)) \(row.definition.unit ?? "")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if let fraction {
+                ProgressView(value: fraction)
+            }
+        }
+        .padding(12)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func formatted(_ value: Double) -> String {
+        value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(format: "%.1f", value)
+    }
+}
+
 private struct TrendRow: View {
     let activity: Activity
     let days: [Date]
@@ -257,5 +356,5 @@ private struct TrendRow: View {
 
 #Preview {
     RootTabView()
-        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Goal.self, GoalAreaContribution.self, ResultMeasure.self, ResultEntry.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self], inMemory: true)
+        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Goal.self, GoalAreaContribution.self, ResultMeasure.self, ResultEntry.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self, Relationship.self, MeasurementDefinition.self, MeasurementEntry.self], inMemory: true)
 }
