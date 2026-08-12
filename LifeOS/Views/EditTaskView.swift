@@ -15,6 +15,7 @@ struct EditTaskView: View {
     @Query(sort: \AppCategory.name) private var categories: [AppCategory]
     @Query private var allActivities: [Activity]
     @Query private var allCalendarItems: [CalendarItem]
+    @Query private var allMeasurementDefinitions: [MeasurementDefinition]
 
     @State private var name: String
     @State private var categoryID: UUID?
@@ -33,6 +34,15 @@ struct EditTaskView: View {
     @State private var endDate: Date
     @State private var isActive: Bool
     @State private var showingDeleteConfirmation = false
+
+    /// Additive, alongside targetValue/targetUnit above — Refactor.md
+    /// Phase 3. Add/delete act immediately (their own save), matching the
+    /// Task Management section's pattern below, rather than deferring to
+    /// the main Save button.
+    @State private var newMeasurementName = ""
+    @State private var newMeasurementType: MeasurementType = .count
+    @State private var newMeasurementUnit = ""
+    @State private var newMeasurementTarget: Double?
 
     private let weekdaySymbols = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
@@ -73,6 +83,12 @@ struct EditTaskView: View {
 
     private var hasHistory: Bool {
         PlanningService.hasAnyHistory(for: activity, in: allCalendarItems)
+    }
+
+    private var measurementDefinitions: [MeasurementDefinition] {
+        allMeasurementDefinitions
+            .filter { $0.activity?.id == activity.id }
+            .sorted { $0.sortOrder < $1.sortOrder }
     }
 
     private var canSave: Bool {
@@ -117,6 +133,46 @@ struct EditTaskView: View {
                         TextField("Target", value: $targetValue, format: .number)
                             .keyboardType(.decimalPad)
                         TextField("Unit, e.g. min or swings", text: $targetUnit)
+                    }
+                }
+
+                Section("Measurements (optional)") {
+                    if !measurementDefinitions.isEmpty {
+                        ForEach(measurementDefinitions) { definition in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(definition.name).font(.subheadline)
+                                    Text(definition.type.rawValue.capitalized + (definition.unit.map { " · \($0)" } ?? ""))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if let target = definition.targetValue {
+                                    Text(target.formatted(.number.precision(.fractionLength(0...2))))
+                                        .font(.subheadline.weight(.semibold))
+                                }
+                            }
+                        }
+                        .onDelete(perform: deleteMeasurementDefinitions)
+                    }
+                    TextField("Name, e.g. Ground Balls", text: $newMeasurementName)
+                    Picker("Type", selection: $newMeasurementType) {
+                        ForEach(MeasurementType.allCases) { Text($0.rawValue.capitalized).tag($0) }
+                    }
+                    HStack(spacing: 8) {
+                        TextField("Target (optional)", value: $newMeasurementTarget, format: .number)
+                            .keyboardType(.decimalPad)
+                        TextField("Unit", text: $newMeasurementUnit)
+                    }
+                    Button {
+                        addMeasurement()
+                    } label: {
+                        Label("Add Measurement", systemImage: "plus.circle.fill")
+                    }
+                    .disabled(newMeasurementName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    if !measurementDefinitions.isEmpty {
+                        Text("Each measurement is tracked separately — e.g. Ground Balls 100, Catches 50, Throws 30.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -180,6 +236,31 @@ struct EditTaskView: View {
                     : "This Task has no recorded history, so this permanently removes it.")
             }
         }
+    }
+
+    private func addMeasurement() {
+        let trimmedName = newMeasurementName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+        let trimmedUnit = newMeasurementUnit.trimmingCharacters(in: .whitespacesAndNewlines)
+        let definition = MeasurementDefinition(
+            activity: activity, name: trimmedName, type: newMeasurementType,
+            unit: trimmedUnit.isEmpty ? nil : trimmedUnit,
+            targetValue: newMeasurementTarget, sortOrder: measurementDefinitions.count
+        )
+        modelContext.insert(definition)
+        if modelContext.saveOrReport() {
+            newMeasurementName = ""
+            newMeasurementUnit = ""
+            newMeasurementTarget = nil
+            newMeasurementType = .count
+        } else {
+            modelContext.delete(definition)
+        }
+    }
+
+    private func deleteMeasurementDefinitions(at offsets: IndexSet) {
+        offsets.map { measurementDefinitions[$0] }.forEach(modelContext.delete)
+        modelContext.saveOrReport()
     }
 
     /// Deletes an Activity outright only when it has never produced a real

@@ -27,6 +27,10 @@ struct AddActivityView: View {
     @State private var targetValue: Double = 30
     @State private var targetUnit: String = "min"
 
+    /// Additive, alongside the single target above — Refactor.md Phase 3.
+    /// Not a replacement; `targetValue`/`targetUnit` are untouched.
+    @State private var measurements: [DraftMeasurement] = []
+
     @State private var repeatType: RepeatType = .daily
     @State private var selectedWeekdays: Set<Int> = [2, 3, 4, 5, 6]
     @State private var occurrencesPerDay: Int = 3
@@ -153,6 +157,22 @@ struct AddActivityView: View {
                     }
                 }
 
+                Section("Measurements (optional)") {
+                    ForEach($measurements) { $measurement in
+                        measurementRow($measurement)
+                    }
+                    Button {
+                        measurements.append(DraftMeasurement())
+                    } label: {
+                        Label("Add Measurement", systemImage: "plus.circle.fill")
+                    }
+                    if !measurements.isEmpty {
+                        Text("Each measurement is tracked separately when you log this Task — e.g. Ground Balls 100, Catches 50, Throws 30.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Section("3. When should it happen?") {
                     Picker("Repeat", selection: $repeatType) {
                         ForEach(RepeatType.allCases) { type in
@@ -255,6 +275,30 @@ struct AddActivityView: View {
         }
     }
 
+    private func measurementRow(_ measurement: Binding<DraftMeasurement>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                TextField("Name, e.g. Ground Balls", text: measurement.name)
+                Button(role: .destructive) {
+                    measurements.removeAll { $0.id == measurement.wrappedValue.id }
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Remove measurement")
+            }
+            Picker("Type", selection: measurement.type) {
+                ForEach(MeasurementType.allCases) { Text($0.rawValue.capitalized).tag($0) }
+            }
+            HStack(spacing: 8) {
+                TextField("Target (optional)", value: measurement.targetValue, format: .number)
+                    .keyboardType(.decimalPad)
+                TextField("Unit", text: measurement.unit)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
     private var weekdayPicker: some View {
         HStack {
             ForEach(1...7, id: \.self) { day in
@@ -329,6 +373,20 @@ struct AddActivityView: View {
         )
         modelContext.insert(activity)
 
+        let definitions = measurements
+            .enumerated()
+            .compactMap { index, draft -> MeasurementDefinition? in
+                let trimmedName = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmedName.isEmpty else { return nil }
+                let trimmedUnit = draft.unit.trimmingCharacters(in: .whitespacesAndNewlines)
+                return MeasurementDefinition(
+                    activity: activity, name: trimmedName, type: draft.type,
+                    unit: trimmedUnit.isEmpty ? nil : trimmedUnit,
+                    targetValue: draft.targetValue, sortOrder: index
+                )
+            }
+        definitions.forEach(modelContext.insert)
+
         // Generate today's calendar item immediately if this activity is
         // scheduled today, so it shows up on Today without waiting for the
         // next app-open regeneration pass.
@@ -339,6 +397,7 @@ struct AddActivityView: View {
             )
         } catch {
             PersistenceIssueCenter.shared.report(error)
+            definitions.forEach(modelContext.delete)
             modelContext.delete(activity)
             if let category, isCreatingCategory { modelContext.delete(category) }
             return
@@ -349,6 +408,7 @@ struct AddActivityView: View {
             dismiss()
         } else {
             newItems.forEach { modelContext.delete($0) }
+            definitions.forEach(modelContext.delete)
             modelContext.delete(activity)
             if let category, isCreatingCategory { modelContext.delete(category) }
         }
@@ -377,8 +437,18 @@ struct AddActivityView: View {
     }
 }
 
+/// Unsaved measurement, edited in the form before the Activity exists.
+/// Turned into a MeasurementDefinition only on save (Refactor.md Phase 3).
+private struct DraftMeasurement: Identifiable {
+    let id = UUID()
+    var name: String = ""
+    var type: MeasurementType = .count
+    var unit: String = ""
+    var targetValue: Double?
+}
+
 #Preview {
     let profile = Profile(name: "Sirish", kind: .parent, colorToken: "blue")
     AddActivityView(profile: profile)
-        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Goal.self, GoalAreaContribution.self, ResultMeasure.self, ResultEntry.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self], inMemory: true)
+        .modelContainer(for: [Profile.self, SavedCategoryTemplate.self, AppCategory.self, Goal.self, GoalAreaContribution.self, ResultMeasure.self, ResultEntry.self, Activity.self, CalendarItem.self, ActivitySession.self, FoodEntry.self, WeightEntry.self, SportEntry.self, Relationship.self, MeasurementDefinition.self, MeasurementEntry.self], inMemory: true)
 }
