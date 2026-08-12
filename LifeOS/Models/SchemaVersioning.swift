@@ -18,6 +18,14 @@
 //  exercise container creation through this plan, but a stored-data fixture
 //  is still required for every future migration.
 //
+//  Exception (IMPLEMENTATION_PHASE_PLAN_V2.md §0): LifeOS has no production
+//  release yet, so "never change the roster after V1 ships" doesn't apply —
+//  there is nothing released to preserve compatibility with. Phase 1 adds
+//  Relationship/MeasurementDefinition/MeasurementEntry directly to this
+//  roster rather than through a versioned V2 migration. This exception ends
+//  the moment LifeOS actually ships to real users; all guidance above this
+//  note applies again in full from that point on.
+//
 
 import SwiftData
 
@@ -25,7 +33,8 @@ enum LifeOSSchemaV1: VersionedSchema {
     static let versionIdentifier = Schema.Version(1, 0, 0)
     /// Release contract used by migration tests. Never change this value or
     /// roster after V1 ships; add a new versioned schema instead.
-    static let releaseFingerprint = "LifeOSSchemaV1:1.0.0:Profile,SavedCategoryTemplate,AppCategory,Goal,GoalAreaContribution,ResultMeasure,ResultEntry,Activity,CalendarItem,ActivitySession,FoodEntry,WeightEntry,SportEntry"
+    /// (Pre-release exception above still applies as of Phase 1.)
+    static let releaseFingerprint = "LifeOSSchemaV1:1.0.0:Profile,SavedCategoryTemplate,AppCategory,Goal,GoalAreaContribution,ResultMeasure,ResultEntry,Activity,CalendarItem,ActivitySession,FoodEntry,WeightEntry,SportEntry,Relationship,MeasurementDefinition,MeasurementEntry"
 
     static var models: [any PersistentModel.Type] {
         [
@@ -41,7 +50,10 @@ enum LifeOSSchemaV1: VersionedSchema {
             ActivitySession.self,
             FoodEntry.self,
             WeightEntry.self,
-            SportEntry.self
+            SportEntry.self,
+            Relationship.self,
+            MeasurementDefinition.self,
+            MeasurementEntry.self
         ]
     }
 }

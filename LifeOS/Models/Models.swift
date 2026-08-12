@@ -688,6 +688,132 @@ final class ActivitySession {
     }
 }
 
+// MARK: - Measurement (V2 foundation — Refactor.md Phase 1)
+//
+// Reusable definition (MeasurementDefinition) vs. actual record
+// (MeasurementEntry), per DESIGN.md's Core Domain Rule and
+// DOMAIN_MODEL_V2_PROPOSAL.md §2.7/§2.8. Not yet wired into any
+// Repository, Engine, or View — Activity.targetValue/targetUnit and
+// ActivitySession.recordedValue remain the active, unmodified V1 path.
+// These two models are inert additions until a later phase.
+
+enum MeasurementType: String, Codable, CaseIterable, Identifiable {
+    case count, duration, distance, percentage, rating, text, custom
+    var id: String { rawValue }
+}
+
+/// A user-configurable "thing to track" attached to an Activity. One
+/// Activity may have several — e.g. Ground Balls, Fly Balls, Catches,
+/// Reaction Time, and Throw Accuracy all on one Fielding Practice Activity.
+@Model
+final class MeasurementDefinition {
+    var id: UUID
+    var activity: Activity?
+    var name: String
+    var typeRaw: String
+    var unit: String?
+    var targetValue: Double?
+    var isOptional: Bool
+    var sortOrder: Int
+    var isActive: Bool
+
+    var type: MeasurementType {
+        get { MeasurementType(rawValue: typeRaw) ?? .count }
+        set { typeRaw = newValue.rawValue }
+    }
+
+    init(activity: Activity?, name: String, type: MeasurementType, unit: String? = nil,
+         targetValue: Double? = nil, isOptional: Bool = false, sortOrder: Int = 0, isActive: Bool = true) {
+        self.id = UUID()
+        self.activity = activity
+        self.name = name
+        self.typeRaw = type.rawValue
+        self.unit = unit
+        self.targetValue = targetValue
+        self.isOptional = isOptional
+        self.sortOrder = sortOrder
+        self.isActive = isActive
+    }
+}
+
+/// The actual recorded value for one MeasurementDefinition within one
+/// ActivitySession. `measurementDefinition` is a soft, optional link —
+/// `nameSnapshot`/`typeSnapshot`/`unitSnapshot` are copied at creation time
+/// so this entry stays fully interpretable even if its MeasurementDefinition
+/// is later renamed, retargeted, or deleted. This is what lets historical
+/// sessions keep their original measurement meaning even if the Activity
+/// changes later (DOMAIN_MODEL_V2_PROPOSAL.md §2.8).
+@Model
+final class MeasurementEntry {
+    var id: UUID
+    var activitySession: ActivitySession?
+    var measurementDefinition: MeasurementDefinition?
+    var nameSnapshot: String
+    var typeSnapshot: String
+    var unitSnapshot: String
+    var numericValue: Double?
+    var textValue: String?
+    var recordedAt: Date
+
+    init(activitySession: ActivitySession?, measurementDefinition: MeasurementDefinition?,
+         nameSnapshot: String, typeSnapshot: MeasurementType, unitSnapshot: String = "",
+         numericValue: Double? = nil, textValue: String? = nil, recordedAt: Date = .now) {
+        self.id = UUID()
+        self.activitySession = activitySession
+        self.measurementDefinition = measurementDefinition
+        self.nameSnapshot = nameSnapshot
+        self.typeSnapshot = typeSnapshot.rawValue
+        self.unitSnapshot = unitSnapshot
+        self.numericValue = numericValue
+        self.textValue = textValue
+        self.recordedAt = recordedAt
+    }
+}
+
+// MARK: - Relationship (V2 foundation — Refactor.md Phase 1)
+//
+// Data model only, per this phase's scope. Permissions, sharing, and
+// notifications are explicitly not implemented here — `permissionsRaw`
+// stores the intended grant set as data, but nothing in the codebase reads
+// or enforces it yet. Replaces the hardcoded parent/child role eventually
+// (DOMAIN_MODEL_V2_PROPOSAL.md §2.2); Profile.kind/managementMode are
+// unmodified and still govern all existing behavior.
+
+enum RelationshipStatus: String, Codable, CaseIterable, Identifiable {
+    case pending, active, revoked
+    var id: String { rawValue }
+}
+
+@Model
+final class Relationship {
+    var id: UUID
+    var subjectProfileID: UUID
+    var actorProfileID: UUID
+    var relationshipType: String
+    var permissionsRaw: [String]
+    var statusRaw: String
+    var createdAt: Date
+    var respondedAt: Date?
+
+    var status: RelationshipStatus {
+        get { RelationshipStatus(rawValue: statusRaw) ?? .pending }
+        set { statusRaw = newValue.rawValue }
+    }
+
+    init(subjectProfileID: UUID, actorProfileID: UUID, relationshipType: String,
+         permissionsRaw: [String] = [], status: RelationshipStatus = .pending,
+         createdAt: Date = .now, respondedAt: Date? = nil) {
+        self.id = UUID()
+        self.subjectProfileID = subjectProfileID
+        self.actorProfileID = actorProfileID
+        self.relationshipType = relationshipType
+        self.permissionsRaw = permissionsRaw
+        self.statusRaw = status.rawValue
+        self.createdAt = createdAt
+        self.respondedAt = respondedAt
+    }
+}
+
 // MARK: - Nutrition
 
 enum MealType: String, Codable, CaseIterable, Identifiable {
