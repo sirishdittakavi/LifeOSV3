@@ -663,3 +663,75 @@ source moved. New test
 done/total equivalence so the two can't silently diverge later.
 
 Tests: 80/80 pass. App builds.
+
+---
+
+## Product Architecture Update (2026-08-11)
+
+`LIFEOS_PRODUCT_ARCHITECTURE_UPDATE.md` reframes LifeOS from a task tracker
+into a generic personal improvement platform (Person → Area → Goal →
+Activity Template → Schedule → Activity Session → Measurements → Progress
+→ Insights). Full mapping of current models against the new target
+concepts is in `Architecture.md` §3. **No code or schema changes made** —
+per the update doc's own Implementation Rule: docs first, then review
+models, identify migration risks, agree phases, then refactor. This entry
+is step 3 (migration risks) of that sequence.
+
+### Already close to the target shape (low/no risk)
+
+- Person → `Profile`, Area → `AppCategory`, Goal → `Goal`/`GoalAreaContribution`/
+  `ResultMeasure`, Activity Template → `Activity`, Schedule → `Activity`'s
+  schedule fields + `PlanningService`, planned-vs-actual → `CalendarItem`/
+  `ActivitySession`. These need no schema change to satisfy the update doc —
+  at most naming/reframing in product copy, not data migration.
+
+### Real gaps requiring a decision before any implementation phase
+
+1. **Dynamic, user-defined measurements.** Today an `Activity` has exactly
+   one `targetValue`/`targetUnit` pair and one `ActivitySession.recordedValue`.
+   The update doc's own examples (Ground Balls + Fly Balls + Catches +
+   Reaction Time + Throw Accuracy, tracked *simultaneously*) need a
+   one-to-many, user-configurable measurement-definition model per Activity.
+   This is a genuine schema addition (new model(s), new relationships) —
+   the same category of risk Step 6 already stopped on for Nutrition, and
+   should go through the same migration-safety process
+   (`SchemaVersioning.swift`'s documented V1→V2 procedure, a real V1-store
+   fixture, explicit sign-off) before any code changes.
+2. **Generic Relationship model.** `ProfileKind` (adult/child/individual) +
+   `ProfileManagementMode` (parentManaged/selfManaged) hardcodes exactly the
+   two roles the update doc says not to hardcode. Replacing this with a
+   generic `Person ↔ Relationship ↔ Person` edge is a bigger structural
+   change than it looks: `ProfileManagementMode` currently gates real
+   permission/visibility logic (DESIGN.md §25.6), so this isn't just a
+   rename — it's redesigning an access-control model. Needs explicit
+   agreement on scope before touching it.
+3. **Progressive tracking levels (casual/serious/professional).** Not
+   modeled at all today, and depends on gap #1 (dynamic measurements) being
+   resolved first — a "professional" structured program is multiple
+   measurements with multiple targets over time, which doesn't exist as a
+   concept yet.
+4. **Notification rule engine.** Current `ReminderService` fires from the
+   *plan* (scheduled time), not from a rule engine reacting to
+   planned-vs-actual deltas ("Activity missed," "Goal progress dropping").
+   Additive on top of existing scheduling, not a migration — lower risk
+   than #1–#3, but still undesigned.
+
+### Not blocked, no schema involved
+
+`ProgressMetric`/dashboard philosophy/calendar philosophy/architecture
+layers (View→ViewModel→UseCase→Repository→SwiftData) are already partially
+implemented (Steps 1, 4, 7) and align with the update doc as-is — extending
+the Today-only ViewModel/Repository pattern to other screens is UI/engine
+work, not a schema migration, and can be sequenced independently of the
+gaps above.
+
+### Awaiting before any implementation phase is agreed
+
+- Decide gap #1's shape (a `MeasurementDefinition`/`MeasurementEntry` pair
+  per DESIGN.md §10, generalized to any Activity, or something else) before
+  any schema work — same migration-safety bar as Nutrition V2.
+- Decide how much of gap #2 (relationships) is in scope now vs. deferred
+  further, given it doubles as a permissions redesign.
+- Confirm phase ordering: whether AI/notification-engine work (§11, §12 of
+  the update doc) waits until #1–#3 land, per "AI should not be the
+  foundation... AI comes later."
