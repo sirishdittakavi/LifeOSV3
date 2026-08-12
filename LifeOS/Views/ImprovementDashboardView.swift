@@ -70,7 +70,7 @@ struct ImprovementDashboardView: View {
                         planBreakdown
                     }
 
-                    Text("GOAL OUTCOMES").font(.caption.bold()).foregroundStyle(.secondary)
+                    LOSectionHeader(title: "Goal Outcomes")
 
                     GoalCoverageSummary(progresses: progresses, period: period)
 
@@ -81,15 +81,14 @@ struct ImprovementDashboardView: View {
                             Text("Choose the result you want from a Plan, then record check-ins when evidence becomes available.")
                         } actions: {
                             VStack(spacing: 10) {
-                                Button("Choose a Goal Template") {
+                                LOPrimaryButton(title: "Choose a Goal Template") {
                                     showingGoalTemplates = true
                                 }
-                                .buttonStyle(.borderedProminent)
                                 Button("Create a Custom Goal") {
                                     pendingGoalTemplate = nil
                                     showingAddGoal = true
                                 }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(LifeOSSecondaryButtonStyle())
                             }
                         }
                         .padding(.top, 24)
@@ -99,8 +98,8 @@ struct ImprovementDashboardView: View {
 
                     if !profileCategories.isEmpty {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text("PLANS CREATE THE PROGRESS")
-                                .font(.caption.bold()).foregroundStyle(.secondary)
+                            Text("Plans Create the Progress")
+                                .font(.lifeOSSecondary).foregroundStyle(.secondary)
                             Text("Plans contain your regular Tasks. Results show whether that work is moving you forward.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
@@ -167,11 +166,9 @@ struct ImprovementDashboardView: View {
 
     private var planBreakdown: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("PLANS").font(.caption.bold()).foregroundStyle(.secondary)
-                Spacer()
-                Text("Tap for Tasks").font(.caption).foregroundStyle(.secondary)
-            }
+            LOSectionHeader(title: "Plans")
+            Text("Tap a Plan for its Tasks")
+                .font(.caption).foregroundStyle(.secondary)
             ForEach(topLevelPlans) { plan in
                 let ids = CategoryHierarchy.idsIncludingDescendants(of: plan, in: profileCategories)
                 let items = PlanningService.plannedItems(calendarItems.filter {
@@ -201,7 +198,7 @@ struct ImprovementDashboardView: View {
 
     private var goalIndex: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("GOALS BY PLAN").font(.caption.bold()).foregroundStyle(.secondary)
+            LOSectionHeader(title: "Goals by Plan")
             ForEach(profileCategories.filter { category in
                 progresses.contains { progress in
                     progress.contributions.contains { $0.contribution.category?.id == category.id }
@@ -251,14 +248,15 @@ private struct PeriodActivityReportCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("TASK ACTIVITY").font(.caption.bold()).foregroundStyle(.secondary)
+                    Text("Task Activity").font(.lifeOSSecondary).foregroundStyle(.secondary)
                     Text("\(report.done) of \(report.total) complete").font(.title2.bold())
+                    Text(period.rawValue).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text(report.percentComplete, format: .percent.precision(.fractionLength(0))).font(.title.bold()).foregroundStyle(.blue)
+                Text(report.percentComplete, format: .percent.precision(.fractionLength(0))).font(.lifeOSHeroMetric).foregroundStyle(Color.lifeOSFocus)
             }
             Chart(report.buckets) { bucket in
-                BarMark(x: .value("Day", bucket.date, unit: .day), y: .value("Completed", bucket.done)).foregroundStyle(Color.blue.gradient)
+                BarMark(x: .value("Day", bucket.date, unit: .day), y: .value("Completed", bucket.done)).foregroundStyle(Color.lifeOSFocus.gradient)
             }
             .chartYAxis(.hidden)
             .chartXAxis {
@@ -268,10 +266,10 @@ private struct PeriodActivityReportCard: View {
             }
             .frame(height: 112)
             HStack(spacing: 8) {
-                ReportStatusPill(value: report.done, label: "done", color: .green)
-                ReportStatusPill(value: report.skipped, label: "skipped", color: .orange)
-                ReportStatusPill(value: report.missed, label: "missed", color: .red)
-                ReportStatusPill(value: report.remaining, label: "left", color: .blue)
+                ReportStatusPill(value: report.done, label: "done", color: .lifeOSOnTrack)
+                ReportStatusPill(value: report.skipped, label: "skipped", color: .lifeOSWatch)
+                ReportStatusPill(value: report.missed, label: "missed", color: .lifeOSAttention)
+                ReportStatusPill(value: report.remaining, label: "left", color: .lifeOSFocus)
             }
         }
         .lifeOSGlassCard(tint: .blue, cornerRadius: 26)
@@ -321,7 +319,7 @@ private struct GoalIndexTile: View {
             Spacer(minLength: 0)
             if let fraction = progress.resultFraction {
                 ProgressView(value: fraction).tint(tint)
-                Text("\(Int((fraction * 100).rounded()))% result")
+                Text("\(Int((fraction * 100).rounded()))% toward goal")
                     .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
             } else {
                 Text(progress.status.rawValue).font(.caption2).foregroundStyle(.secondary)
@@ -502,10 +500,10 @@ private struct GoalProgressCard: View {
 
     private var statusColor: Color {
         switch progress.status {
-        case .achieved: return .green
-        case .onTrack: return .blue
-        case .needsAttention: return .orange
-        case .awaitingResult, .notEnoughEvidence: return .gray
+        case .achieved: return .lifeOSOnTrack
+        case .onTrack: return .lifeOSFocus
+        case .needsAttention: return .lifeOSAttention
+        case .awaitingResult, .notEnoughEvidence: return .lifeOSNeutral
         }
     }
 
@@ -579,8 +577,7 @@ private struct GoalDetailView: View {
                 .buttonStyle(LifeOSSecondaryButtonStyle())
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("SUPPORTING AREAS")
-                        .font(.caption.bold()).foregroundStyle(.secondary)
+                    LOSectionHeader(title: "Supporting Areas")
                     if progress.contributions.isEmpty {
                         Text("No Areas are connected yet.").foregroundStyle(.secondary)
                     } else {
@@ -1260,11 +1257,11 @@ struct CategoryProgressCard: View {
 
     private var statusColor: Color {
         switch progress.status {
-        case .complete: return .green
-        case .onTrack: return .blue
-        case .needsAttention: return .orange
-        case .behind: return .red
-        case .insufficientData, .notScheduled: return .gray
+        case .complete: return .lifeOSOnTrack
+        case .onTrack: return .lifeOSFocus
+        case .needsAttention: return .lifeOSWatch
+        case .behind: return .lifeOSAttention
+        case .insufficientData, .notScheduled: return .lifeOSNeutral
         }
     }
 }

@@ -84,9 +84,18 @@ final class LifeOSUITests: XCTestCase {
         let fielding = app.descendants(matching: .any)["today.card.fielding"]
         scrollToElement(fielding)
         XCTAssertTrue(fielding.exists, "The uncompleted weekly Task must remain active on Home")
-        XCTAssertEqual(app.buttons["today.done.hitting"].count, 0)
-        XCTAssertEqual(app.buttons["today.done.pitching"].count, 0)
-        XCTAssertTrue(app.buttons["today.done.fielding"].exists)
+        // Completed Tasks no longer expose a status/action control at all
+        // (there's nothing left to do), so the single-control identifier
+        // itself must be gone rather than a specific menu item.
+        XCTAssertFalse(app.buttons["today.actions.hitting"].exists)
+        XCTAssertFalse(app.buttons["today.actions.pitching"].exists)
+        let fieldingActions = app.buttons["today.actions.fielding"]
+        XCTAssertTrue(fieldingActions.isHittable, "Expected an active status control for the uncompleted Task")
+        fieldingActions.tap()
+        XCTAssertTrue(app.buttons["today.done.fielding"].waitForExistence(timeout: 2))
+        app.buttons["today.done.fielding"].tap()
+        XCTAssertTrue(app.navigationBars["Finish"].waitForExistence(timeout: 3))
+        app.buttons["Cancel"].tap()
 
         let completed = app.buttons["today.completedSection"]
         scrollToElement(completed)
@@ -101,9 +110,12 @@ final class LifeOSUITests: XCTestCase {
     }
 
     func testAccidentallySkippedTaskCanReturnToTheActiveHomePlan() {
+        let actions = app.buttons["today.actions.fielding"]
+        scrollToElement(actions)
+        XCTAssertTrue(actions.isHittable)
+        actions.tap()
         let skip = app.buttons["today.skip.fielding"]
-        scrollToElement(skip)
-        XCTAssertTrue(skip.isHittable)
+        XCTAssertTrue(skip.waitForExistence(timeout: 2))
         skip.tap()
 
         let completed = app.buttons["today.completedSection"]
@@ -111,14 +123,21 @@ final class LifeOSUITests: XCTestCase {
         XCTAssertTrue(completed.isHittable)
         completed.tap()
 
+        // Skipped is the one status with a single obvious next action, so
+        // Undo Skip stays a directly-tappable control, not behind a menu.
         let undo = app.buttons["today.undoSkip.fielding"]
         scrollToElement(undo)
         XCTAssertTrue(undo.isHittable, "Skipped Tasks must expose a recovery action")
         undo.tap()
 
-        let restored = app.buttons["today.done.fielding"]
+        let restored = app.buttons["today.actions.fielding"]
         scrollToElement(restored)
         XCTAssertTrue(restored.isHittable, "Undo Skip must return the occurrence to Planned")
+        restored.tap()
+        XCTAssertTrue(app.buttons["today.done.fielding"].waitForExistence(timeout: 2), "Undo Skip must restore the Finish action")
+        app.buttons["today.done.fielding"].tap()
+        XCTAssertTrue(app.navigationBars["Finish"].waitForExistence(timeout: 3))
+        app.buttons["Cancel"].tap()
 
         let progress = app.descendants(matching: .any)["today.progress"]
         scrollUpToElement(progress)
@@ -149,9 +168,13 @@ final class LifeOSUITests: XCTestCase {
     }
 
     private func completeHomeTask(named name: String) {
+        let actions = app.buttons["today.actions.\(name.lowercased())"]
+        scrollToElement(actions)
+        XCTAssertTrue(actions.isHittable, "Expected an active status control for \(name)")
+        actions.tap()
+
         let done = app.buttons["today.done.\(name.lowercased())"]
-        scrollToElement(done)
-        XCTAssertTrue(done.isHittable, "Expected an active Done action for \(name)")
+        XCTAssertTrue(done.waitForExistence(timeout: 2), "Expected an active Done action for \(name)")
         done.tap()
 
         XCTAssertTrue(app.navigationBars["Finish"].waitForExistence(timeout: 3))

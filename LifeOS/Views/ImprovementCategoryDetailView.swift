@@ -11,6 +11,8 @@ struct ImprovementCategoryDetailView: View {
     @Query private var foodEntries: [FoodEntry]
     @Query private var weightEntries: [WeightEntry]
     @Query private var sportEntries: [SportEntry]
+    @Query private var measurementDefinitions: [MeasurementDefinition]
+    @Query private var measurementEntries: [MeasurementEntry]
     @State private var period: DashboardPeriod = .week
     @State private var showingAddTask = false
     @State private var showingAddSubcategory = false
@@ -77,11 +79,77 @@ struct ImprovementCategoryDetailView: View {
         .sorted { $0.activity.plannedStartMinutes < $1.activity.plannedStartMinutes }
     }
 
+    /// The next not-yet-decided occurrence across this Area's Tasks —
+    /// powers the hero card's "Next" row, the same data `TodayViewModel`
+    /// already surfaces for the Today screen, just scoped to this Area.
+    private var nextItem: CalendarItem? {
+        let activityIDs = Set(categoryActivities.map(\.id))
+        return calendarItems
+            .filter {
+                $0.activity.map { activityIDs.contains($0.id) } == true
+                    && ($0.status == .planned || $0.status == .inProgress)
+            }
+            .sorted { ($0.plannedStart ?? .distantFuture) < ($1.plannedStart ?? .distantFuture) }
+            .first
+    }
+
+    private var todaysCompletedItems: [CalendarItem] {
+        let activityIDs = Set(categoryActivities.map(\.id))
+        return calendarItems.filter {
+            $0.activity.map { activityIDs.contains($0.id) } == true
+                && $0.status == .done
+                && Calendar.current.isDateInToday($0.date)
+        }
+    }
+
+    private var todaysCompletedMinutes: Int {
+        todaysCompletedItems.reduce(0) { total, item in
+            if let start = item.actualStart, let end = item.actualEnd {
+                return total + max(Int(end.timeIntervalSince(start) / 60), 0)
+            }
+            return total + (item.activity?.estimatedDurationMinutes ?? 0)
+        }
+    }
+
+    /// Measurements across every Task in this Area, each shown against
+    /// today's total independently — never blended across measurements or
+    /// units, per the measurement-behavior spec.
+    private var areaMeasurements: [MeasurementProgressRow] {
+        let activityIDs = Set(categoryActivities.map(\.id))
+        let interval = DateInterval(start: Calendar.current.startOfDay(for: .now), duration: 86_400)
+        return measurementDefinitions
+            .filter { definition in
+                guard definition.isActive, let activityID = definition.activity?.id else { return false }
+                return activityIDs.contains(activityID)
+            }
+            .sorted { $0.sortOrder < $1.sortOrder }
+            .map { definition in
+                MeasurementProgressRow(
+                    id: definition.id,
+                    activityName: definition.activity?.name ?? "",
+                    definition: definition,
+                    total: ProgressEngine.measurementTotal(for: definition, entries: measurementEntries, interval: interval)
+                )
+            }
+    }
+
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 18) {
                 areaHeader
 
+                todayCard
+
+                if !areaMeasurements.isEmpty {
+                    LOSectionHeader(title: "Today's Measurements")
+                    VStack(spacing: 8) {
+                        ForEach(areaMeasurements) { row in
+                            measurementRow(row)
+                        }
+                    }
+                }
+
+                LOSectionHeader(title: "Progress")
                 Picker("Period", selection: $period) {
                     ForEach(DashboardPeriod.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -93,7 +161,7 @@ struct ImprovementCategoryDetailView: View {
                             .contentShape(RoundedRectangle(cornerRadius: 16))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Open \(category.name) Task progress details")
+                    .accessibilityLabel("Open \(category.name) Task progress details for \(period.rawValue)")
                 }
 
                 VStack(spacing: 10) {
@@ -145,12 +213,10 @@ struct ImprovementCategoryDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { showingAddTask = true } label: {
-                    Image(systemName: "plus")
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button { showingAddTask = true } label: {
+                        Label("Add a Task", systemImage: "plus")
+                    }
                     Button { showingEdit = true } label: {
                         Label("Edit Area", systemImage: "pencil")
                     }
@@ -214,16 +280,11 @@ struct ImprovementCategoryDetailView: View {
 
     private var areaHeader: some View {
         HStack(alignment: .top, spacing: 14) {
-            Image(systemName: category.symbol)
-                .font(.title2)
-                .frame(width: 48, height: 48)
-                .foregroundStyle(ColorToken.color(for: category.colorToken))
-                .background(ColorToken.color(for: category.colorToken).opacity(0.14))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            LOIconBadge(symbol: category.symbol, tint: ColorToken.color(for: category.colorToken), diameter: 48)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(category.pillar.rawValue.uppercased())
-                    .font(.caption2.weight(.bold))
+                Text(category.pillar.rawValue)
+                    .font(.caption.weight(.bold))
                     .foregroundStyle(ColorToken.color(for: category.colorToken))
                 Text(category.purpose.isEmpty ? "Organise the Tasks that support your Goals." : category.purpose)
                     .font(.subheadline)
@@ -233,7 +294,86 @@ struct ImprovementCategoryDetailView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .lifeOSCard()
+        .lifeOSCard(tint: ColorToken.color(for: category.colorToken))
+    }
+
+    /// Daily facts only — deliberately no ring/percentage here. Period
+    /// progress (with its Week/Month picker) lives in its own "Progress"
+    /// section below, so a reader never mistakes today's sessions/time for
+    /// a period total or vice versa.
+    private var todayCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LOSectionHeader(title: "Today")
+            if let nextItem {
+                heroInfoRow(
+                    symbol: "clock.fill",
+                    label: "Next",
+                    title: nextItem.activity?.name ?? "Task",
+                    subtitle: nextItem.plannedStart?.formatted(date: .omitted, time: .shortened) ?? "Any time"
+                )
+            }
+            heroInfoRow(
+                symbol: "calendar",
+                label: "Sessions today",
+                title: "\(todaysCompletedItems.count)",
+                subtitle: nil
+            )
+            heroInfoRow(
+                symbol: "clock",
+                label: "Time today",
+                title: formattedDuration(todaysCompletedMinutes),
+                subtitle: nil
+            )
+        }
+        .padding(LifeOSSpacing.lg)
+        .lifeOSElevated(cornerRadius: LifeOSRadius.lg, tint: ColorToken.color(for: category.colorToken))
+    }
+
+    private func heroInfoRow(symbol: String, label: String, title: String, subtitle: String?) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text(subtitle.map { "\(title) · \($0)" } ?? title)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private func formattedDuration(_ minutes: Int) -> String {
+        guard minutes >= 60 else { return "\(minutes) min" }
+        return "\(minutes / 60)h \(minutes % 60)m"
+    }
+
+    private func measurementRow(_ row: MeasurementProgressRow) -> some View {
+        LOCard {
+            if let target = row.definition.targetValue, target > 0 {
+                LOProgressBar(
+                    label: "\(row.activityName) · \(row.definition.name)",
+                    currentText: formattedMeasurement(row.total),
+                    targetText: "\(formattedMeasurement(target)) \(row.definition.unit ?? "")",
+                    fraction: row.total / target,
+                    status: row.total / target >= 1 ? .complete : .inProgress
+                )
+            } else {
+                HStack {
+                    Text("\(row.activityName) · \(row.definition.name)").font(.lifeOSBody)
+                    Spacer()
+                    Text("\(formattedMeasurement(row.total)) \(row.definition.unit ?? "")")
+                        .font(.lifeOSSecondary).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func formattedMeasurement(_ value: Double) -> String {
+        value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(format: "%.1f", value)
     }
 
     @ViewBuilder

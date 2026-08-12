@@ -40,6 +40,10 @@
 		9AB213881EABF49C81A2E471 /* GoalSystemComponentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1EDE1219CF03BE2D0BD6CA /* GoalSystemComponentTests.swift */; };
 		9C777A54A21460DFD68995AF /* WeeklyScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 819A9C738D6E1A4BD64EA744 /* WeeklyScheduleView.swift */; };
 		9DEB65FA95807B256D662CD9 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1C1BAC812EC2A5FFBB0ED /* DesignSystem.swift */; };
+		8801F20E309145CC88F97BFF /* LifeOSColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A911E90200F4B61AFECF4A2 /* LifeOSColors.swift */; };
+		A171C82B827646C09F08D7E2 /* LifeOSTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1670AEF0314D44AEB682DA54 /* LifeOSTypography.swift */; };
+		34B24824FF064DC597951429 /* LifeOSTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5FD5BE2D3E9406A9CCC1E87 /* LifeOSTheme.swift */; };
+		ABB10B9ED6B54AE8BD8FC1E7 /* LifeOSComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C5696406EEF42CC9E829911 /* LifeOSComponents.swift */; };
 		9E1A24913BE710E920A9C98D /* TestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71D1F8FD38D6E699FE50FBC3 /* TestFixtures.swift */; };
 		A316D2657BC81A428479FCDE /* WeightTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46AC7BCC0343BDFD1C809C3B /* WeightTrackerView.swift */; };
 		A43A08B6DE4301A6DA5A8890 /* SeedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD50DB9C010E97A4DD88F5A /* SeedData.swift */; };
@@ -117,6 +121,10 @@
 		90B582C37891B169DC95F47F /* EditGoalViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditGoalViews.swift; sourceTree = "<group>"; };
 		9893C70F313744DD079BA597 /* PlanningServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanningServiceTests.swift; sourceTree = "<group>"; };
 		A5F1C1BAC812EC2A5FFBB0ED /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		1A911E90200F4B61AFECF4A2 /* LifeOSColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem/LifeOSColors.swift; sourceTree = "<group>"; };
+		1670AEF0314D44AEB682DA54 /* LifeOSTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem/LifeOSTypography.swift; sourceTree = "<group>"; };
+		F5FD5BE2D3E9406A9CCC1E87 /* LifeOSTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem/LifeOSTheme.swift; sourceTree = "<group>"; };
+		3C5696406EEF42CC9E829911 /* LifeOSComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem/LifeOSComponents.swift; sourceTree = "<group>"; };
 		A6706225FC9F05BDD4511CA8 /* ProgressAndHierarchyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressAndHierarchyTests.swift; sourceTree = "<group>"; };
 		A9F621BE905857FEB3E0B267 /* ProfileGoalsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileGoalsView.swift; sourceTree = "<group>"; };
 		BD82E4B5D3273000FF862511 /* ProgressEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressEngine.swift; sourceTree = "<group>"; };
@@ -222,6 +230,10 @@
 				84489496ECECED00233A0050 /* ColorToken.swift */,
 				53549BD50EE3E8885AB9ECF9 /* DailyProgressView.swift */,
 				A5F1C1BAC812EC2A5FFBB0ED /* DesignSystem.swift */,
+				1A911E90200F4B61AFECF4A2 /* LifeOSColors.swift */,
+				1670AEF0314D44AEB682DA54 /* LifeOSTypography.swift */,
+				F5FD5BE2D3E9406A9CCC1E87 /* LifeOSTheme.swift */,
+				3C5696406EEF42CC9E829911 /* LifeOSComponents.swift */,
 				90B582C37891B169DC95F47F /* EditGoalViews.swift */,
 				84FF57E996B62AE74D76AC88 /* EditTaskView.swift */,
 				FF4951C5CB1A500F3CED34E5 /* FoodTrackerView.swift */,
@@ -431,6 +443,10 @@
 				D3110A8487A6D40D35338712 /* ColorToken.swift in Sources */,
 				7A24F57F33DE6A4FE45D5B29 /* DailyProgressView.swift in Sources */,
 				9DEB65FA95807B256D662CD9 /* DesignSystem.swift in Sources */,
+				8801F20E309145CC88F97BFF /* LifeOSColors.swift in Sources */,
+				A171C82B827646C09F08D7E2 /* LifeOSTypography.swift in Sources */,
+				34B24824FF064DC597951429 /* LifeOSTheme.swift in Sources */,
+				ABB10B9ED6B54AE8BD8FC1E7 /* LifeOSComponents.swift in Sources */,
 				DBFDB074D4EB6AE1C7608E8F /* EditGoalViews.swift in Sources */,
 				38DE59695CEDC04F09806282 /* EditTaskView.swift in Sources */,
 				3F76161965A8024182D7236B /* FoodTrackerView.swift in Sources */,

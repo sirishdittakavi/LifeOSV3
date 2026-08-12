@@ -108,4 +108,73 @@ struct TodayViewModel {
         item.status = .planned
         if !repository.save() { item.status = .skipped }
     }
+
+    /// Completes an occurrence immediately when there's nothing to record —
+    /// the zero-measurement, no-legacy-target path. Mirrors
+    /// `RecordActualView.save()`'s no-target Session shape (duration only,
+    /// no recorded value), just without the intermediate form.
+    ///
+    /// `completionTime` is the exact moment Finish was tapped, passed in by
+    /// the caller (`.now`) — deliberately not `currentTime`, which is the
+    /// Today screen's once-a-minute refresh clock and can be stale by up to
+    /// a minute relative to the actual tap.
+    ///
+    /// Timing source depends on whether the occurrence was actually
+    /// started: an in-progress item already has a real `actualStart`, so
+    /// that's preserved and duration is derived from start → completionTime
+    /// (Started 6:00, Finished 6:45 must record 45 minutes, not the
+    /// Activity's estimate). A still-planned item has no real start time to
+    /// preserve, so the estimated duration remains the fallback, anchored
+    /// to end at `completionTime`.
+    ///
+    /// Idempotent: a no-op once `item.status == .done`, so a duplicate tap
+    /// (e.g. a fast double-tap before the UI re-renders) can never insert a
+    /// second `ActivitySession` for the same occurrence. Rollback-safe: on
+    /// save failure, restores status/actualStart/actualEnd to their prior
+    /// values and removes the inserted Session, matching the
+    /// capture-then-restore pattern `start`/`skip` already use above.
+    @discardableResult
+    func quickFinish(_ item: CalendarItem, at completionTime: Date) -> Bool {
+        guard item.status != .done else { return false }
+
+        let previousStatus = item.status
+        let previousStart = item.actualStart
+        let previousEnd = item.actualEnd
+
+        let start: Date
+        let end = completionTime
+        if previousStatus == .inProgress, let realStart = previousStart {
+            start = realStart
+        } else {
+            let durationMinutes = max(item.activity?.estimatedDurationMinutes ?? 1, 1)
+            start = CompletionTiming.interval(endingAt: end, durationMinutes: durationMinutes).start
+        }
+        let activeSeconds = max(Int(end.timeIntervalSince(start)), 0)
+
+        item.actualStart = start
+        item.actualEnd = end
+        item.status = .done
+
+        let session = ActivitySession(
+            activity: item.activity,
+            calendarItem: item,
+            date: item.date,
+            startedAt: start,
+            endedAt: end,
+            actualActiveSeconds: activeSeconds,
+            recordedValue: 0,
+            note: ""
+        )
+        repository.insertSession(session)
+
+        if repository.save() {
+            return true
+        }
+
+        repository.deleteSession(session)
+        item.status = previousStatus
+        item.actualStart = previousStart
+        item.actualEnd = previousEnd
+        return false
+    }
 }

@@ -155,13 +155,21 @@ struct EditTaskView: View {
                         .onDelete(perform: deleteMeasurementDefinitions)
                     }
                     TextField("Name, e.g. Ground Balls", text: $newMeasurementName)
-                    Picker("Type", selection: $newMeasurementType) {
-                        ForEach(MeasurementType.allCases) { Text($0.rawValue.capitalized).tag($0) }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: LifeOSSpacing.sm) {
+                            ForEach(MeasurementType.allCases.filter { $0 != .custom }) { type in
+                                LOChip(title: type.rawValue.capitalized, isSelected: newMeasurementType == type) {
+                                    newMeasurementType = type
+                                }
+                            }
+                        }
                     }
-                    HStack(spacing: 8) {
-                        TextField("Target (optional)", value: $newMeasurementTarget, format: .number)
-                            .keyboardType(.decimalPad)
-                        TextField("Unit", text: $newMeasurementUnit)
+                    if newMeasurementType != .text {
+                        HStack(spacing: 8) {
+                            TextField("Target (optional)", value: $newMeasurementTarget, format: .number)
+                                .keyboardType(.decimalPad)
+                            TextField("Unit", text: $newMeasurementUnit)
+                        }
                     }
                     Button {
                         addMeasurement()
@@ -326,19 +334,13 @@ struct EditTaskView: View {
     }
 
     private var weekdayPicker: some View {
-        HStack {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: LifeOSSpacing.sm) {
             ForEach(1...7, id: \.self) { day in
-                Button {
+                LOChip(title: weekdaySymbols[day - 1], isSelected: weekdays.contains(day)) {
                     if weekdays.contains(day) { weekdays.remove(day) } else { weekdays.insert(day) }
-                } label: {
-                    Text(weekdaySymbols[day - 1])
-                        .font(.caption2)
-                        .frame(width: 32, height: 32)
-                        .background(weekdays.contains(day) ? Color.blue : Color(.tertiarySystemFill))
-                        .foregroundStyle(weekdays.contains(day) ? .white : .primary)
-                        .clipShape(Circle())
                 }
-                .buttonStyle(.plain)
+            }
             }
         }
     }
@@ -498,20 +500,12 @@ struct TaskDetailView: View {
                         Label(activity.category?.name ?? "Plan", systemImage: activity.category?.symbol ?? "list.bullet.clipboard")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(activity.category.map { ColorToken.color(for: $0.colorToken) } ?? .blue)
-                        Text(activity.name).font(.title2.bold())
+                        Text(activity.name).font(.lifeOSScreenTitle)
                         Text(activity.isActive ? "Active Task" : "Archived Task")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(activity.isActive ? .green : .secondary)
+                            .foregroundStyle(activity.isActive ? Color.lifeOSOnTrack : .secondary)
                     }
                     .padding(.vertical, 6)
-
-                    Button { showingEdit = true } label: {
-                        Label("Edit Task", systemImage: "pencil")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(LifeOSPrimaryButtonStyle())
-                    .accessibilityIdentifier("task.edit")
-                    .accessibilityHint("Edit the Task name, Plan, target, schedule, time, and duration")
                 }
 
                 Section("Task details") {
@@ -586,6 +580,8 @@ struct TaskDetailView: View {
                     Button { showingEdit = true } label: {
                         Label("Edit Task", systemImage: "pencil")
                     }
+                    .accessibilityIdentifier("task.edit")
+                    .accessibilityHint("Edit the Task name, Plan, target, schedule, time, and duration")
                 }
             }
             .sheet(isPresented: $showingEdit) {
@@ -624,12 +620,12 @@ struct TaskDetailView: View {
 
     private func statusColor(_ status: CalendarItemStatus) -> Color {
         switch status {
-        case .done: return .green
-        case .inProgress: return .blue
-        case .skipped: return .secondary
-        case .rescheduled: return .orange
-        case .unplanned: return .purple
-        case .planned: return .secondary
+        case .done: return .lifeOSOnTrack
+        case .inProgress: return .lifeOSFocus
+        case .skipped: return .lifeOSNeutral
+        case .rescheduled: return .lifeOSWatch
+        case .unplanned: return .lifeOSRecovery
+        case .planned: return .lifeOSNeutral
         }
     }
 }

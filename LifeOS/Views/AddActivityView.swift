@@ -275,8 +275,14 @@ struct AddActivityView: View {
         }
     }
 
+    /// Sensible default units per measurement type, so most measurements
+    /// never require typing a unit at all.
+    private static let suggestedUnit: [MeasurementType: String] = [
+        .duration: "min", .distance: "m", .percentage: "%"
+    ]
+
     private func measurementRow(_ measurement: Binding<DraftMeasurement>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: LifeOSSpacing.sm) {
             HStack {
                 TextField("Name, e.g. Ground Balls", text: measurement.name)
                 Button(role: .destructive) {
@@ -287,33 +293,44 @@ struct AddActivityView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Remove measurement")
             }
-            Picker("Type", selection: measurement.type) {
-                ForEach(MeasurementType.allCases) { Text($0.rawValue.capitalized).tag($0) }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: LifeOSSpacing.sm) {
+                    ForEach(MeasurementType.allCases.filter { $0 != .custom }) { type in
+                        LOChip(title: type.rawValue.capitalized, isSelected: measurement.wrappedValue.type == type) {
+                            measurement.wrappedValue.type = type
+                            if measurement.wrappedValue.unit.isEmpty, let suggestion = Self.suggestedUnit[type] {
+                                measurement.wrappedValue.unit = suggestion
+                            }
+                        }
+                    }
+                }
             }
-            HStack(spacing: 8) {
-                TextField("Target (optional)", value: measurement.targetValue, format: .number)
-                    .keyboardType(.decimalPad)
-                TextField("Unit", text: measurement.unit)
+            if measurement.wrappedValue.type != .text {
+                HStack(spacing: 8) {
+                    TextField("Target (optional)", value: measurement.targetValue, format: .number)
+                        .keyboardType(.decimalPad)
+                    TextField("Unit", text: measurement.unit)
+                }
             }
         }
         .padding(.vertical, 2)
     }
 
     private var weekdayPicker: some View {
-        HStack {
-            ForEach(1...7, id: \.self) { day in
-                let isSelected = selectedWeekdays.contains(day)
-                Button {
-                    if isSelected { selectedWeekdays.remove(day) } else { selectedWeekdays.insert(day) }
-                } label: {
-                    Text(weekdaySymbols[day - 1])
-                        .font(.caption2)
-                        .frame(width: 32, height: 32)
-                        .background(isSelected ? Color.blue : Color(.tertiarySystemFill))
-                        .foregroundStyle(isSelected ? .white : .primary)
-                        .clipShape(Circle())
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: LifeOSSpacing.sm) {
+                ForEach(1...7, id: \.self) { day in
+                    LOChip(
+                        title: weekdaySymbols[day - 1],
+                        isSelected: selectedWeekdays.contains(day)
+                    ) {
+                        if selectedWeekdays.contains(day) {
+                            selectedWeekdays.remove(day)
+                        } else {
+                            selectedWeekdays.insert(day)
+                        }
+                    }
                 }
-                .buttonStyle(.plain)
             }
         }
     }

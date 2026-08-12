@@ -73,9 +73,9 @@ struct DailyProgressView: View {
                         // other having data.
                         if !todayProgress.isEmpty {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("TODAY'S ACTION TRACKING").font(.caption).bold().foregroundStyle(.secondary)
-                                Text("Target vs. actual — separate from completion status on Today.")
-                                    .font(.caption2)
+                                LOSectionHeader(title: "Progress")
+                                Text("Today · target vs. actual, separate from completion status.")
+                                    .font(.lifeOSSecondary)
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal)
@@ -95,9 +95,9 @@ struct DailyProgressView: View {
                             if !todayProgress.isEmpty { Divider().padding(.horizontal) }
 
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("MEASUREMENTS").font(.caption).bold().foregroundStyle(.secondary)
-                                Text("Each measurement tracked independently.")
-                                    .font(.caption2)
+                                LOSectionHeader(title: "Measurements")
+                                Text("Today · each measurement tracked independently.")
+                                    .font(.lifeOSSecondary)
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal)
@@ -114,7 +114,10 @@ struct DailyProgressView: View {
                             Divider().padding(.horizontal)
 
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("7-DAY TREND").font(.caption).bold().foregroundStyle(.secondary)
+                                LOSectionHeader(title: "Trend")
+                                Text("Last 7 days")
+                                    .font(.lifeOSSecondary)
+                                    .foregroundStyle(.secondary)
                             }
                             .padding(.horizontal)
 
@@ -250,26 +253,23 @@ private struct ProgressBarRow: View {
     let progress: DailyActivityProgress
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                if let category = progress.activity.category {
-                    Image(systemName: category.symbol)
-                        .foregroundStyle(ColorToken.color(for: category.colorToken))
-                }
-                Text(progress.activity.name).font(.subheadline).bold()
-                Spacer()
-                if let target = progress.target, let unit = progress.activity.targetUnit {
-                    Text("\(Int(progress.actual)) / \(Int(target)) \(unit)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        LOCard {
+            if let target = progress.target, let unit = progress.activity.targetUnit {
+                LOProgressBar(
+                    label: progress.activity.name,
+                    currentText: "\(Int(progress.actual)) \(unit)",
+                    targetText: "\(Int(target)) \(unit)",
+                    fraction: progress.cappedFraction,
+                    status: progress.cappedFraction >= 1 ? .complete : .inProgress
+                )
+            } else {
+                VStack(alignment: .leading, spacing: LifeOSSpacing.sm) {
+                    Text(progress.activity.name).font(.lifeOSCardTitle)
+                    ProgressView(value: progress.cappedFraction)
+                        .tint(progress.activity.category.map { ColorToken.color(for: $0.colorToken) } ?? .blue)
                 }
             }
-            ProgressView(value: progress.cappedFraction)
-                .tint(progress.activity.category.map { ColorToken.color(for: $0.colorToken) } ?? .blue)
         }
-        .padding(12)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
@@ -289,28 +289,26 @@ private struct MeasurementProgressRowView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text("\(row.activityName) · \(row.definition.name)")
-                    .font(.subheadline)
-                Spacer()
-                if let target = row.definition.targetValue {
-                    Text("\(formatted(row.total)) / \(formatted(target)) \(row.definition.unit ?? "")")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
+        LOCard {
+            if let target = row.definition.targetValue, let fraction {
+                LOProgressBar(
+                    label: "\(row.activityName) · \(row.definition.name)",
+                    currentText: "\(formatted(row.total)) \(row.definition.unit ?? "")",
+                    targetText: "\(formatted(target)) \(row.definition.unit ?? "")",
+                    fraction: fraction,
+                    status: fraction >= 1 ? .complete : .inProgress
+                )
+            } else {
+                HStack {
+                    Text("\(row.activityName) · \(row.definition.name)")
+                        .font(.lifeOSBody)
+                    Spacer()
                     Text("\(formatted(row.total)) \(row.definition.unit ?? "")")
-                        .font(.caption)
+                        .font(.lifeOSSecondary)
                         .foregroundStyle(.secondary)
                 }
             }
-            if let fraction {
-                ProgressView(value: fraction)
-            }
         }
-        .padding(12)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private func formatted(_ value: Double) -> String {
@@ -340,7 +338,7 @@ private struct TrendRow: View {
                     let f = fraction(for: day)
                     VStack(spacing: 2) {
                         RoundedRectangle(cornerRadius: 3)
-                            .fill(f >= 0.9 ? Color.green : (f >= 0.5 ? Color.orange : Color.gray.opacity(0.4)))
+                            .fill(f >= 0.9 ? Color.lifeOSOnTrack : (f >= 0.5 ? Color.lifeOSWatch : Color.lifeOSNeutral.opacity(0.4)))
                             .frame(width: 20, height: max(4, f * 50))
                         Text(day.formatted(.dateTime.weekday(.narrow)))
                             .font(.caption2)

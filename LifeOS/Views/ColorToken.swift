@@ -55,18 +55,77 @@ enum CategoryAppearanceOptions {
 
 // MARK: - Shared controls
 
+/// The single bold call-to-action treatment — reserved for the one decisive
+/// action on a screen (Save, Done, Create). A deep tonal gradient with an
+/// inner top highlight reads as premium; a flat saturated fill reads cheap,
+/// so this deliberately avoids a single flat accent-color rectangle.
 struct LifeOSPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(.semibold))
+            .tracking(0.2)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: 48, alignment: .center)
             .padding(.horizontal, LifeOSSpacing.lg)
             .foregroundStyle(.white)
-            .background(Color.accentColor.opacity(configuration.isPressed ? 0.78 : 1))
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color.accentColor.opacity(0.92),
+                        Color.accentColor,
+                        Color.accentColor.blendedTowardBlack(0.22)
+                    ],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .opacity(configuration.isPressed ? 0.85 : 1)
+            )
             .clipShape(RoundedRectangle(cornerRadius: LifeOSRadius.sm, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: LifeOSRadius.sm, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(colors: [.white.opacity(0.35), .white.opacity(0.04)], startPoint: .top, endPoint: .center),
+                        lineWidth: 1
+                    )
+            }
+            .shadow(color: Color.accentColor.opacity(configuration.isPressed ? 0.12 : 0.28), radius: configuration.isPressed ? 5 : 10, x: 0, y: configuration.isPressed ? 2 : 5)
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(.lifeOSTap, value: configuration.isPressed)
+    }
+}
+
+/// A quieter alternative to `LifeOSPrimaryButtonStyle` for actions that
+/// matter but shouldn't compete with the screen's one true primary action
+/// (e.g. a floating quick-add bar) — tinted text on a soft tinted fill
+/// instead of a solid saturated block.
+struct LifeOSTonalButtonStyle: ButtonStyle {
+    var tint: Color = .accentColor
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, minHeight: 46, alignment: .center)
+            .padding(.horizontal, LifeOSSpacing.lg)
+            .foregroundStyle(tint)
+            .background(tint.opacity(configuration.isPressed ? 0.16 : 0.12))
+            .clipShape(RoundedRectangle(cornerRadius: LifeOSRadius.sm, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: LifeOSRadius.sm, style: .continuous)
+                    .stroke(tint.opacity(0.22), lineWidth: 1)
+            }
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.lifeOSTap, value: configuration.isPressed)
+    }
+}
+
+private extension Color {
+    /// Darkens toward black by `amount` (0–1) for a richer gradient stop.
+    func blendedTowardBlack(_ amount: Double) -> Color {
+        let ui = UIColor(self)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        ui.getRed(&r, green: &g, blue: &b, alpha: &a)
+        let t = CGFloat(amount)
+        return Color(red: Double(r * (1 - t)), green: Double(g * (1 - t)), blue: Double(b * (1 - t)))
     }
 }
 
@@ -84,6 +143,7 @@ struct LifeOSSecondaryButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: LifeOSRadius.sm, style: .continuous)
                     .stroke(Color(.separator).opacity(0.35), lineWidth: 1)
             }
+            .shadow(color: .black.opacity(configuration.isPressed ? 0.02 : 0.06), radius: 6, x: 0, y: 3)
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(.lifeOSTap, value: configuration.isPressed)
     }
@@ -104,26 +164,44 @@ struct LifeOSCompactButtonStyle: ButtonStyle {
     }
 }
 
+/// Inline row buttons (Start / Finish / Skip). Deliberately graduated
+/// rather than a binary tonal-vs-solid-fill choice: a full solid block next
+/// to two pastel siblings reads as one button shouting over the others.
+/// `.raised` still reads as "the one to reach for" via a deeper tint,
+/// bolder border and subtle glow — never a flat saturated rectangle.
 struct LifeOSInlineButtonStyle: ButtonStyle {
+    enum Emphasis { case quiet, raised }
+
     var tint: Color = .accentColor
-    var filled = false
+    var emphasis: Emphasis = .quiet
+
+    private var isRaised: Bool { emphasis == .raised }
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.caption.weight(.semibold))
+            .font(.caption.weight(.bold))
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .center)
-            .foregroundStyle(filled ? Color.white : tint)
-            .background(filled ? tint.opacity(configuration.isPressed ? 0.78 : 1) : tint.opacity(configuration.isPressed ? 0.18 : 0.10))
+            .foregroundStyle(tint)
+            .background(tint.opacity(configuration.isPressed ? (isRaised ? 0.30 : 0.18) : (isRaised ? 0.20 : 0.10)))
             .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .stroke(tint.opacity(isRaised ? 0.45 : 0), lineWidth: 1.25)
+            }
+            .shadow(color: isRaised ? tint.opacity(configuration.isPressed ? 0.08 : 0.18) : .clear, radius: 5, x: 0, y: 2)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.lifeOSTap, value: configuration.isPressed)
     }
 }
 
 extension View {
-    func lifeOSCard(cornerRadius: CGFloat = 18) -> some View {
+    /// Shared card shell. Elevated (hairline stroke + soft shadow) rather
+    /// than a flat fill, matching `LOCard` — the two intentionally share one
+    /// visual language even though `.lifeOSCard()` predates the LO* system.
+    func lifeOSCard(cornerRadius: CGFloat = 18, tint: Color = .primary) -> some View {
         padding(LifeOSSpacing.lg)
-            .background(Color(.secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .lifeOSElevated(cornerRadius: cornerRadius, tint: tint)
     }
 
     func lifeOSGlassCard(tint: Color = .blue, cornerRadius: CGFloat = 20) -> some View {

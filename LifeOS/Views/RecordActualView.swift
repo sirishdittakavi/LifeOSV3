@@ -51,7 +51,7 @@ struct RecordActualView: View {
         NavigationStack {
             Form {
                 Section {
-                    Text(item.activity?.name ?? "Activity").font(.headline)
+                    Text(item.activity?.name ?? "Activity").font(.lifeOSCardTitle)
                     if let category = item.activity?.category {
                         Label(category.name, systemImage: category.symbol)
                             .foregroundStyle(ColorToken.color(for: category.colorToken))

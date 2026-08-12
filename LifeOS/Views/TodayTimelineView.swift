@@ -22,6 +22,7 @@ struct TodayTimelineView: View {
     @Query private var sportEntries: [SportEntry]
     @Query private var categories: [AppCategory]
     @Query private var resultMeasures: [ResultMeasure]
+    @Query private var measurementDefinitions: [MeasurementDefinition]
 
     @State private var showingAddActivity = false
     @State private var showingAddWhatHappened = false
@@ -35,7 +36,6 @@ struct TodayTimelineView: View {
     @State private var showingWeightTracker = false
     @State private var showingSportTracker = false
     @State private var selectedOverviewPlan: AppCategory?
-    @State private var showingAddPlan = false
     @State private var currentTime = Date.now
 
     private let clock = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
@@ -59,10 +59,10 @@ struct TodayTimelineView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 16) {
                         dayHeading
-                        compactDailyProgress
                         overviewGrid
-                        dueResults
                         todaySections
+                        dueResults
+                        compactDailyProgress
                     }
                     .padding(.horizontal, LifeOSSpacing.lg)
                     .padding(.top, LifeOSSpacing.sm)
@@ -133,11 +133,6 @@ struct TodayTimelineView: View {
                     ImprovementCategoryDetailView(selection: selection, category: category)
                 }
             }
-            .sheet(isPresented: $showingAddPlan) {
-                if let profile = selection.profile {
-                    AddImprovementCategoryView(profile: profile)
-                }
-            }
             .sheet(item: $resultMeasureToRecord) { measure in
                 if let profile = selection.profile {
                     AddResultEntryView(profile: profile, measure: measure)
@@ -174,7 +169,7 @@ struct TodayTimelineView: View {
         } label: {
             Label("Log What Happened", systemImage: "plus.circle.fill")
         }
-        .buttonStyle(LifeOSPrimaryButtonStyle())
+        .buttonStyle(LifeOSTonalButtonStyle())
         .padding(.horizontal, LifeOSSpacing.lg)
         .padding(.vertical, 10)
         .background(.ultraThinMaterial)
@@ -182,78 +177,47 @@ struct TodayTimelineView: View {
         .accessibilityIdentifier("today.logWhatHappened")
     }
 
+    /// A compact daily execution summary, not a hero metric — the count
+    /// (done/total) is the one dominant value, with a thin indicator as a
+    /// secondary reinforcement. Deliberately does not also print a large
+    /// percentage alongside it; that redundant triple (percent + count +
+    /// bar) is exactly what buried the actual Tasks list before. The
+    /// underlying percent is still computed and folded into the
+    /// accessibility label so VoiceOver users get the same information.
     private var compactDailyProgress: some View {
         let percent = Int((viewModel.summary.percentComplete * 100).rounded())
-        return VStack(alignment: .leading, spacing: 10) {
+        let isComplete = viewModel.summary.remaining == 0 && viewModel.summary.total > 0
+        return VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Today's progress")
-                    .font(.subheadline.weight(.bold))
+                Text("Today").font(.lifeOSSecondary).foregroundStyle(.secondary)
                 Spacer()
-                Text("\(percent)%")
-                    .font(.subheadline.weight(.bold).monospacedDigit())
-                    .foregroundStyle(.blue)
+                if viewModel.summary.total > 0 {
+                    Label("\(viewModel.summary.done)/\(viewModel.summary.total)", systemImage: "checkmark")
+                        .font(.subheadline.weight(.bold).monospacedDigit())
+                        .foregroundStyle(isComplete ? Color.lifeOSOnTrack : .primary)
+                } else {
+                    Text("No Tasks scheduled")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
             }
-            ProgressView(value: viewModel.summary.percentComplete)
-                .tint(viewModel.summary.remaining == 0 && viewModel.summary.total > 0 ? .green : .blue)
-                .scaleEffect(y: 1.7)
-            Text(viewModel.summary.total == 0
-                 ? "No Tasks scheduled today"
-                 : "\(viewModel.summary.done) of \(viewModel.summary.total) Tasks complete")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if viewModel.summary.total > 0 {
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.primary.opacity(0.08))
+                        Capsule()
+                            .fill(isComplete ? Color.lifeOSOnTrack : Color.lifeOSFocus)
+                            .frame(width: proxy.size.width * viewModel.summary.percentComplete)
+                    }
+                }
+                .frame(height: 4)
+            }
         }
-        .lifeOSGlassCard(tint: .blue, cornerRadius: 20)
+        .padding(LifeOSSpacing.md)
+        .lifeOSElevated(cornerRadius: LifeOSRadius.sm)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Today's progress, \(percent) percent, \(viewModel.summary.done) of \(viewModel.summary.total) Tasks complete")
         .accessibilityIdentifier("today.progress")
-    }
-
-    private var dailySignals: some View {
-        let profile = selection.profile
-        let todayFood = foodEntries.filter {
-            $0.profile?.id == profile?.id && !$0.isMealPlanItem
-                && Calendar.current.isDateInToday($0.date)
-        }
-        let protein = todayFood.reduce(0.0) { $0 + $1.proteinGrams }
-        let latestWeight = weightEntries.first { $0.profile?.id == profile?.id }
-        let todaySportEntries = sportEntries.filter {
-            $0.profile?.id == profile?.id && Calendar.current.isDateInToday($0.date)
-        }
-        let sportMinutes = todaySportEntries.reduce(0) { $0 + $1.durationMinutes }
-        let profileSportCategories = categories.filter {
-            $0.profile?.id == profile?.id && $0.trackingKind == .sport && $0.isActive
-        }
-        let loggedSportNames = Set(todaySportEntries.compactMap { $0.category?.name })
-        let sportName = loggedSportNames.count == 1
-            ? (loggedSportNames.first ?? "Sport")
-            : (loggedSportNames.isEmpty && profileSportCategories.count == 1
-                ? profileSportCategories[0].name : "Sport")
-        let sportSymbol = todaySportEntries.compactMap(\.category).first?.symbol
-            ?? profileSportCategories.first { $0.name == sportName }?.symbol
-            ?? "figure.run"
-
-        return VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("DAILY SIGNALS", symbol: "waveform.path.ecg")
-            HStack(spacing: 10) {
-                DailySignalCard(
-                    title: "Protein",
-                    value: "\(Int(protein))/\(Int(profile?.proteinGoalGrams ?? 0))g",
-                    symbol: "fork.knife", color: .green
-                )
-                DailySignalCard(
-                    title: "Weight",
-                    value: latestWeight.map {
-                        let unit = profile?.weightUnit ?? .kilograms
-                        return "\(unit.displayValue(kilograms: $0.kilograms).formatted(.number.precision(.fractionLength(1))))\(unit.rawValue)"
-                    } ?? "—",
-                    symbol: "scalemass.fill", color: .blue
-                )
-                DailySignalCard(
-                    title: sportName, value: "\(sportMinutes) min",
-                    symbol: sportSymbol, color: .orange
-                )
-            }
-        }
     }
 
     private var sportPlan: AppCategory? {
@@ -275,11 +239,15 @@ struct TodayTimelineView: View {
             }
     }
 
+    /// Compact by design — Plans exist on Today for balance/context, not as
+    /// a second dashboard. A task-based Plan shows one dominant status
+    /// value; only domain-tracked Plans (nutrition/weight/sport) keep a
+    /// trend indicator, since those genuinely have a useful sub-metric.
     private var overviewGrid: some View {
         let profile = selection.profile
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                sectionLabel("PLANS", symbol: "rectangle.3.group.fill")
+                sectionLabel("Plans", symbol: "rectangle.3.group.fill")
                 Spacer()
                 if overviewPlans.count > 3 {
                     Label("Swipe for more", systemImage: "arrow.right")
@@ -296,30 +264,24 @@ struct TodayTimelineView: View {
                             symbol: plan.symbol,
                             tint: ColorToken.color(for: plan.colorToken),
                             value: snapshot.value,
+                            valueStatus: snapshot.valueStatus,
                             detail: snapshot.detail,
                             progress: snapshot.progress,
                             action: { selectedOverviewPlan = plan }
                         )
-                        .containerRelativeFrame(.horizontal, count: 3, span: 1, spacing: 8)
+                        // Column count tracks the actual Plan count (capped
+                        // at 3) so 1–2 Plans get real width instead of
+                        // always splitting into thirds and truncating
+                        // titles/detail text mid-word.
+                        .containerRelativeFrame(.horizontal, count: max(1, min(overviewPlans.count, 3)), span: 1, spacing: 8)
                     }
                 }
                 .scrollTargetLayout()
             }
             .scrollTargetBehavior(.viewAligned)
-            .frame(height: 146)
+            .frame(height: 108)
             .accessibilityLabel("Plans, horizontal list")
             .accessibilityHint("Swipe left or right to see more Plans")
-
-            Button {
-                showingAddPlan = true
-            } label: {
-                Label("Add another Plan later", systemImage: "plus.circle.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity, minHeight: 44)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.blue)
-
         }
     }
 
@@ -373,10 +335,13 @@ struct TodayTimelineView: View {
             return TodayPlanSnapshot(value: "\(minutes) min", detail: taskDetail,
                                      progress: taskMetric.targetValue != nil ? taskMetric.progress : nil)
         case .tasks:
+            // One dominant value with semantic status treatment — no
+            // simultaneous count + "N remaining" + progress bar triple.
             return TodayPlanSnapshot(
                 value: "\(planSummary.done)/\(planSummary.total)",
-                detail: planSummary.total == 0 ? "No Tasks today" : "\(planSummary.remaining) remaining",
-                progress: taskMetric.targetValue != nil ? taskMetric.progress : nil
+                valueStatus: planSummary.total > 0 && planSummary.remaining == 0 ? .complete : .neutral,
+                detail: planSummary.total == 0 ? "No Tasks today" : nil,
+                progress: nil
             )
         }
     }
@@ -386,7 +351,7 @@ struct TodayTimelineView: View {
         if !viewModel.dueResultMeasures.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    sectionLabel("RESULT CHECK-INS", symbol: "scope")
+                    sectionLabel("Result Check-ins", symbol: "scope")
                     Spacer()
                     Text("\(viewModel.dueResultMeasures.count) due")
                         .font(.caption.weight(.bold))
@@ -438,7 +403,7 @@ struct TodayTimelineView: View {
     private var todaySections: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                sectionLabel("TODAY'S TASKS", symbol: "checklist")
+                sectionLabel("Today's Tasks", symbol: "checklist")
                 Spacer()
                 Button("View all") { showingTaskOverview = true }
                     .font(.caption.weight(.semibold))
@@ -454,17 +419,17 @@ struct TodayTimelineView: View {
                 .lifeOSGlassCard(tint: .blue)
             } else {
                 if let nextItem = viewModel.nextItem {
-                    sectionLabel("NEXT TASK", symbol: "arrow.forward.circle.fill")
+                    sectionLabel("Next Task", symbol: "arrow.forward.circle.fill")
                     itemRow(nextItem)
                 }
                 if !viewModel.restOfDayItems.isEmpty {
-                    sectionLabel("REST OF DAY", symbol: "calendar.day.timeline.left")
+                    sectionLabel("Rest of Day", symbol: "calendar.day.timeline.left")
                         .padding(.top, 6)
                     ForEach(viewModel.restOfDayItems) { item in itemRow(item) }
                 }
                 if !viewModel.overdueItems.isEmpty {
                     VStack(alignment: .leading, spacing: 2) {
-                        sectionLabel("OVERDUE", symbol: "clock.badge.exclamationmark.fill")
+                        sectionLabel("Overdue", symbol: "clock.badge.exclamationmark.fill")
                             .foregroundStyle(.orange)
                         Text("Earlier Tasks remain available—complete, skip or edit them.")
                             .font(.caption)
@@ -478,7 +443,7 @@ struct TodayTimelineView: View {
                         withAnimation(.lifeOSReveal) { completedExpanded.toggle() }
                     } label: {
                         HStack {
-                            sectionLabel("COMPLETED & DECIDED", symbol: "checkmark.circle.fill")
+                            sectionLabel("Completed & Decided", symbol: "checkmark.circle.fill")
                             Spacer()
                             Text("\(viewModel.decidedItems.count)").font(.caption.weight(.bold))
                             Image(systemName: completedExpanded ? "chevron.up" : "chevron.down")
@@ -499,7 +464,7 @@ struct TodayTimelineView: View {
         CalendarItemRow(
             item: item,
             onStart: { feedbackTrigger += 1; viewModel.start(item) },
-            onDone: { feedbackTrigger += 1; recordingItem = item },
+            onDone: { feedbackTrigger += 1; finish(item) },
             onSkip: { feedbackTrigger += 1; viewModel.skip(item) },
             onUndoSkip: { feedbackTrigger += 1; viewModel.undoSkip(item) },
             onDetails: { selectedTask = item.activity },
@@ -507,11 +472,31 @@ struct TodayTimelineView: View {
         )
     }
 
+    /// If the Activity has nothing worth recording (no legacy target, no
+    /// active measurements), Finish completes immediately — no sheet, no
+    /// blank form to dismiss. Otherwise it opens the existing focused
+    /// measurement-entry sheet, unchanged.
+    /// Only the "does this need a form" decision lives on the View — it's
+    /// UI-level (depends on what's currently on screen). The actual
+    /// persistence/rollback for the immediate-finish path lives on
+    /// `TodayViewModel.quickFinish`, on the same repository boundary as
+    /// `start`/`skip`/`undoSkip`, not duplicated here.
+    private func finish(_ item: CalendarItem) {
+        let hasTarget = item.activity?.targetValue != nil
+        let hasMeasurements = item.activity.map { activity in
+            measurementDefinitions.contains { $0.activity?.id == activity.id && $0.isActive }
+        } ?? false
+        if hasTarget || hasMeasurements {
+            recordingItem = item
+        } else {
+            viewModel.quickFinish(item, at: .now)
+        }
+    }
+
     private func sectionLabel(_ title: String, symbol: String) -> some View {
         Label(title, systemImage: symbol)
-            .font(.caption.weight(.bold))
-            .tracking(0.7)
-            .foregroundStyle(.secondary)
+            .font(.lifeOSSectionTitle)
+            .foregroundStyle(.primary)
     }
 
     private func refresh(at date: Date, generate: Bool = false) {
@@ -545,144 +530,25 @@ private struct TodayAtmosphericBackground: View {
     }
 }
 
-private struct TodayProgressHero: View {
-    let summary: CompletionSummary
-
-    private var percent: Int { Int((summary.percentComplete * 100).rounded()) }
-
-    var body: some View {
-        HStack(spacing: LifeOSSpacing.md) {
-            ZStack {
-                SignatureProgressRing(
-                    fraction: summary.percentComplete,
-                    gradient: ImprovementPillar.physical.gradient,
-                    lineWidth: 8,
-                    diameter: 88
-                )
-                GlacierProgressMark(fraction: summary.percentComplete)
-                VStack(spacing: 0) {
-                    Text("\(percent)%")
-                        .font(.title3.weight(.bold).monospacedDigit())
-                    Text("done").font(.caption2).foregroundStyle(.secondary)
-                }
-            }
-            .frame(width: 88, height: 88)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Daily plan \(percent) percent complete")
-
-            VStack(alignment: .leading, spacing: 9) {
-                Text("Daily plan").font(.title3.weight(.bold))
-                Text(summary.total == 0
-                     ? "Build your day with one meaningful Task."
-                     : "\(summary.done) of \(summary.total) planned Tasks complete")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack(spacing: 7) {
-                    SummaryPill(value: summary.done, label: "done", color: .green)
-                    SummaryPill(value: summary.remaining, label: "left", color: .blue)
-                    if summary.skipped > 0 {
-                        SummaryPill(value: summary.skipped, label: "skipped", color: .secondary)
-                    }
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .lifeOSGlassCard(tint: summary.remaining == 0 && summary.total > 0 ? .green : .blue,
-                         cornerRadius: 26)
-    }
-}
-
-/// A quiet glacier watermark makes daily progress recognisably LifeOS while
-/// leaving the schedule and numeric completion value as the primary content.
-private struct GlacierProgressMark: View {
-    let fraction: Double
-
-    private var safeFraction: Double {
-        guard fraction.isFinite else { return 0 }
-        return min(max(fraction, 0), 1)
-    }
-
-    var body: some View {
-        ZStack {
-            Image(systemName: "mountain.2.fill")
-                .foregroundStyle(Color.primary.opacity(0.045))
-            Image(systemName: "mountain.2.fill")
-                .foregroundStyle(
-                    LinearGradient(colors: [.cyan, .blue], startPoint: .top, endPoint: .bottom)
-                )
-                .mask(alignment: .bottom) {
-                    Rectangle().frame(height: 42 * safeFraction)
-                }
-                .opacity(0.18)
-        }
-        .font(.system(size: 38, weight: .light))
-        .accessibilityHidden(true)
-    }
-}
-
-private struct SummaryPill: View {
-    let value: Int
-    let label: String
-    let color: Color
-
-    var body: some View {
-        Text("\(value) \(label)")
-            .font(.caption2.weight(.semibold).monospacedDigit())
-            .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(color.opacity(0.10), in: Capsule())
-    }
-}
-
-private struct DailySignalCard: View {
-    let title: String
-    let value: String
-    let symbol: String
-    let color: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: symbol)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(color)
-                .frame(width: 30, height: 30)
-                .background(color.opacity(0.10), in: Circle())
-            Text(value)
-                .font(.subheadline.weight(.bold).monospacedDigit())
-                .lineLimit(1)
-                .minimumScaleFactor(0.68)
-            Text(title)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, minHeight: 82, alignment: .leading)
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 17, style: .continuous)
-                .stroke(.white.opacity(0.16), lineWidth: 0.75)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title), \(value)")
-    }
-}
-
 private struct TodayPlanSnapshot {
     let value: String
-    let detail: String
+    var valueStatus: LOStatus? = nil
+    let detail: String?
     let progress: Double?
 }
 
+/// Compact by design: icon, one dominant value (semantic-colored when a
+/// status applies), and at most one secondary line — never a value+detail+
+/// progress-bar triple for a plain task-based Plan. Domain-tracked Plans
+/// (nutrition/weight/sport) may still pass `progress` for a genuinely
+/// useful trend, since those aren't just a completion count.
 private struct TodayOverviewTile: View {
     let title: String
     let symbol: String
     let tint: Color
     let value: String
-    let detail: String
+    var valueStatus: LOStatus? = nil
+    let detail: String?
     let progress: Double?
     let action: () -> Void
 
@@ -693,55 +559,45 @@ private struct TodayOverviewTile: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Text(title)
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.tertiary)
-                }
-
-                Spacer(minLength: 0)
-
+            HStack(spacing: 10) {
                 Image(systemName: symbol)
-                    .font(.title3.weight(.semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(tint)
-                    .frame(width: 36, height: 36)
-                    .background(tint.opacity(0.11), in: Circle())
+                    .frame(width: 30, height: 30)
+                    .background(tint.opacity(0.13), in: Circle())
 
-                VStack(alignment: .leading, spacing: 5) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                     Text(value)
-                        .font(.title3.weight(.bold).monospacedDigit())
-                        .foregroundStyle(.primary)
+                        .font(.lifeOSValueEmphasis)
+                        .foregroundStyle(valueStatus?.color ?? .primary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
-                    Text(detail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                    if let detail {
+                        Text(detail)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    if let safeProgress {
+                        ProgressView(value: safeProgress)
+                            .tint(tint)
+                            .padding(.top, 1)
+                    }
                 }
-
-                if let safeProgress {
-                    ProgressView(value: safeProgress)
-                        .tint(tint)
-                }
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity, minHeight: 122, alignment: .leading)
-            .padding(12)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(.white.opacity(0.16), lineWidth: 0.75)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+            .padding(10)
+            .lifeOSElevated(cornerRadius: LifeOSRadius.sm, tint: tint)
+            .contentShape(RoundedRectangle(cornerRadius: LifeOSRadius.sm, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title), \(value), \(detail)")
+        .accessibilityLabel("\(title), \(value)\(detail.map { ", \($0)" } ?? "")")
         .accessibilityHint("Opens \(title)")
         .accessibilityIdentifier("today.overview.\(title.lowercased().replacingOccurrences(of: " ", with: "-"))")
     }
@@ -838,101 +694,119 @@ private struct CalendarItemRow: View {
         item.activity?.category.map { ColorToken.color(for: $0.colorToken) } ?? .blue
     }
 
+    /// icon + title + time/duration + concise status + one status/action
+    /// control. Tapping the row body opens Task Detail; tapping the status
+    /// control performs the single obvious action directly (Skipped →
+    /// Undo Skip) or opens a `Menu` when there's a real choice (Planned,
+    /// In Progress) — see `statusCluster` below. Either way, the specific
+    /// actions stay individually identified so LifeOSUITests can still
+    /// find and tap `today.done.*`/`today.skip.*` once the menu is open.
     var body: some View {
-        VStack(alignment: .leading, spacing: 13) {
+        HStack(spacing: LifeOSSpacing.md) {
             Button(action: onDetails) {
-                HStack(alignment: .top, spacing: 12) {
-                VStack(spacing: 5) {
-                    Image(systemName: item.activity?.category?.symbol ?? "circle.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(categoryColor)
-                        .frame(width: 42, height: 42)
-                        .background(categoryColor.opacity(0.11), in: Circle())
-                    Text(item.plannedStart?.formatted(date: .omitted, time: .shortened) ?? "Any time")
-                        .font(.caption2.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(isOverdue ? .orange : .secondary)
-                        .lineLimit(1)
-                }
-                .frame(width: 64)
+                HStack(spacing: 12) {
+                    LOIconBadge(symbol: item.activity?.category?.symbol ?? "circle.fill", tint: categoryColor, diameter: 40)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(item.activity?.name ?? "Task")
-                        .font(.headline)
-                        .fixedSize(horizontal: false, vertical: true)
-                    HStack(spacing: 6) {
-                        if let category = item.activity?.category {
-                            Text(category.name)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(item.activity?.name ?? "Task")
+                            .font(.lifeOSCardTitle)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        HStack(spacing: 4) {
+                            if isOverdue {
+                                Image(systemName: "exclamationmark.circle.fill").font(.caption2)
+                            } else if item.status == .inProgress {
+                                Image(systemName: "bolt.fill").font(.caption2)
+                            }
+                            Text(timeAndDurationText)
                         }
-                        StatusBadge(status: item.status, isOverdue: isOverdue)
+                        .font(.lifeOSSecondary)
+                        .foregroundStyle(isOverdue ? Color.lifeOSAttention : (item.status == .inProgress ? Color.lifeOSFocus : .secondary))
+                        .lineLimit(1)
                     }
-                    if let duration = item.activity?.estimatedDurationMinutes, duration > 0 {
-                        Label("\(duration) min", systemImage: "clock")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
                     Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.tertiary)
-                        .frame(minHeight: 44)
                 }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityHint("Shows all Task details")
 
-            actionButtons
+            statusCluster
         }
-        .lifeOSGlassCard(tint: categoryColor, cornerRadius: 22)
+        .padding(LifeOSSpacing.md)
+        .lifeOSElevated(cornerRadius: LifeOSRadius.md, tint: categoryColor)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("today.card.\(taskIdentifier)")
     }
 
+    private var timeAndDurationText: String {
+        let time = item.plannedStart?.formatted(date: .omitted, time: .shortened) ?? "Any time"
+        guard let duration = item.activity?.estimatedDurationMinutes, duration > 0 else { return time }
+        return "\(time) · \(duration) min"
+    }
+
+    /// ONE status/action control per row. When there's exactly one sensible
+    /// next action (Skip → Undo Skip), tapping the control performs it
+    /// directly. When there's a real choice (Planned → Start/Finish/Skip;
+    /// In Progress → Finish/Skip), the control is a `Menu` — still a single
+    /// visible affordance, but its items stay individually identified so
+    /// `today.done.*`/`today.skip.*` remain real, distinctly-tappable
+    /// elements once the menu is open, per LifeOSUITests.
     @ViewBuilder
-    private var actionButtons: some View {
+    private var statusCluster: some View {
         switch item.status {
         case .planned:
-            HStack(spacing: 8) {
-                Button("Start", action: onStart)
-                    .buttonStyle(LifeOSInlineButtonStyle(tint: .blue))
-                    .accessibilityHint("Marks this Task in progress")
-                Button("Done", action: onDone)
-                    .buttonStyle(LifeOSInlineButtonStyle(tint: .green, filled: true))
-                    .accessibilityHint("Opens the result and notes form")
+            Menu {
+                Button(action: onStart) { Label("Start", systemImage: "play.fill") }
+                Button(action: onDone) { Label("Finish", systemImage: "checkmark") }
                     .accessibilityIdentifier("today.done.\(taskIdentifier)")
-                Button("Skip", action: onSkip)
-                    .buttonStyle(LifeOSInlineButtonStyle(tint: .primary))
-                    .accessibilityHint("Marks this Task skipped")
+                Button(action: onSkip) { Label("Skip", systemImage: "arrow.uturn.forward") }
                     .accessibilityIdentifier("today.skip.\(taskIdentifier)")
+            } label: {
+                actionGlyph(symbol: "circle", tint: .lifeOSFocus)
             }
+            .accessibilityIdentifier("today.actions.\(taskIdentifier)")
+            .accessibilityLabel("Task actions")
+            .accessibilityHint("Start, finish, or skip this Task")
         case .inProgress:
-            HStack(spacing: 8) {
-                Button("Finish", action: onDone)
-                    .buttonStyle(LifeOSInlineButtonStyle(tint: .green, filled: true))
-                    .accessibilityHint("Opens the result and notes form")
+            Menu {
+                Button(action: onDone) { Label("Finish", systemImage: "checkmark") }
                     .accessibilityIdentifier("today.done.\(taskIdentifier)")
-                Button("Skip", action: onSkip)
-                    .buttonStyle(LifeOSInlineButtonStyle(tint: .primary))
-                    .accessibilityHint("Marks this Task skipped")
+                Button(action: onSkip) { Label("Skip", systemImage: "arrow.uturn.forward") }
                     .accessibilityIdentifier("today.skip.\(taskIdentifier)")
+            } label: {
+                actionGlyph(symbol: "bolt.fill", tint: .lifeOSFocus)
             }
+            .accessibilityIdentifier("today.actions.\(taskIdentifier)")
+            .accessibilityLabel("Task actions")
+            .accessibilityHint("Finish or skip this Task")
         case .done:
-            HStack(spacing: 6) {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                Text(completionText).font(.caption).foregroundStyle(.secondary)
-            }
-            .frame(minHeight: 44)
+            LOStatusControl(status: .complete, size: 30)
+                .accessibilityLabel(completionText)
         case .skipped:
-            Button("Undo Skip", action: onUndoSkip)
-                .buttonStyle(LifeOSInlineButtonStyle(tint: .blue))
-                .accessibilityHint("Returns this occurrence to the active Home plan")
-                .accessibilityIdentifier("today.undoSkip.\(taskIdentifier)")
+            Button(action: onUndoSkip) {
+                actionGlyph(symbol: "arrow.uturn.backward", tint: .lifeOSFocus)
+            }
+            .buttonStyle(LOScalePressStyle())
+            .accessibilityLabel("Undo Skip")
+            .accessibilityHint("Returns this occurrence to the active Home plan")
+            .accessibilityIdentifier("today.undoSkip.\(taskIdentifier)")
         case .rescheduled, .unplanned:
             EmptyView()
         }
+    }
+
+    /// The visible glyph is deliberately smaller than its tap target — a
+    /// 44×44pt hit area with a ~34pt drawn circle centered inside, so the
+    /// row stays visually quiet while still meeting the minimum touch
+    /// target for an interactive control.
+    private func actionGlyph(symbol: String, tint: Color) -> some View {
+        ZStack {
+            Circle().fill(tint.opacity(0.14)).frame(width: 34, height: 34)
+            Image(systemName: symbol).font(.system(size: 14, weight: .bold)).foregroundStyle(tint)
+        }
+        .frame(width: 44, height: 44)
+        .contentShape(Rectangle())
     }
 
     private var completionText: String {
@@ -952,25 +826,27 @@ private struct StatusBadge: View {
     let status: CalendarItemStatus
     var isOverdue = false
 
-    private var color: Color {
-        if isOverdue { return .orange }
+    /// Maps calendar-item status to the app-wide semantic status roles, so
+    /// this badge always means the same thing every other status pill means.
+    private var loStatus: LOStatus {
+        if isOverdue { return .attention }
         switch status {
-        case .done: return .green
-        case .inProgress: return .blue
-        case .skipped: return .secondary
-        case .rescheduled: return .orange
-        case .unplanned: return .purple
-        case .planned: return .secondary
+        case .done: return .complete
+        case .inProgress: return .focus
+        case .skipped: return .neutral
+        case .rescheduled: return .inProgress
+        case .unplanned: return .recovery
+        case .planned: return .neutral
         }
     }
 
     var body: some View {
-        Text(isOverdue ? "Overdue" : status.rawValue)
+        Label(isOverdue ? "Overdue" : status.rawValue, systemImage: loStatus.symbol)
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(color)
+            .foregroundStyle(loStatus.color)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .background(color.opacity(0.10), in: Capsule())
+            .background(loStatus.color.opacity(0.10), in: Capsule())
     }
 }
 
