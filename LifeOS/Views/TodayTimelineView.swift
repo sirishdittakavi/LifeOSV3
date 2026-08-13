@@ -62,7 +62,6 @@ struct TodayTimelineView: View {
                         overviewGrid
                         todaySections
                         dueResults
-                        compactDailyProgress
                     }
                     .padding(.horizontal, LifeOSSpacing.lg)
                     .padding(.top, LifeOSSpacing.sm)
@@ -141,66 +140,57 @@ struct TodayTimelineView: View {
         }
     }
 
+    /// Minimal header: Date, then the compact daily progress indicator
+    /// directly below it — no motivational subtitle. The status icon is
+    /// decorative only (hidden from accessibility), not a second sentence.
     private var dayHeading: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
                 Text(currentTime.formatted(.dateTime.weekday(.wide).month(.wide).day()))
                     .font(.title2.weight(.bold))
-                Text(viewModel.summary.remaining == 0 && viewModel.summary.total > 0
-                     ? "Your plan is complete."
-                     : "One clear Task at a time.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Spacer(minLength: 12)
+                Image(systemName: viewModel.summary.remaining == 0 && viewModel.summary.total > 0
+                      ? "checkmark.seal.fill" : "sun.max.fill")
+                    .font(.title3)
+                    .foregroundStyle(viewModel.summary.remaining == 0 && viewModel.summary.total > 0 ? Color.lifeOSOnTrack : .orange)
+                    .accessibilityHidden(true)
             }
-            Spacer(minLength: 12)
-            Image(systemName: viewModel.summary.remaining == 0 && viewModel.summary.total > 0
-                  ? "checkmark.seal.fill" : "sun.max.fill")
-                .font(.title2)
-                .foregroundStyle(viewModel.summary.remaining == 0 && viewModel.summary.total > 0 ? .green : .orange)
-                .accessibilityHidden(true)
+            compactDailyProgress
         }
         .padding(.horizontal, 4)
     }
 
+    /// Deliberately quiet — Today's primary action is completing Tasks,
+    /// not logging something unplanned. Plain text/icon, no filled
+    /// background, smaller than a standard button.
     private var addWhatHappenedButton: some View {
         Button {
             feedbackTrigger += 1
             showingAddWhatHappened = true
         } label: {
-            Label("Log What Happened", systemImage: "plus.circle.fill")
+            Label("Log What Happened", systemImage: "plus.circle")
+                .font(.footnote.weight(.medium))
         }
-        .buttonStyle(LifeOSTonalButtonStyle())
-        .padding(.horizontal, LifeOSSpacing.lg)
-        .padding(.vertical, 10)
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
         .background(.ultraThinMaterial)
         .accessibilityHint("Record an unscheduled Task, meal, weight, or sport session")
         .accessibilityIdentifier("today.logWhatHappened")
     }
 
-    /// A compact daily execution summary, not a hero metric — the count
-    /// (done/total) is the one dominant value, with a thin indicator as a
-    /// secondary reinforcement. Deliberately does not also print a large
-    /// percentage alongside it; that redundant triple (percent + count +
-    /// bar) is exactly what buried the actual Tasks list before. The
-    /// underlying percent is still computed and folded into the
-    /// accessibility label so VoiceOver users get the same information.
+    /// A compact daily execution summary, not a hero metric or a card —
+    /// a thin bar plus a single caption line ("N of M tasks complete"),
+    /// living directly under the date. No percentage on screen, no second
+    /// representation of the same count (no card chrome, no repeated
+    /// "Today" label — it's already directly under the date). The percent
+    /// is still computed and folded into the accessibility label only, so
+    /// VoiceOver users get the same information without a visual triple.
     private var compactDailyProgress: some View {
         let percent = Int((viewModel.summary.percentComplete * 100).rounded())
         let isComplete = viewModel.summary.remaining == 0 && viewModel.summary.total > 0
         return VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("Today").font(.lifeOSSecondary).foregroundStyle(.secondary)
-                Spacer()
-                if viewModel.summary.total > 0 {
-                    Label("\(viewModel.summary.done)/\(viewModel.summary.total)", systemImage: "checkmark")
-                        .font(.subheadline.weight(.bold).monospacedDigit())
-                        .foregroundStyle(isComplete ? Color.lifeOSOnTrack : .primary)
-                } else {
-                    Text("No Tasks scheduled")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-            }
             if viewModel.summary.total > 0 {
                 GeometryReader { proxy in
                     ZStack(alignment: .leading) {
@@ -211,10 +201,15 @@ struct TodayTimelineView: View {
                     }
                 }
                 .frame(height: 4)
+                Text("\(viewModel.summary.done) of \(viewModel.summary.total) task\(viewModel.summary.total == 1 ? "" : "s") complete")
+                    .font(.lifeOSSecondary)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("No Tasks scheduled")
+                    .font(.lifeOSSecondary)
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding(LifeOSSpacing.md)
-        .lifeOSElevated(cornerRadius: LifeOSRadius.sm)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Today's progress, \(percent) percent, \(viewModel.summary.done) of \(viewModel.summary.total) Tasks complete")
         .accessibilityIdentifier("today.progress")
@@ -246,15 +241,7 @@ struct TodayTimelineView: View {
     private var overviewGrid: some View {
         let profile = selection.profile
         return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                sectionLabel("Plans", symbol: "rectangle.3.group.fill")
-                Spacer()
-                if overviewPlans.count > 3 {
-                    Label("Swipe for more", systemImage: "arrow.right")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-            }
+            sectionLabel("Plans", symbol: "rectangle.3.group.fill")
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 8) {
                     ForEach(overviewPlans) { plan in
@@ -285,13 +272,12 @@ struct TodayTimelineView: View {
         }
     }
 
-    /// Refactor.md Step 7 follow-up: the progress fraction each case shows
-    /// now flows through ProgressMetric (current/target/unit -> .progress)
-    /// instead of each case hand-computing and capping its own fraction.
-    /// Display text stays bespoke per domain — a single ProgressMetric
-    /// can't carry nutrition's two independent numbers (calories shown,
-    /// protein progress-bearing), so this only consolidates the
-    /// progress-bearing calculation, not the presentation strings.
+    /// Each Plan tile shows one dominant value plus, for domain-tracked
+    /// kinds (nutrition/sport), a single supporting detail line — never a
+    /// third progress-bar representation of the same day's data. Display
+    /// text stays bespoke per domain: nutrition's calories-shown vs.
+    /// protein-detail are two independent numbers a single metric
+    /// couldn't carry anyway.
     private func overviewSnapshot(for plan: AppCategory, profile: Profile?) -> TodayPlanSnapshot {
         let planIDs = CategoryHierarchy.idsIncludingDescendants(of: plan, in: categories)
         let planItems = viewModel.todayItems.filter {
@@ -300,21 +286,18 @@ struct TodayTimelineView: View {
         let planSummary = ProgressEngine.completionSummary(
             items: PlanningService.plannedItems(planItems)
         )
-        let taskMetric = ProgressMetric(
-            id: plan.id, title: plan.name, currentValue: Double(planSummary.done),
-            targetValue: planSummary.total > 0 ? Double(planSummary.total) : nil,
-            unit: "tasks", statusText: "", destinationCategoryID: plan.id, destinationGoalID: nil
-        )
 
         switch plan.trackingKind {
         case .nutrition:
+            // Value (calories) + one domain-specific detail (protein) —
+            // no third progress-bar representation of the same day's data.
             guard let profile else { return TodayPlanSnapshot(value: "0 kcal", detail: "No profile", progress: nil) }
             let totals = ProgressEngine.nutritionTotals(profile: profile, date: currentTime, entries: foodEntries)
             let metric = ProgressMetricBuilder.metric(nutrition: totals, profile: profile)
             return TodayPlanSnapshot(
                 value: "\(Int(totals.calories)) kcal",
                 detail: "\(Int(metric.currentValue))/\(Int(metric.targetValue ?? 0))g protein",
-                progress: metric.progress
+                progress: nil
             )
         case .bodyWeight:
             let latest = weightEntries.first { $0.profile?.id == profile?.id }
@@ -332,8 +315,7 @@ struct TodayTimelineView: View {
             let taskDetail = planSummary.total > 0
                 ? "\(planSummary.done)/\(planSummary.total) Tasks done"
                 : "Open training details"
-            return TodayPlanSnapshot(value: "\(minutes) min", detail: taskDetail,
-                                     progress: taskMetric.targetValue != nil ? taskMetric.progress : nil)
+            return TodayPlanSnapshot(value: "\(minutes) min", detail: taskDetail, progress: nil)
         case .tasks:
             // One dominant value with semantic status treatment — no
             // simultaneous count + "N remaining" + progress bar triple.
@@ -428,14 +410,11 @@ struct TodayTimelineView: View {
                     ForEach(viewModel.restOfDayItems) { item in itemRow(item) }
                 }
                 if !viewModel.overdueItems.isEmpty {
-                    VStack(alignment: .leading, spacing: 2) {
-                        sectionLabel("Overdue", symbol: "clock.badge.exclamationmark.fill")
-                            .foregroundStyle(.orange)
-                        Text("Earlier Tasks remain available—complete, skip or edit them.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.top, 6)
+                    // The row's own status control already explains the
+                    // available actions — no extra explanatory sentence.
+                    sectionLabel("Overdue", symbol: "clock.badge.exclamationmark.fill")
+                        .foregroundStyle(.orange)
+                        .padding(.top, 6)
                     ForEach(viewModel.overdueItems) { item in itemRow(item) }
                 }
                 if !viewModel.decidedItems.isEmpty {
