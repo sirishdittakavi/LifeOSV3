@@ -13,6 +13,7 @@ struct ImprovementCategoryDetailView: View {
     @Query private var sportEntries: [SportEntry]
     @Query private var measurementDefinitions: [MeasurementDefinition]
     @Query private var measurementEntries: [MeasurementEntry]
+    @Query private var activitySessions: [ActivitySession]
     @State private var period: DashboardPeriod = .week
     @State private var showingAddTask = false
     @State private var showingAddSubcategory = false
@@ -259,6 +260,12 @@ struct ImprovementCategoryDetailView: View {
         }
     }
 
+    /// v1 task interaction is deliberately a single tap: planned → done.
+    /// Start/Finish/Skip stay available as advanced actions elsewhere
+    /// (Today screen, Task detail) but are not surfaced here. A completed
+    /// Task can be tapped again to undo an accidental completion — this
+    /// never creates a duplicate record, it removes the session `quickFinish`
+    /// created and puts the Task back to `.planned`.
     private func todayTaskRow(_ item: CalendarItem) -> some View {
         LOTaskRow(
             title: item.activity?.name ?? "Task",
@@ -266,10 +273,42 @@ struct ImprovementCategoryDetailView: View {
             symbol: item.activity?.category?.symbol ?? category.symbol,
             status: loStatus(for: item),
             onTap: { if let activity = item.activity { editingTask = activity } },
-            onStatusTap: (item.status == .planned || item.status == .inProgress)
-                ? { todayViewModel.quickFinish(item, at: .now) }
-                : nil
+            onStatusTap: statusTapAction(for: item)
         )
+    }
+
+    private func statusTapAction(for item: CalendarItem) -> (() -> Void)? {
+        switch item.status {
+        case .planned, .inProgress:
+            return { todayViewModel.quickFinish(item, at: .now) }
+        case .done:
+            return { undoComplete(item) }
+        case .skipped, .rescheduled, .unplanned:
+            return nil
+        }
+    }
+
+    /// Reverts a completed occurrence back to `.planned` and removes the
+    /// `ActivitySession` `quickFinish` created for it, so undo never leaves
+    /// a duplicate or orphaned record behind.
+    private func undoComplete(_ item: CalendarItem) {
+        guard item.status == .done else { return }
+        let sessionsToRemove = activitySessions.filter { $0.calendarItem?.id == item.id }
+        let previousStatus = item.status
+        let previousStart = item.actualStart
+        let previousEnd = item.actualEnd
+
+        item.status = .planned
+        item.actualStart = nil
+        item.actualEnd = nil
+        sessionsToRemove.forEach { modelContext.delete($0) }
+
+        if !modelContext.saveOrReport() {
+            item.status = previousStatus
+            item.actualStart = previousStart
+            item.actualEnd = previousEnd
+            sessionsToRemove.forEach { modelContext.insert($0) }
+        }
     }
 
     private func loStatus(for item: CalendarItem) -> LOStatus {
@@ -318,10 +357,14 @@ struct ImprovementCategoryDetailView: View {
     }
 
     /// "What can I do in this Area?" — every Task, plus the ability to add
-    /// one (or open this Area's tracker tool, when it has one).
+    /// one (or open this Area's tracker tool, when it has one). Labeled
+    /// "Tasks", not "Activities" — the app calls a schedulable `Activity`
+    /// a "Task" everywhere else in the UI ("Add a Task", "Manage Tasks"),
+    /// so this section stays consistent rather than introducing a second
+    /// user-facing name for the same thing.
     private var activitiesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Activities", detail: periodActionsDetail)
+            sectionTitle("Tasks", detail: periodActionsDetail)
 
             VStack(spacing: 10) {
                 if let tool = categoryTool {
