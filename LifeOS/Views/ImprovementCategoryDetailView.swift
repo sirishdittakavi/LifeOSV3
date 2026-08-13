@@ -79,36 +79,31 @@ struct ImprovementCategoryDetailView: View {
         .sorted { $0.activity.plannedStartMinutes < $1.activity.plannedStartMinutes }
     }
 
-    /// The next not-yet-decided occurrence across this Area's Tasks —
-    /// powers the hero card's "Next" row, the same data `TodayViewModel`
+    /// Today's occurrences across this Area's Tasks, in schedule order —
+    /// powers the "Today" section's task list, the same data `TodayViewModel`
     /// already surfaces for the Today screen, just scoped to this Area.
-    private var nextItem: CalendarItem? {
+    private var todayItemsForArea: [CalendarItem] {
         let activityIDs = Set(categoryActivities.map(\.id))
         return calendarItems
             .filter {
                 $0.activity.map { activityIDs.contains($0.id) } == true
-                    && ($0.status == .planned || $0.status == .inProgress)
+                    && Calendar.current.isDateInToday($0.date)
             }
             .sorted { ($0.plannedStart ?? .distantFuture) < ($1.plannedStart ?? .distantFuture) }
-            .first
     }
 
-    private var todaysCompletedItems: [CalendarItem] {
-        let activityIDs = Set(categoryActivities.map(\.id))
-        return calendarItems.filter {
-            $0.activity.map { activityIDs.contains($0.id) } == true
-                && $0.status == .done
-                && Calendar.current.isDateInToday($0.date)
-        }
-    }
-
-    private var todaysCompletedMinutes: Int {
-        todaysCompletedItems.reduce(0) { total, item in
-            if let start = item.actualStart, let end = item.actualEnd {
-                return total + max(Int(end.timeIntervalSince(start) / 60), 0)
-            }
-            return total + (item.activity?.estimatedDurationMinutes ?? 0)
-        }
+    /// Reuses `TodayViewModel`'s existing start/skip/quickFinish logic (the
+    /// same actions the Today screen drives) rather than re-implementing
+    /// status transitions here.
+    private var todayViewModel: TodayViewModel {
+        TodayViewModel(
+            profile: selection.profile,
+            items: calendarItems,
+            activities: activities,
+            resultMeasures: [],
+            currentTime: .now,
+            repository: SwiftDataCalendarRepository(context: modelContext)
+        )
     }
 
     /// Measurements across every Task in this Area, each shown against
@@ -140,70 +135,17 @@ struct ImprovementCategoryDetailView: View {
 
                 todayCard
 
+                progressSection
+
                 if !areaMeasurements.isEmpty {
-                    LOSectionHeader(title: "Today's Measurements")
-                    VStack(spacing: 8) {
-                        ForEach(areaMeasurements) { row in
-                            measurementRow(row)
-                        }
-                    }
+                    measurementsSection
                 }
 
-                LOSectionHeader(title: "Progress")
-                Picker("Period", selection: $period) {
-                    ForEach(DashboardPeriod.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
-
-                if let progress {
-                    Button { showingProgressDetails = true } label: {
-                        CategoryProgressCard(progress: progress)
-                            .contentShape(RoundedRectangle(cornerRadius: 16))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Open \(category.name) Task progress details for \(period.rawValue)")
-                }
-
-                VStack(spacing: 10) {
-                    if let tool = categoryTool {
-                        Button { activeTool = tool } label: {
-                            Label(trackingButtonTitle(for: tool), systemImage: tool == .sport ? category.symbol : tool.symbol)
-                        }
-                        .buttonStyle(LifeOSPrimaryButtonStyle())
-                    }
-
-                    if categoryTool == nil {
-                        Button { showingAddTask = true } label: {
-                            Label("Add a Task", systemImage: "plus")
-                        }
-                        .buttonStyle(LifeOSPrimaryButtonStyle())
-                    } else {
-                        Button { showingAddTask = true } label: {
-                            Label("Add a Task", systemImage: "plus")
-                        }
-                        .buttonStyle(LifeOSSecondaryButtonStyle())
-                    }
-                }
+                activitiesSection
 
                 if !childCategories.isEmpty {
-                    sectionTitle("Sub-areas", detail: "Included in this Area's progress")
-                    VStack(spacing: 0) {
-                        ForEach(Array(childCategories.enumerated()), id: \.element.id) { index, child in
-                            NavigationLink {
-                                ImprovementCategoryDetailView(selection: selection, category: child)
-                            } label: {
-                                focusAreaRow(child)
-                            }
-                            .buttonStyle(.plain)
-                            if index < childCategories.count - 1 { Divider().padding(.leading, 54) }
-                        }
-                    }
-                    .background(Color(.secondarySystemGroupedBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    subAreasSection
                 }
-
-                sectionTitle(periodActionsTitle, detail: "Only Tasks planned in this period")
-                actionList
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 28)
@@ -297,58 +239,130 @@ struct ImprovementCategoryDetailView: View {
         .lifeOSCard(tint: ColorToken.color(for: category.colorToken))
     }
 
-    /// Daily facts only — deliberately no ring/percentage here. Period
-    /// progress (with its Week/Month picker) lives in its own "Progress"
-    /// section below, so a reader never mistakes today's sessions/time for
-    /// a period total or vice versa.
+    /// "What should I do today?" — every occurrence of this Area's Tasks
+    /// scheduled for today, each with a status glyph. Tap the row for
+    /// details, tap the status control to mark it done directly.
     private var todayCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             LOSectionHeader(title: "Today")
-            if let nextItem {
-                heroInfoRow(
-                    symbol: "clock.fill",
-                    label: "Next",
-                    title: nextItem.activity?.name ?? "Task",
-                    subtitle: nextItem.plannedStart?.formatted(date: .omitted, time: .shortened) ?? "Any time"
-                )
-            }
-            heroInfoRow(
-                symbol: "calendar",
-                label: "Sessions today",
-                title: "\(todaysCompletedItems.count)",
-                subtitle: nil
-            )
-            heroInfoRow(
-                symbol: "clock",
-                label: "Time today",
-                title: formattedDuration(todaysCompletedMinutes),
-                subtitle: nil
-            )
-        }
-        .padding(LifeOSSpacing.lg)
-        .lifeOSElevated(cornerRadius: LifeOSRadius.lg, tint: ColorToken.color(for: category.colorToken))
-    }
-
-    private func heroInfoRow(symbol: String, label: String, title: String, subtitle: String?) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: symbol)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 16)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(label)
-                    .font(.caption2)
+            if todayItemsForArea.isEmpty {
+                Text("Nothing scheduled today.")
+                    .font(.lifeOSSecondary)
                     .foregroundStyle(.secondary)
-                Text(subtitle.map { "\(title) · \($0)" } ?? title)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(todayItemsForArea) { item in
+                        todayTaskRow(item)
+                    }
+                }
             }
         }
     }
 
-    private func formattedDuration(_ minutes: Int) -> String {
-        guard minutes >= 60 else { return "\(minutes) min" }
-        return "\(minutes / 60)h \(minutes % 60)m"
+    private func todayTaskRow(_ item: CalendarItem) -> some View {
+        LOTaskRow(
+            title: item.activity?.name ?? "Task",
+            subtitle: item.plannedStart?.formatted(date: .omitted, time: .shortened),
+            symbol: item.activity?.category?.symbol ?? category.symbol,
+            status: loStatus(for: item),
+            onTap: { if let activity = item.activity { editingTask = activity } },
+            onStatusTap: (item.status == .planned || item.status == .inProgress)
+                ? { todayViewModel.quickFinish(item, at: .now) }
+                : nil
+        )
+    }
+
+    private func loStatus(for item: CalendarItem) -> LOStatus {
+        switch item.status {
+        case .done: return .complete
+        case .inProgress: return .focus
+        case .skipped: return .neutral
+        case .rescheduled: return .inProgress
+        case .unplanned: return .recovery
+        case .planned: return .neutral
+        }
+    }
+
+    /// "Am I improving?" — period progress, kept separate from today's facts
+    /// so a reader never mistakes today's numbers for a period total.
+    private var progressSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LOSectionHeader(title: "Progress")
+            Picker("Period", selection: $period) {
+                ForEach(DashboardPeriod.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+
+            if let progress {
+                Button { showingProgressDetails = true } label: {
+                    CategoryProgressCard(progress: progress)
+                        .contentShape(RoundedRectangle(cornerRadius: 16))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open \(category.name) Task progress details for \(period.rawValue)")
+            }
+        }
+    }
+
+    /// "What numbers matter?" — each measurement shown against its own
+    /// target independently, never blended across measurements or units.
+    private var measurementsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LOSectionHeader(title: "Measurements")
+            VStack(spacing: 8) {
+                ForEach(areaMeasurements) { row in
+                    measurementRow(row)
+                }
+            }
+        }
+    }
+
+    /// "What can I do in this Area?" — every Task, plus the ability to add
+    /// one (or open this Area's tracker tool, when it has one).
+    private var activitiesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("Activities", detail: periodActionsDetail)
+
+            VStack(spacing: 10) {
+                if let tool = categoryTool {
+                    Button { activeTool = tool } label: {
+                        Label(trackingButtonTitle(for: tool), systemImage: tool == .sport ? category.symbol : tool.symbol)
+                    }
+                    .buttonStyle(LifeOSPrimaryButtonStyle())
+
+                    Button { showingAddTask = true } label: {
+                        Label("Add a Task", systemImage: "plus")
+                    }
+                    .buttonStyle(LifeOSSecondaryButtonStyle())
+                } else {
+                    Button { showingAddTask = true } label: {
+                        Label("Add a Task", systemImage: "plus")
+                    }
+                    .buttonStyle(LifeOSPrimaryButtonStyle())
+                }
+            }
+
+            actionList
+        }
+    }
+
+    private var subAreasSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("Sub-areas", detail: "Included in this Area's progress")
+            VStack(spacing: 0) {
+                ForEach(Array(childCategories.enumerated()), id: \.element.id) { index, child in
+                    NavigationLink {
+                        ImprovementCategoryDetailView(selection: selection, category: child)
+                    } label: {
+                        focusAreaRow(child)
+                    }
+                    .buttonStyle(.plain)
+                    if index < childCategories.count - 1 { Divider().padding(.leading, 54) }
+                }
+            }
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
     }
 
     private func measurementRow(_ row: MeasurementProgressRow) -> some View {
@@ -466,11 +480,11 @@ struct ImprovementCategoryDetailView: View {
         )
     }
 
-    private var periodActionsTitle: String {
+    private var periodActionsDetail: String {
         switch period {
-        case .day: return "Today's Tasks"
-        case .week: return "This Week's Tasks"
-        case .month: return "This Month's Tasks"
+        case .day: return "Planned for today"
+        case .week: return "Planned this week"
+        case .month: return "Planned this month"
         }
     }
 
