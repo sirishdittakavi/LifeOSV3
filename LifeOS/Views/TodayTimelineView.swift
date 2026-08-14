@@ -411,7 +411,11 @@ struct TodayTimelineView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityIdentifier("today.completedSection")
+                    // Was mistakenly reusing "today.completedSection" (the
+                    // unrelated Completed & Decided toggle's identifier) —
+                    // a real collision, fixed as part of the XCUITest
+                    // release pass.
+                    .accessibilityIdentifier("today.dueResult.\(measure.id.uuidString)")
                     .accessibilityLabel("Enter \(measure.name) result for \(measure.goal?.name ?? "goal")")
                 }
             }
@@ -468,6 +472,7 @@ struct TodayTimelineView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("today.completedSection")
                     if completedExpanded {
                         ForEach(viewModel.decidedItems) { item in itemRow(item) }
                     }
@@ -492,7 +497,7 @@ struct TodayTimelineView: View {
     /// this" reminder. No-op if nothing was pending for it.
     private func cancelReminder(for item: CalendarItem) {
         guard let activityID = item.activity?.id, let plannedStart = item.plannedStart else { return }
-        ReminderService.cancelReminder(activityID: activityID, occurrence: plannedStart)
+        ReminderService.cancelReminder(activityID: activityID, occurrence: plannedStart, center: RealNotificationCenter.shared)
     }
 
     /// If the Activity has nothing worth recording (no legacy target, no

@@ -21,6 +21,20 @@ struct ProfilePicker: View {
                             Image(systemName: "checkmark")
                         }
                     }
+                    // A Menu row whose label is a custom HStack (not a plain
+                    // Label/Text) otherwise exposes NO accessibility content
+                    // at all inside a native menu popup — forcing this
+                    // subtree into one opaque element with an explicit
+                    // label/identifier is what actually makes it visible to
+                    // XCUITest (or VoiceOver). The identifier is a
+                    // deterministic, human-readable fixture key (from the
+                    // Profile's own name) purely so XCUITest can locate this
+                    // row reliably — a UI-test convenience, not app
+                    // ownership logic, which resolves everything by
+                    // profile.id elsewhere (see ProfileIsolation audit).
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(profile.name)
+                    .accessibilityIdentifier("profile.row.\(profile.name.lowercased())")
                 }
             }
             Divider()
@@ -37,6 +51,7 @@ struct ProfilePicker: View {
                 Text(selection.profile?.name ?? "Profile")
             }
         }
+        .accessibilityIdentifier("profile.selector")
         .onAppear {
             if selection.profile == nil {
                 let savedID = UserDefaults.standard.string(forKey: SelectedProfile.lastProfileKey)

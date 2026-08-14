@@ -41,14 +41,17 @@ struct RootTabView: View {
             TodayTimelineView(selection: selection)
                 .tabItem { Label("Today", systemImage: "calendar") }
                 .tag(0)
+                .accessibilityIdentifier("tab.today")
 
             ImprovementCategoriesView(selection: selection)
                 .tabItem { Label("Plans", systemImage: "list.bullet.clipboard") }
                 .tag(1)
+                .accessibilityIdentifier("tab.plans")
 
             ImprovementDashboardView(selection: selection)
                 .tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
                 .tag(2)
+                .accessibilityIdentifier("tab.progress")
 
             WeeklyScheduleView(selection: selection)
                 .tabItem { Label("Schedule", systemImage: "calendar.day.timeline.left") }
@@ -116,7 +119,7 @@ struct RootTabView: View {
                 let areaActivities = activities.filter { activity in
                     activity.category.map { ids.contains($0.id) } == true
                 }
-                await ReminderService.updateReminders(for: category, activities: areaActivities)
+                await ReminderService.updateReminders(for: category, activities: areaActivities, center: RealNotificationCenter.shared)
             }
         }
     }

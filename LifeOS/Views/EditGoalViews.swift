@@ -112,7 +112,7 @@ struct EditGoalView: View {
             let goalMeasures = measures.filter { $0.goal?.id == goal.id }
             Task {
                 for measure in goalMeasures {
-                    await GoalReminderService.updateReminder(for: measure)
+                    await GoalReminderService.updateReminder(for: measure, center: RealNotificationCenter.shared)
                 }
             }
             dismiss()
@@ -270,7 +270,7 @@ struct EditResultMeasureView: View {
         measure.linkedNutritionMetric = resultSource == .nutritionMetric ? selectedNutritionMetric : nil
         measure.linkedBodyMetricDefinitionID = resultSource == .bodyMetric ? selectedBodyMetricDefinitionID : nil
         if modelContext.saveOrReport() {
-            Task { await GoalReminderService.updateReminder(for: measure) }
+            Task { await GoalReminderService.updateReminder(for: measure, center: RealNotificationCenter.shared) }
             dismiss()
         }
     }

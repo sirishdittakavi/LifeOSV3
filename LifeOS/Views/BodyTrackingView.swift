@@ -70,6 +70,7 @@ struct BodyTrackingView: View {
                 get: { entryPendingDeletion != nil }, set: { if !$0 { entryPendingDeletion = nil } }
             ), titleVisibility: .visible) {
                 Button("Delete Entry", role: .destructive) { deleteEntry(entryPendingDeletion) }
+                    .accessibilityIdentifier("body.entry.delete.confirm")
                 Button("Cancel", role: .cancel) { entryPendingDeletion = nil }
             }
         }
@@ -100,6 +101,7 @@ struct BodyTrackingView: View {
                             if let latest {
                                 Text("\(latest.value, format: .number.precision(.fractionLength(1))) \(definition.unit)")
                                     .font(.lifeOSHeroMetric)
+                                    .accessibilityIdentifier("body.weight.latest")
                                 Text("Recorded \(latest.recordedAt.formatted(date: .abbreviated, time: .omitted))")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -119,6 +121,7 @@ struct BodyTrackingView: View {
                         }
                     }
                     LOPrimaryButton(title: "Save Weight", symbol: "plus") { loggingDefinition = definition }
+                        .accessibilityIdentifier("body.weight.add")
 
                     if recent.count > 1 {
                         Divider()
@@ -136,6 +139,10 @@ struct BodyTrackingView: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            // Deterministic per-entry key (recordedAt day),
+                            // distinct across profiles since each profile's
+                            // entries are recorded at their own timestamps.
+                            .accessibilityIdentifier("body.entry.\(entry.recordedAt.formatted(.iso8601.year().month().day()))")
                         }
                     }
                 }

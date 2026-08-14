@@ -44,6 +44,7 @@ struct ProfileManagerView: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("profile.row.\(profile.name.lowercased())")
 
                             Button {
                                 editingProfile = profile

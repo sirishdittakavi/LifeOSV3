@@ -70,6 +70,7 @@ struct NutritionTargetsView: View {
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
                 .frame(minWidth: 70)
+                .accessibilityIdentifier("nutrition.target.\(label.lowercased())")
             Text(unit)
                 .font(.lifeOSSecondary)
                 .foregroundStyle(.secondary)

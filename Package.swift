@@ -20,8 +20,8 @@ let package = Package(
                 "Assets.xcassets",
                 "LifeOSApp.swift",
                 "PrivacyInfo.xcprivacy",
-                "Engine/ReminderService.swift",
-                "Engine/NotificationRouter.swift"
+                "Engine/NotificationRouter.swift",
+                "Engine/RealNotificationCenter.swift"
             ],
             sources: [
                 "Models/Models.swift",
@@ -43,7 +43,9 @@ let package = Package(
                 "Engine/RelationshipRepository.swift",
                 "Engine/NutritionRepository.swift",
                 "Engine/BodyTrackingRepository.swift",
-                "Engine/NutritionEngine.swift"
+                "Engine/NutritionEngine.swift",
+                "Engine/NotificationScheduling.swift",
+                "Engine/ReminderService.swift"
             ]
         ),
         .testTarget(

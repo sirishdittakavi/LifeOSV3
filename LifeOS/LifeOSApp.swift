@@ -80,7 +80,7 @@ final class LifeOSStore {
         UserDefaults.standard.removeObject(forKey: SelectedProfile.lastProfileKey)
 
         let context = container.mainContext
-        let profile = Profile(name: "UI Test Athlete", kind: .individual, colorToken: "blue")
+        let profile = Profile(name: "Parent", kind: .individual, colorToken: "blue")
         let baseball = AppCategory(
             profile: profile, name: "Baseball", symbol: "baseball.fill",
             colorToken: "orange", pillar: .sport, trackingKind: .sport,
@@ -155,7 +155,106 @@ final class LifeOSStore {
         ))
 
         try seedNutritionFixture(profile: profile, context: context)
+        try seedChildAndUnrelatedProfiles(context: context)
         try context.save()
+
+        // ProfilePicker defaults to the last-selected profile (falling back
+        // to alphabetically-first only when none is saved) — "Child" sorts
+        // before "Parent", so without this, adding the Child fixture would
+        // silently change which profile every pre-existing test lands on.
+        UserDefaults.standard.set(profile.id.uuidString, forKey: SelectedProfile.lastProfileKey)
+    }
+
+    /// LifeOS XCUITest and Notification Ownership Release Pass: a second
+    /// profile ("Child") with DELIBERATELY IDENTICAL Area/Activity/Goal/
+    /// Template/Weight-definition names and an identical schedule to
+    /// "Parent" above — the exact trap that would expose an ownership bug
+    /// resolving by name instead of by ID. Plus a third, unrelated profile
+    /// ("Unrelated") that no isolation test should ever see touched.
+    private static func seedChildAndUnrelatedProfiles(context: ModelContext) throws {
+        let child = Profile(name: "Child", kind: .child, colorToken: "orange")
+        let unrelated = Profile(name: "Unrelated", kind: .individual, colorToken: "gray")
+        context.insert(child)
+        context.insert(unrelated)
+
+        let childBaseball = AppCategory(
+            profile: child, name: "Baseball", symbol: "baseball.fill",
+            colorToken: "orange", pillar: .sport, trackingKind: .sport,
+            purpose: "Build dependable baseball skills.",
+            weeklyTargetSessions: 21, weeklyTargetMinutes: 210
+        )
+        let childNutritionCategory = AppCategory(
+            profile: child, name: "Nutrition", symbol: "fork.knife",
+            colorToken: "green", pillar: .nutrition, trackingKind: .nutrition,
+            purpose: "Fuel training and recovery.",
+            weeklyTargetSessions: 7, weeklyTargetMinutes: 0
+        )
+        let childBodyWeightCategory = AppCategory(
+            profile: child, name: "Body Weight", symbol: "scalemass.fill",
+            colorToken: "purple", pillar: .physical, trackingKind: .bodyWeight,
+            purpose: "Track weight and body composition trend.",
+            weeklyTargetSessions: 1, weeklyTargetMinutes: 0
+        )
+        context.insert(childBaseball)
+        context.insert(childNutritionCategory)
+        context.insert(childBodyWeightCategory)
+
+        let childGoal = Goal(
+            profile: child, name: "Become a Complete Baseball Player",
+            purpose: "Improve batting, pitching, and fielding through a balanced plan."
+        )
+        let childContribution = GoalAreaContribution(
+            goal: childGoal, category: childBaseball,
+            statement: "Baseball practice supports this Goal.",
+            weeklyTargetSessions: 11, weeklyTargetMinutes: 110
+        )
+        context.insert(childGoal)
+        context.insert(childContribution)
+
+        // Identical name AND identical schedule to Parent's own "Hitting".
+        let childHitting = Activity(
+            profile: child, category: childBaseball, name: "Hitting",
+            source: .manual, targetValue: 10, targetUnit: "min",
+            repeatType: .daily, weekdays: Array(1...7),
+            plannedStartMinutes: 18 * 60, estimatedDurationMinutes: 10,
+            startDate: Calendar.current.startOfDay(for: .now)
+        )
+        context.insert(childHitting)
+
+        let childNutritionGoal = NutritionGoal(
+            profileID: child.id, calorieTarget: 2200, proteinTargetG: 120,
+            carbsTargetG: 250, fatTargetG: 70, waterTargetML: 2500
+        )
+        context.insert(childNutritionGoal)
+
+        let childNutritionRepository = SwiftDataNutritionRepository(context: context)
+        let childBreakfastTemplate = MealTemplate(
+            profileID: child.id, name: "My Protein Breakfast", mealTypeDefault: .breakfast,
+            details: "3 eggs, oats 60g, protein shake",
+            totals: NutritionValue(calories: 622, proteinG: 51, carbsG: 48, fatG: 22)
+        )
+        childNutritionRepository.insertTemplate(childBreakfastTemplate, foodEntries: [])
+
+        let childBodyRepository = SwiftDataBodyTrackingRepository(context: context)
+        childBodyRepository.seedDefaultDefinitionsIfNeeded(profileID: child.id, existingDefinitions: [])
+        try context.save()
+        let childBodyDefinitions = try context.fetch(FetchDescriptor<BodyMetricDefinition>())
+        if let childWeightDefinition = childBodyDefinitions.first(where: { $0.profileID == child.id && $0.name == "Weight" }) {
+            let childWeightHistory: [(daysAgo: Int, value: Double)] = [(7, 55.0), (0, 54.5)]
+            for point in childWeightHistory {
+                let date = Calendar.current.date(byAdding: .day, value: -point.daysAgo, to: .now) ?? .now
+                context.insert(BodyMetricEntry(
+                    profileID: child.id, bodyMetricDefinition: childWeightDefinition,
+                    nameSnapshot: "Weight", unitSnapshot: "kg", value: point.value, recordedAt: date
+                ))
+            }
+            let childWeightMeasure = ResultMeasure(
+                goal: childGoal, name: "Weight", valueType: .number, unit: "kg",
+                direction: .decrease, baselineValue: 56, targetValue: 52,
+                linkedBodyMetricDefinitionID: childWeightDefinition.id
+            )
+            context.insert(childWeightMeasure)
+        }
     }
 
     /// Realistic Nutrition v1 fixture data for the manual simulator review —

@@ -75,6 +75,7 @@ struct AddEditMealView: View {
                 if existingMeal != nil {
                     Section {
                         Button("Delete Meal", role: .destructive) { showingDeleteConfirmation = true }
+                            .accessibilityIdentifier("nutrition.meal.delete.\(mealType.rawValue.lowercased())")
                     }
                 }
             }

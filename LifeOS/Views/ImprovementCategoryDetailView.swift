@@ -275,6 +275,7 @@ struct ImprovementCategoryDetailView: View {
             onTap: { if let activity = item.activity { editingTask = activity } },
             onStatusTap: statusTapAction(for: item)
         )
+        .accessibilityIdentifier("plan.task.status.\(item.activity?.name.lowercased() ?? "unknown")")
     }
 
     private func statusTapAction(for item: CalendarItem) -> (() -> Void)? {
@@ -283,7 +284,7 @@ struct ImprovementCategoryDetailView: View {
             return {
                 if todayViewModel.quickFinish(item, at: .now),
                    let activityID = item.activity?.id, let plannedStart = item.plannedStart {
-                    ReminderService.cancelReminder(activityID: activityID, occurrence: plannedStart)
+                    ReminderService.cancelReminder(activityID: activityID, occurrence: plannedStart, center: RealNotificationCenter.shared)
                 }
             }
         case .done:
@@ -856,7 +857,7 @@ struct EditImprovementCategoryView: View {
                             category.isActive = true
                             activities.forEach { $0.isActive = true }
                             if modelContext.saveOrReport() {
-                                Task { await ReminderService.updateReminders(for: category, activities: activities) }
+                                Task { await ReminderService.updateReminders(for: category, activities: activities, center: RealNotificationCenter.shared) }
                                 dismiss()
                             }
                         }
@@ -885,7 +886,7 @@ struct EditImprovementCategoryView: View {
                         )
                     }.forEach(modelContext.delete)
                     if modelContext.saveOrReport() {
-                        Task { await ReminderService.updateReminders(for: category, activities: activities) }
+                        Task { await ReminderService.updateReminders(for: category, activities: activities, center: RealNotificationCenter.shared) }
                         dismiss()
                     }
                 }
@@ -911,7 +912,7 @@ struct EditImprovementCategoryView: View {
         category.reminderHour = Calendar.current.component(.hour, from: reminderTime)
         category.reminderMinute = Calendar.current.component(.minute, from: reminderTime)
         if modelContext.saveOrReport() {
-            Task { await ReminderService.updateReminders(for: category, activities: activities) }
+            Task { await ReminderService.updateReminders(for: category, activities: activities, center: RealNotificationCenter.shared) }
             dismiss()
         }
     }

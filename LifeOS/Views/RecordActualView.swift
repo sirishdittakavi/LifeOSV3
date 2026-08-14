@@ -185,7 +185,7 @@ struct RecordActualView: View {
 
         if modelContext.saveOrReport() {
             if let activityID = item.activity?.id, let plannedStart = item.plannedStart {
-                ReminderService.cancelReminder(activityID: activityID, occurrence: plannedStart)
+                ReminderService.cancelReminder(activityID: activityID, occurrence: plannedStart, center: RealNotificationCenter.shared)
             }
             dismiss()
         } else {

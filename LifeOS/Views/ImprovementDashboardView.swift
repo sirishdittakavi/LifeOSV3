@@ -712,6 +712,7 @@ private struct GoalDetailView: View {
                 Spacer()
                 Text("\(item.completedActions)/\(item.plannedActions)")
                     .font(.subheadline.bold())
+                    .accessibilityIdentifier("progress.task.completed")
             }
             if !item.contribution.statement.isEmpty {
                 Text(item.contribution.statement).font(.caption).foregroundStyle(.secondary)
@@ -993,7 +994,7 @@ private struct AddGoalView: View {
             return contribution
         }
         if modelContext.saveOrReport() {
-            Task { await GoalReminderService.updateReminder(for: measure) }
+            Task { await GoalReminderService.updateReminder(for: measure, center: RealNotificationCenter.shared) }
             dismiss()
         } else {
             addedContributions.forEach { modelContext.delete($0) }
@@ -1086,7 +1087,7 @@ struct AddResultEntryView: View {
         modelContext.insert(entry)
         measure.nextCheckInDate = measure.cadence.nextDate(after: date)
         if modelContext.saveOrReport() {
-            Task { await GoalReminderService.updateReminder(for: measure) }
+            Task { await GoalReminderService.updateReminder(for: measure, center: RealNotificationCenter.shared) }
             dismiss()
         } else {
             modelContext.rollback()
@@ -1283,7 +1284,7 @@ private struct AddResultMeasureView: View {
         )
         modelContext.insert(measure)
         if modelContext.saveOrReport() {
-            Task { await GoalReminderService.updateReminder(for: measure) }
+            Task { await GoalReminderService.updateReminder(for: measure, center: RealNotificationCenter.shared) }
             dismiss()
         } else {
             modelContext.delete(measure)

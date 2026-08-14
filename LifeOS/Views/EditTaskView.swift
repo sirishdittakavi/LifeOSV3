@@ -295,7 +295,17 @@ struct EditTaskView: View {
             let remainingActivities = allActivities.filter {
                 $0.category?.id == category.id && (historyExists || $0.id != activity.id)
             }
-            Task { await ReminderService.updateReminders(for: category, activities: remainingActivities) }
+            let deletedActivityID = activity.id
+            Task {
+                // A hard-deleted (no-history) Activity is excluded from
+                // remainingActivities above, so updateReminders' own
+                // cancellation pass would never see its identifier prefix —
+                // cancel it explicitly first so its reminders don't outlive it.
+                if !historyExists {
+                    await ReminderService.cancelAllReminders(activityID: deletedActivityID, center: RealNotificationCenter.shared)
+                }
+                await ReminderService.updateReminders(for: category, activities: remainingActivities, center: RealNotificationCenter.shared)
+            }
         }
         if !historyExists { onActivityDeleted() }
         dismiss()
@@ -391,7 +401,8 @@ struct EditTaskView: View {
             Task {
                 await ReminderService.updateReminders(
                     for: category,
-                    activities: areaActivities
+                    activities: areaActivities,
+                    center: RealNotificationCenter.shared
                 )
             }
             dismiss()

@@ -76,6 +76,7 @@ struct NutritionDashboardView: View {
                     // instead (one tap, not menu-then-tap).
                     Button { showingQuickActions = true } label: { Image(systemName: "plus.circle.fill") }
                         .accessibilityLabel("Log Meal, Water, or Weight")
+                        .accessibilityIdentifier("nutrition.meal.add")
                 }
             }
             .sheet(isPresented: $showingQuickActions) {
@@ -180,6 +181,7 @@ struct NutritionDashboardView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Protein, \(Int(progress.totals.proteinG)) of \(Int(target)) grams today")
+        .accessibilityIdentifier("nutrition.total.protein")
     }
 
     private func proteinNoTargetHero(_ progress: NutritionEngine.TargetProgress) -> some View {
@@ -194,6 +196,7 @@ struct NutritionDashboardView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Protein, \(Int(progress.totals.proteinG)) grams today, no target set")
+        .accessibilityIdentifier("nutrition.total.protein")
     }
 
     private func calorieCaption(_ progress: NutritionEngine.TargetProgress) -> some View {
@@ -216,6 +219,7 @@ struct NutritionDashboardView: View {
                     unitSuffix: "", targetText: progress.calorieTarget.map { "\(Int($0))" },
                     fraction: progress.calorieFraction, status: .neutral
                 )
+                .accessibilityIdentifier("nutrition.total.calories")
                 NutritionMetricRow(
                     label: "Carbs", currentText: "\(Int(progress.totals.carbsG))",
                     unitSuffix: "g", targetText: progress.carbsTarget.map { "\(Int($0))g" },
@@ -233,6 +237,7 @@ struct NutritionDashboardView: View {
                     targetText: progress.waterTarget.map { "\(($0 / 1000).formatted(.number.precision(.fractionLength(1))))L" },
                     fraction: progress.waterFraction, status: .complete
                 )
+                .accessibilityIdentifier("nutrition.water.total")
             }
         }
     }
@@ -261,6 +266,7 @@ struct NutritionDashboardView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("nutrition.meal.\(mealType.rawValue.lowercased())")
                         if mealType != mealChecklist.last {
                             Divider()
                         }

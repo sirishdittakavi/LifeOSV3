@@ -28,12 +28,12 @@ import SwiftData
 final class NotificationRouter: NSObject, ObservableObject {
     static let shared = NotificationRouter()
 
-    static let activityCategoryIdentifier = "activity-occurrence"
-    static let completeActionIdentifier = "LIFEOS_COMPLETE"
-    static let skipActionIdentifier = "LIFEOS_SKIP"
-    static let profileIDKey = "profileID"
-    static let activityIDKey = "activityID"
-    static let occurrenceKey = "occurrence"
+    static let activityCategoryIdentifier = NotificationIdentifiers.activityCategoryIdentifier
+    static let completeActionIdentifier = NotificationIdentifiers.completeActionIdentifier
+    static let skipActionIdentifier = NotificationIdentifiers.skipActionIdentifier
+    static let profileIDKey = NotificationPayloadParser.profileIDKey
+    static let activityIDKey = NotificationPayloadParser.activityIDKey
+    static let occurrenceKey = NotificationPayloadParser.occurrenceKey
 
     struct DeepLink: Equatable {
         let profileID: UUID
@@ -65,11 +65,12 @@ final class NotificationRouter: NSObject, ObservableObject {
     }
 
     private func handle(actionIdentifier: String, userInfo: [AnyHashable: Any]) {
-        guard
-            let profileIDString = userInfo[Self.profileIDKey] as? String, let profileID = UUID(uuidString: profileIDString),
-            let activityIDString = userInfo[Self.activityIDKey] as? String, let activityID = UUID(uuidString: activityIDString),
-            let occurrenceString = userInfo[Self.occurrenceKey] as? String,
-            let occurrence = ISO8601DateFormatter().date(from: occurrenceString)
+        // A nil parse (missing/invalid profileID, activityID, or occurrence)
+        // is a strict no-op — never falls back to a partial match or the
+        // currently-selected profile. See NotificationPayloadParser.
+        guard let payload = NotificationPayloadParser.parse(userInfo),
+              let profileID = payload.profileID, let activityID = payload.activityID,
+              let occurrence = payload.occurrence
         else { return }
 
         switch actionIdentifier {
@@ -79,7 +80,7 @@ final class NotificationRouter: NSObject, ObservableObject {
                     profile: item.profile, items: [item], activities: [], resultMeasures: [],
                     currentTime: .now, repository: repository
                 ).quickFinish(item, at: .now)
-                ReminderService.cancelReminder(activityID: activityID, occurrence: occurrence)
+                ReminderService.cancelReminder(activityID: activityID, occurrence: occurrence, center: RealNotificationCenter.shared)
             }
         case Self.skipActionIdentifier:
             performOwned(profileID: profileID, activityID: activityID, occurrence: occurrence) { item, repository in
@@ -87,7 +88,7 @@ final class NotificationRouter: NSObject, ObservableObject {
                     profile: item.profile, items: [item], activities: [], resultMeasures: [],
                     currentTime: .now, repository: repository
                 ).skip(item)
-                ReminderService.cancelReminder(activityID: activityID, occurrence: occurrence)
+                ReminderService.cancelReminder(activityID: activityID, occurrence: occurrence, center: RealNotificationCenter.shared)
             }
         default:
             // Default tap (or "View"): hand off to RootTabView rather than

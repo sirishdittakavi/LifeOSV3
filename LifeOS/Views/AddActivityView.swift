@@ -448,7 +448,7 @@ struct AddActivityView: View {
                 let reminderActivities = profileActivities.filter {
                     $0.category.map { includedIDs.contains($0.id) } == true
                 }
-                await ReminderService.updateReminders(for: reminderArea, activities: reminderActivities)
+                await ReminderService.updateReminders(for: reminderArea, activities: reminderActivities, center: RealNotificationCenter.shared)
             }
         }
     }

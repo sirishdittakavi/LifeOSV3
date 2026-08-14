@@ -434,7 +434,7 @@ private struct ConfigureImprovementCategoryView: View {
         }
 
         if modelContext.saveOrReport() {
-            Task { await ReminderService.updateReminders(for: category, activities: createdActivities) }
+            Task { await ReminderService.updateReminders(for: category, activities: createdActivities, center: RealNotificationCenter.shared) }
             onCreated()
         } else {
             createdMeasurementDefinitions.forEach { modelContext.delete($0) }

@@ -67,8 +67,10 @@ struct NutritionProgressView: View {
         return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: LifeOSSpacing.md) {
             if let protein {
                 LOMetricTile(title: "Protein target days", value: "\(protein.achieved)/\(protein.totalDays)", status: .focus, symbol: "bolt.fill")
+                    .accessibilityIdentifier("progress.nutrition.protein")
             } else {
                 LOMetricTile(title: "Protein target days", value: "—", caption: "No target set", status: .neutral, symbol: "bolt.fill")
+                    .accessibilityIdentifier("progress.nutrition.protein")
             }
             if let weightTrend {
                 let formattedTrend = weightTrend.formatted(.number.precision(.fractionLength(1)))
@@ -78,8 +80,10 @@ struct NutritionProgressView: View {
                     value: "\(sign)\(formattedTrend)\(weightDefinition?.unit ?? "")",
                     status: weightTrend <= 0 ? .complete : .neutral, symbol: "scalemass.fill"
                 )
+                .accessibilityIdentifier("progress.body.weight")
             } else {
                 LOMetricTile(title: "Weight trend", value: "—", caption: "Not enough entries yet", status: .neutral, symbol: "scalemass.fill")
+                    .accessibilityIdentifier("progress.body.weight")
             }
             if let water {
                 LOMetricTile(title: "Water target days", value: "\(water.achieved)/\(water.totalDays)", status: .complete, symbol: "drop.fill")
