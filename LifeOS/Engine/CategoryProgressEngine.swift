@@ -298,6 +298,9 @@ enum GoalProgressEngine {
         calendarItems: [CalendarItem],
         measurementDefinitions: [MeasurementDefinition] = [],
         measurementEntries: [MeasurementEntry] = [],
+        nutritionMeals: [MealEntry] = [],
+        nutritionWaterEntries: [WaterEntry] = [],
+        bodyMetricEntries: [BodyMetricEntry] = [],
         calendar: Calendar = .current
     ) -> GoalProgress {
         let goalContributions = contributions.filter { $0.goal?.id == goal.id && $0.isActive }
@@ -357,8 +360,32 @@ enum GoalProgressEngine {
             let interval = DateInterval(start: goal.createdAt, end: max(now, goal.createdAt))
             return ProgressEngine.measurementTotal(for: definition, entries: measurementEntries, interval: interval)
         }()
-        let derivedLatestValue = isLinkedToMeasurement ? linkedMeasurementValue : latest?.numericValue
-        let hasNoResultYet = isLinkedToMeasurement ? (linkedMeasurementValue == nil) : (latest == nil)
+
+        // Nutrition/Body Tracking linkage: sibling to the MeasurementDefinition
+        // link above, reading Nutrition-native data instead (Nutrition is
+        // deliberately not Activity-scoped — NUTRITION_MODULE_DESIGN_V1.md
+        // decision 1). A Result Measure links to at most one of the three.
+        let isLinkedToNutrition = primary?.linkedNutritionMetric != nil
+        let linkedNutritionValue: Double? = {
+            guard let primary, let metric = primary.linkedNutritionMetric, let profile = goal.profile else { return nil }
+            let interval = DateInterval(start: goal.createdAt, end: max(now, goal.createdAt))
+            return NutritionEngine.metricTotal(
+                profileID: profile.id, metric: metric, interval: interval,
+                meals: nutritionMeals, waterEntries: nutritionWaterEntries, calendar: calendar
+            )
+        }()
+        let isLinkedToBodyMetric = primary?.linkedBodyMetricDefinitionID != nil
+        let linkedBodyMetricValue: Double? = {
+            guard let primary, let definitionID = primary.linkedBodyMetricDefinitionID else { return nil }
+            return BodyTrackingEngine.latestEntry(definitionID: definitionID, entries: bodyMetricEntries, on: now)?.value
+        }()
+        let isLinked = isLinkedToMeasurement || isLinkedToNutrition || isLinkedToBodyMetric
+
+        let derivedLatestValue: Double? = isLinkedToMeasurement ? linkedMeasurementValue
+            : isLinkedToNutrition ? linkedNutritionValue
+            : isLinkedToBodyMetric ? linkedBodyMetricValue
+            : latest?.numericValue
+        let hasNoResultYet = isLinked ? (derivedLatestValue == nil) : (latest == nil)
 
         let outcomeFraction: Double?
         if let primary {
@@ -378,8 +405,8 @@ enum GoalProgressEngine {
             )
         } ?? false
 
-        let evidenceCount = isLinkedToMeasurement
-            ? (primary?.baselineValue == nil ? 0 : 1) + (linkedMeasurementValue == nil ? 0 : 1)
+        let evidenceCount = isLinked
+            ? (primary?.baselineValue == nil ? 0 : 1) + (derivedLatestValue == nil ? 0 : 1)
             : resultEntries.count + (primary?.baselineValue == nil ? 0 : 1)
         let confidence: ProgressConfidence = evidenceCount >= 3 ? .high : (evidenceCount >= 1 ? .medium : .low)
         let status: GoalProgressStatus
@@ -393,8 +420,8 @@ enum GoalProgressEngine {
             nextAction = "Correct the Result baseline and target before evaluating this Goal."
         } else if hasNoResultYet {
             status = .awaitingResult
-            nextAction = isLinkedToMeasurement
-                ? "Log a Session with this measurement so progress can be evaluated."
+            nextAction = isLinked
+                ? "Log an entry for this so progress can be evaluated."
                 : "Enter the first result check-in. Action completion alone cannot prove improvement."
         } else if achieved {
             status = .achieved

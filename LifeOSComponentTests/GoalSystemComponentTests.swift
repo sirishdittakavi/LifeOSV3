@@ -448,14 +448,16 @@ final class GoalSystemComponentTests: XCTestCase {
             "Profile", "SavedCategoryTemplate", "AppCategory", "Goal",
             "GoalAreaContribution", "ResultMeasure", "ResultEntry", "Activity",
             "CalendarItem", "ActivitySession", "FoodEntry", "WeightEntry", "SportEntry",
-            "Relationship", "MeasurementDefinition", "MeasurementEntry"
+            "Relationship", "MeasurementDefinition", "MeasurementEntry",
+            "NutritionGoal", "MealTemplate", "MealEntry", "NutritionFoodEntry",
+            "WaterEntry", "BodyMetricDefinition", "BodyMetricEntry"
         ])
         let actualNames = Set(LifeOSSchemaV1.models.map { String(describing: $0) })
 
         XCTAssertEqual(LifeOSSchemaV1.versionIdentifier, Schema.Version(1, 0, 0))
         XCTAssertEqual(
             LifeOSSchemaV1.releaseFingerprint,
-            "LifeOSSchemaV1:1.0.0:Profile,SavedCategoryTemplate,AppCategory,Goal,GoalAreaContribution,ResultMeasure,ResultEntry,Activity,CalendarItem,ActivitySession,FoodEntry,WeightEntry,SportEntry,Relationship,MeasurementDefinition,MeasurementEntry"
+            "LifeOSSchemaV1:1.0.0:Profile,SavedCategoryTemplate,AppCategory,Goal,GoalAreaContribution,ResultMeasure,ResultEntry,Activity,CalendarItem,ActivitySession,FoodEntry,WeightEntry,SportEntry,Relationship,MeasurementDefinition,MeasurementEntry,NutritionGoal,MealTemplate,MealEntry,NutritionFoodEntry,WaterEntry,BodyMetricDefinition,BodyMetricEntry"
         )
         XCTAssertEqual(actualNames, expectedNames)
         XCTAssertNoThrow(try LifeOSDataStore.makeContainer(inMemory: true))

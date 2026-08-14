@@ -20,6 +20,8 @@ struct TodayTimelineView: View {
     @Query private var foodEntries: [FoodEntry]
     @Query(sort: \WeightEntry.date, order: .reverse) private var weightEntries: [WeightEntry]
     @Query private var sportEntries: [SportEntry]
+    @Query private var nutritionMeals: [MealEntry]
+    @Query private var nutritionGoals: [NutritionGoal]
     @Query private var categories: [AppCategory]
     @Query private var resultMeasures: [ResultMeasure]
     @Query private var measurementDefinitions: [MeasurementDefinition]
@@ -291,12 +293,21 @@ struct TodayTimelineView: View {
         case .nutrition:
             // Value (calories) + one domain-specific detail (protein) —
             // no third progress-bar representation of the same day's data.
+            // Reads the Nutrition module's own data (MealEntry/NutritionGoal)
+            // via NutritionEngine instead of the old FoodEntry-based
+            // ProgressEngine.nutritionTotals path (NUTRITION_INTEGRATION_PLAN_V1.md §13).
             guard let profile else { return TodayPlanSnapshot(value: "0 kcal", detail: "No profile", progress: nil) }
-            let totals = ProgressEngine.nutritionTotals(profile: profile, date: currentTime, entries: foodEntries)
-            let metric = ProgressMetricBuilder.metric(nutrition: totals, profile: profile)
+            let goal = nutritionGoals.first { $0.profileID == profile.id }
+            let progress = NutritionEngine.targetProgress(
+                profileID: profile.id, date: currentTime, meals: nutritionMeals, waterEntries: [], goal: goal
+            )
+            // No assumed target: only show "/Yg" once the user has actually
+            // configured a protein target, never "/0g".
+            let proteinDetail = progress.proteinTarget.map { "\(Int(progress.totals.proteinG))/\(Int($0))g protein" }
+                ?? "\(Int(progress.totals.proteinG))g protein"
             return TodayPlanSnapshot(
-                value: "\(Int(totals.calories)) kcal",
-                detail: "\(Int(metric.currentValue))/\(Int(metric.targetValue ?? 0))g protein",
+                value: "\(Int(progress.totals.calories)) kcal",
+                detail: proteinDetail,
                 progress: nil
             )
         case .bodyWeight:

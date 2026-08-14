@@ -220,4 +220,67 @@ final class GoalProgressEngineTests: XCTestCase {
         XCTAssertEqual(result.contributions.first?.completedActions, 1)
         XCTAssertEqual(result.effortFraction ?? -1, 1, accuracy: 0.0001)
     }
+
+    // MARK: - Nutrition/Body Metric Goal linkage
+
+    func testGoalLinkedToNutritionMetricDerivesProgressFromMealHistorySinceGoalCreation() {
+        let profile = TestFixtures.profile()
+        let goal = TestFixtures.goal(profile: profile, createdAt: TestFixtures.date(2026, 1, 1))
+        let measure = ResultMeasure(
+            goal: goal, name: "Protein", valueType: .number, unit: "g",
+            direction: .increase, baselineValue: 0, targetValue: 300,
+            linkedNutritionMetric: .protein
+        )
+        let beforeGoal = MealEntry(profileID: profile.id, mealType: .breakfast, recordedAt: TestFixtures.date(2025, 12, 31))
+        beforeGoal.totals = NutritionValue(proteinG: 999)
+        let afterGoal1 = MealEntry(profileID: profile.id, mealType: .breakfast, recordedAt: TestFixtures.date(2026, 1, 5))
+        afterGoal1.totals = NutritionValue(proteinG: 100)
+        let afterGoal2 = MealEntry(profileID: profile.id, mealType: .lunch, recordedAt: TestFixtures.date(2026, 1, 12))
+        afterGoal2.totals = NutritionValue(proteinG: 80)
+
+        let result = GoalProgressEngine.progress(
+            goal: goal, period: .month, now: TestFixtures.date(2026, 1, 19),
+            categories: [], contributions: [], measures: [measure], entries: [],
+            activities: [], calendarItems: [],
+            nutritionMeals: [beforeGoal, afterGoal1, afterGoal2],
+            calendar: TestFixtures.calendar
+        )
+
+        XCTAssertEqual(result.latestEntry, nil, "linked results derive from Nutrition data, not manual ResultEntry")
+        XCTAssertEqual(result.resultFraction ?? -1, 180.0 / 300.0, accuracy: 0.0001, "only meals since goal.createdAt count (300 excluded)")
+    }
+
+    func testGoalLinkedToBodyMetricDerivesProgressFromLatestEntry() {
+        let profile = TestFixtures.profile()
+        let goal = TestFixtures.goal(profile: profile, createdAt: TestFixtures.date(2026, 1, 1))
+        let definition = BodyMetricDefinition(profileID: profile.id, name: "Weight", unit: "kg")
+        let measure = ResultMeasure(
+            goal: goal, name: "Weight", valueType: .number, unit: "kg",
+            direction: .decrease, baselineValue: 82, targetValue: 78,
+            linkedBodyMetricDefinitionID: definition.id
+        )
+        let older = BodyMetricEntry(profileID: profile.id, bodyMetricDefinition: definition, nameSnapshot: "Weight", unitSnapshot: "kg", value: 80, recordedAt: TestFixtures.date(2026, 1, 5))
+        let latest = BodyMetricEntry(profileID: profile.id, bodyMetricDefinition: definition, nameSnapshot: "Weight", unitSnapshot: "kg", value: 78.5, recordedAt: TestFixtures.date(2026, 1, 12))
+
+        let result = GoalProgressEngine.progress(
+            goal: goal, period: .month, now: TestFixtures.date(2026, 1, 19),
+            categories: [], contributions: [], measures: [measure], entries: [],
+            activities: [], calendarItems: [],
+            bodyMetricEntries: [older, latest],
+            calendar: TestFixtures.calendar
+        )
+
+        XCTAssertEqual(result.resultFraction ?? -1, (82.0 - 78.5) / (82.0 - 78.0), accuracy: 0.0001)
+    }
+
+    func testGoalWithNoLinkageStillFallsBackToManualResultEntries() {
+        let profile = TestFixtures.profile()
+        let goal = TestFixtures.goal(profile: profile)
+        let measure = TestFixtures.measure(goal: goal, baseline: 0, target: 100)
+        let entry = ResultEntry(profile: profile, measure: measure, date: TestFixtures.date(2026, 1, 6), numericValue: 40)
+
+        let result = TestFixtures.progress(goal: goal, measures: [measure], entries: [entry], period: .month)
+
+        XCTAssertEqual(result.latestEntry?.numericValue, 40, "no linkage set, so manual ResultEntry is still the source")
+    }
 }

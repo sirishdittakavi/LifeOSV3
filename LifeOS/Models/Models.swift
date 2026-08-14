@@ -389,6 +389,23 @@ final class ResultMeasure {
     /// derived from summed MeasurementEntry values instead of manual check-ins.
     /// Generic across any Activity type (Baseball, Guitar, Coding, ...).
     var linkedMeasurementDefinitionID: UUID?
+    /// Optional link to a Nutrition macro/water metric (NutritionEngine.Metric),
+    /// mirroring linkedMeasurementDefinitionID's role but reading Nutrition-native
+    /// data (MealEntry/WaterEntry) instead of MeasurementEntry — Nutrition is
+    /// deliberately not Activity-scoped (NUTRITION_MODULE_DESIGN_V1.md decision 1),
+    /// so this is a sibling link, not a reuse of the Activity-measurement one.
+    var linkedNutritionMetricRaw: String?
+    /// Optional link to a BodyMetricDefinition (e.g. Weight) so this Result's
+    /// progress can be derived from BodyMetricEntry history instead of manual
+    /// check-ins. Mutually exclusive with the other two links in practice —
+    /// UI only ever sets one — but not enforced at the model level, matching
+    /// how linkedMeasurementDefinitionID is handled today.
+    var linkedBodyMetricDefinitionID: UUID?
+
+    var linkedNutritionMetric: NutritionEngine.Metric? {
+        get { linkedNutritionMetricRaw.flatMap { NutritionEngine.Metric(rawValue: $0) } }
+        set { linkedNutritionMetricRaw = newValue?.rawValue }
+    }
 
     var role: ResultMeasureRole {
         get { ResultMeasureRole(rawValue: roleRaw) ?? .primary }
@@ -424,7 +441,9 @@ final class ResultMeasure {
         targetMaximum: Double? = nil, ratingLabels: [String] = [],
         cadence: ResultCheckInCadence = .monthly, nextCheckInDate: Date? = nil,
         reminderEnabled: Bool = false, reminderHour: Int = 18, reminderMinute: Int = 0,
-        linkedMeasurementDefinitionID: UUID? = nil
+        linkedMeasurementDefinitionID: UUID? = nil,
+        linkedNutritionMetric: NutritionEngine.Metric? = nil,
+        linkedBodyMetricDefinitionID: UUID? = nil
     ) {
         self.id = UUID()
         self.goal = goal
@@ -445,6 +464,8 @@ final class ResultMeasure {
         self.reminderMinute = reminderMinute
         self.isActive = true
         self.linkedMeasurementDefinitionID = linkedMeasurementDefinitionID
+        self.linkedNutritionMetricRaw = linkedNutritionMetric?.rawValue
+        self.linkedBodyMetricDefinitionID = linkedBodyMetricDefinitionID
     }
 }
 

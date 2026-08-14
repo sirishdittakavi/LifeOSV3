@@ -209,8 +209,8 @@ struct ImprovementCategoryDetailView: View {
         .sheet(item: $editingTask) { TaskDetailView(activity: $0) }
         .sheet(item: $activeTool) { tool in
             switch tool {
-            case .food: FoodTrackerView(selection: selection)
-            case .weight: WeightTrackerView(selection: selection)
+            case .food: NutritionDashboardView(selection: selection)
+            case .weight: BodyTrackingView(selection: selection)
             case .sport: SportTrackerView(selection: selection, category: category)
             }
         }

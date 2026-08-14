@@ -758,6 +758,7 @@ private struct AddGoalView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var categories: [AppCategory]
     @Query private var allMeasurementDefinitions: [MeasurementDefinition]
+    @Query private var allBodyMetricDefinitions: [BodyMetricDefinition]
     @State private var name = ""
     @State private var purpose = ""
     @State private var hasTargetDate = true
@@ -778,6 +779,8 @@ private struct AddGoalView: View {
     @State private var didApplySuggestedAreas = false
     @State private var resultSource: ResultSource = .manual
     @State private var selectedMeasurementDefinitionID: UUID?
+    @State private var selectedNutritionMetric: NutritionEngine.Metric?
+    @State private var selectedBodyMetricDefinitionID: UUID?
 
     init(profile: Profile, template: GoalStarterTemplate? = nil) {
         self.profile = profile
@@ -811,12 +814,20 @@ private struct AddGoalView: View {
             .filter { $0.isActive && $0.type != .text && $0.activity?.profile?.id == profile.id }
             .sorted { ($0.activity?.name ?? "", $0.sortOrder) < ($1.activity?.name ?? "", $1.sortOrder) }
     }
+    private var bodyMetricDefinitions: [BodyMetricDefinition] {
+        allBodyMetricDefinitions
+            .filter { $0.profileID == profile.id }
+            .sorted { $0.sortOrder < $1.sortOrder }
+    }
     private var canSave: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !measureName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !selectedAreaIDs.isEmpty &&
         (valueType == .text || valueType == .milestone || validNumericTarget) &&
-        (resultSource == .manual || valueType == .text || valueType == .milestone || selectedMeasurementDefinitionID != nil)
+        (resultSource == .manual || valueType == .text || valueType == .milestone
+            || (resultSource == .activityMeasurement && selectedMeasurementDefinitionID != nil)
+            || (resultSource == .nutritionMetric && selectedNutritionMetric != nil)
+            || (resultSource == .bodyMetric && selectedBodyMetricDefinitionID != nil))
     }
     private var validNumericTarget: Bool {
         ResultMeasureValidation.isValidTarget(
@@ -856,28 +867,14 @@ private struct AddGoalView: View {
                         ForEach(ResultValueType.allCases) { Text($0.rawValue).tag($0) }
                     }
                     if valueType == .number || valueType == .rating {
-                        Picker("Result source", selection: $resultSource) {
-                            ForEach(ResultSource.allCases) { Text($0.rawValue).tag($0) }
-                        }
-                        .pickerStyle(.segmented)
-                        if resultSource == .activityMeasurement {
-                            if compatibleMeasurementDefinitions.isEmpty {
-                                Text("No compatible Activity measurements yet. Add one from an Activity's Measurements section.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                Picker("Measurement", selection: $selectedMeasurementDefinitionID) {
-                                    Text("Choose").tag(UUID?.none)
-                                    ForEach(compatibleMeasurementDefinitions) { definition in
-                                        Text("\(definition.activity?.name ?? "Activity") · \(definition.name)")
-                                            .tag(UUID?.some(definition.id))
-                                    }
-                                }
-                                Text("Progress will total this measurement's entries since the Goal was created — no manual check-ins needed.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                        ResultLinkPicker(
+                            resultSource: $resultSource,
+                            selectedMeasurementDefinitionID: $selectedMeasurementDefinitionID,
+                            selectedNutritionMetric: $selectedNutritionMetric,
+                            selectedBodyMetricDefinitionID: $selectedBodyMetricDefinitionID,
+                            compatibleMeasurementDefinitions: compatibleMeasurementDefinitions,
+                            bodyMetricDefinitions: bodyMetricDefinitions
+                        )
                         TextField("Unit, such as %, kg, mph or seconds", text: $unit)
                         Picker("Desired result", selection: $direction) {
                             ForEach(ResultDirection.allCases) { Text($0.rawValue).tag($0) }
@@ -977,7 +974,11 @@ private struct AddGoalView: View {
             reminderHour: Calendar.current.component(.hour, from: reminderTime),
             reminderMinute: Calendar.current.component(.minute, from: reminderTime),
             linkedMeasurementDefinitionID: (valueType == .number || valueType == .rating) && resultSource == .activityMeasurement
-                ? selectedMeasurementDefinitionID : nil
+                ? selectedMeasurementDefinitionID : nil,
+            linkedNutritionMetric: (valueType == .number || valueType == .rating) && resultSource == .nutritionMetric
+                ? selectedNutritionMetric : nil,
+            linkedBodyMetricDefinitionID: (valueType == .number || valueType == .rating) && resultSource == .bodyMetric
+                ? selectedBodyMetricDefinitionID : nil
         )
         modelContext.insert(measure)
 
@@ -1096,7 +1097,79 @@ struct AddResultEntryView: View {
 enum ResultSource: String, CaseIterable, Identifiable {
     case manual = "Manual check-in"
     case activityMeasurement = "Activity measurement"
+    case nutritionMetric = "Nutrition"
+    case bodyMetric = "Body metric"
     var id: String { rawValue }
+}
+
+/// Shared Result-source picker content for the three linkage forms (New
+/// Goal, Add Result Measure, Edit Result Measure) so they can't drift out
+/// of sync. Plain-language labels only (Protein, Weight, ...) — never
+/// surfaces linkedNutritionMetricID/linkedBodyMetricDefinitionID to the
+/// user. Additive alongside the existing manual/Activity-measurement
+/// sources; nothing about those two changes here.
+struct ResultLinkPicker: View {
+    @Binding var resultSource: ResultSource
+    @Binding var selectedMeasurementDefinitionID: UUID?
+    @Binding var selectedNutritionMetric: NutritionEngine.Metric?
+    @Binding var selectedBodyMetricDefinitionID: UUID?
+    let compatibleMeasurementDefinitions: [MeasurementDefinition]
+    let bodyMetricDefinitions: [BodyMetricDefinition]
+
+    var body: some View {
+        Picker("Source", selection: $resultSource) {
+            ForEach(ResultSource.allCases) { Text($0.rawValue).tag($0) }
+        }
+        .pickerStyle(.segmented)
+
+        switch resultSource {
+        case .manual:
+            EmptyView()
+        case .activityMeasurement:
+            if compatibleMeasurementDefinitions.isEmpty {
+                Text("No compatible Activity measurements yet. Add one from an Activity's Measurements section.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Picker("Measurement", selection: $selectedMeasurementDefinitionID) {
+                    Text("Choose").tag(UUID?.none)
+                    ForEach(compatibleMeasurementDefinitions) { definition in
+                        Text("\(definition.activity?.name ?? "Activity") · \(definition.name)")
+                            .tag(UUID?.some(definition.id))
+                    }
+                }
+                Text("Progress will total this measurement's entries since the Goal was created — no manual check-ins needed.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        case .nutritionMetric:
+            Picker("Metric", selection: $selectedNutritionMetric) {
+                Text("Choose").tag(NutritionEngine.Metric?.none)
+                ForEach(NutritionEngine.Metric.allCases) { metric in
+                    Text(metric.displayName).tag(NutritionEngine.Metric?.some(metric))
+                }
+            }
+            Text("Progress will total this from your Nutrition log since the Goal was created.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .bodyMetric:
+            if bodyMetricDefinitions.isEmpty {
+                Text("No Body Tracking metrics yet. Add one from Body Tracking.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Picker("Metric", selection: $selectedBodyMetricDefinitionID) {
+                    Text("Choose").tag(UUID?.none)
+                    ForEach(bodyMetricDefinitions) { definition in
+                        Text(definition.name).tag(UUID?.some(definition.id))
+                    }
+                }
+                Text("Progress will use your latest recorded value for this metric.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
 }
 
 private struct AddResultMeasureView: View {
@@ -1104,6 +1177,7 @@ private struct AddResultMeasureView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query private var allMeasurementDefinitions: [MeasurementDefinition]
+    @Query private var allBodyMetricDefinitions: [BodyMetricDefinition]
     @State private var name = ""
     @State private var unit = ""
     @State private var baseline = 0.0
@@ -1115,6 +1189,8 @@ private struct AddResultMeasureView: View {
     @State private var reminderTime = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: .now) ?? .now
     @State private var resultSource: ResultSource = .manual
     @State private var selectedMeasurementDefinitionID: UUID?
+    @State private var selectedNutritionMetric: NutritionEngine.Metric?
+    @State private var selectedBodyMetricDefinitionID: UUID?
 
     /// Only numeric-style measurements (not free text) can back a numeric Result.
     /// Works identically for any Activity — Baseball, Guitar, Coding, etc.
@@ -1123,6 +1199,12 @@ private struct AddResultMeasureView: View {
         return allMeasurementDefinitions
             .filter { $0.isActive && $0.type != .text && $0.activity?.profile?.id == profileID }
             .sorted { ($0.activity?.name ?? "", $0.sortOrder) < ($1.activity?.name ?? "", $1.sortOrder) }
+    }
+    private var bodyMetricDefinitions: [BodyMetricDefinition] {
+        guard let profileID = goal.profile?.id else { return [] }
+        return allBodyMetricDefinitions
+            .filter { $0.profileID == profileID }
+            .sorted { $0.sortOrder < $1.sortOrder }
     }
 
     private var validTarget: Bool {
@@ -1134,35 +1216,24 @@ private struct AddResultMeasureView: View {
 
     private var canSave: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && validTarget &&
-            (resultSource == .manual || selectedMeasurementDefinitionID != nil)
+            (resultSource == .manual
+                || (resultSource == .activityMeasurement && selectedMeasurementDefinitionID != nil)
+                || (resultSource == .nutritionMetric && selectedNutritionMetric != nil)
+                || (resultSource == .bodyMetric && selectedBodyMetricDefinitionID != nil))
     }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Result source") {
-                    Picker("Source", selection: $resultSource) {
-                        ForEach(ResultSource.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    if resultSource == .activityMeasurement {
-                        if compatibleMeasurementDefinitions.isEmpty {
-                            Text("No compatible Activity measurements yet. Add one from an Activity's Measurements section.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Picker("Measurement", selection: $selectedMeasurementDefinitionID) {
-                                Text("Choose").tag(UUID?.none)
-                                ForEach(compatibleMeasurementDefinitions) { definition in
-                                    Text("\(definition.activity?.name ?? "Activity") · \(definition.name)")
-                                        .tag(UUID?.some(definition.id))
-                                }
-                            }
-                            Text("Progress will total this measurement's entries since the Goal was created — no manual check-ins needed.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                    ResultLinkPicker(
+                        resultSource: $resultSource,
+                        selectedMeasurementDefinitionID: $selectedMeasurementDefinitionID,
+                        selectedNutritionMetric: $selectedNutritionMetric,
+                        selectedBodyMetricDefinitionID: $selectedBodyMetricDefinitionID,
+                        compatibleMeasurementDefinitions: compatibleMeasurementDefinitions,
+                        bodyMetricDefinitions: bodyMetricDefinitions
+                    )
                 }
 
                 Section("Supporting Result") {
@@ -1206,7 +1277,9 @@ private struct AddResultMeasureView: View {
             reminderEnabled: cadence != .onDemand && reminderEnabled,
             reminderHour: Calendar.current.component(.hour, from: reminderTime),
             reminderMinute: Calendar.current.component(.minute, from: reminderTime),
-            linkedMeasurementDefinitionID: resultSource == .activityMeasurement ? selectedMeasurementDefinitionID : nil
+            linkedMeasurementDefinitionID: resultSource == .activityMeasurement ? selectedMeasurementDefinitionID : nil,
+            linkedNutritionMetric: resultSource == .nutritionMetric ? selectedNutritionMetric : nil,
+            linkedBodyMetricDefinitionID: resultSource == .bodyMetric ? selectedBodyMetricDefinitionID : nil
         )
         modelContext.insert(measure)
         if modelContext.saveOrReport() {

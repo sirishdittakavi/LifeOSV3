@@ -26,6 +26,12 @@
 //  the moment LifeOS actually ships to real users; all guidance above this
 //  note applies again in full from that point on.
 //
+//  Same exception covers the Nutrition module additions below
+//  (NUTRITION_MODULE_DESIGN_V1.md / NUTRITION_INTEGRATION_PLAN_V1.md Phase
+//  1). FoodEntry/WeightEntry stay in the roster for now — their Views
+//  (FoodTrackerView/WeightTrackerView) are untouched in this phase; removal
+//  is a later phase per the integration plan §3/§5.
+//
 
 import SwiftData
 
@@ -34,7 +40,7 @@ enum LifeOSSchemaV1: VersionedSchema {
     /// Release contract used by migration tests. Never change this value or
     /// roster after V1 ships; add a new versioned schema instead.
     /// (Pre-release exception above still applies as of Phase 1.)
-    static let releaseFingerprint = "LifeOSSchemaV1:1.0.0:Profile,SavedCategoryTemplate,AppCategory,Goal,GoalAreaContribution,ResultMeasure,ResultEntry,Activity,CalendarItem,ActivitySession,FoodEntry,WeightEntry,SportEntry,Relationship,MeasurementDefinition,MeasurementEntry"
+    static let releaseFingerprint = "LifeOSSchemaV1:1.0.0:Profile,SavedCategoryTemplate,AppCategory,Goal,GoalAreaContribution,ResultMeasure,ResultEntry,Activity,CalendarItem,ActivitySession,FoodEntry,WeightEntry,SportEntry,Relationship,MeasurementDefinition,MeasurementEntry,NutritionGoal,MealTemplate,MealEntry,NutritionFoodEntry,WaterEntry,BodyMetricDefinition,BodyMetricEntry"
 
     static var models: [any PersistentModel.Type] {
         [
@@ -53,7 +59,14 @@ enum LifeOSSchemaV1: VersionedSchema {
             SportEntry.self,
             Relationship.self,
             MeasurementDefinition.self,
-            MeasurementEntry.self
+            MeasurementEntry.self,
+            NutritionGoal.self,
+            MealTemplate.self,
+            MealEntry.self,
+            NutritionFoodEntry.self,
+            WaterEntry.self,
+            BodyMetricDefinition.self,
+            BodyMetricEntry.self
         ]
     }
 }

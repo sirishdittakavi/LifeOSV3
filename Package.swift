@@ -24,6 +24,7 @@ let package = Package(
             ],
             sources: [
                 "Models/Models.swift",
+                "Models/NutritionModels.swift",
                 "Models/SeedData.swift",
                 "Models/SchemaVersioning.swift",
                 "Engine/CategoryHierarchy.swift",
@@ -38,7 +39,10 @@ let package = Package(
                 "Engine/TodayViewModel.swift",
                 "Engine/ProgressMetric.swift",
                 "Engine/MeasurementRepository.swift",
-                "Engine/RelationshipRepository.swift"
+                "Engine/RelationshipRepository.swift",
+                "Engine/NutritionRepository.swift",
+                "Engine/BodyTrackingRepository.swift",
+                "Engine/NutritionEngine.swift"
             ]
         ),
         .testTarget(
