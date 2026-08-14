@@ -84,18 +84,16 @@ final class NutritionReviewUITests: XCTestCase {
 
     // MARK: - Helpers
 
+    /// Tapping the Today Nutrition tile opens the Nutrition Dashboard
+    /// directly — the generic Area Hub (Tasks/Goals/Measurements) has
+    /// nothing relevant for Nutrition, so it's skipped rather than being an
+    /// extra intermediate screen.
     private func openNutritionDashboard() {
         let nutritionTile = app.descendants(matching: .any)["today.overview.nutrition"]
         XCTAssertTrue(nutritionTile.waitForExistence(timeout: 6), "Today Nutrition Plan tile must exist")
         scrollToElement(nutritionTile)
         nutritionTile.tap()
-        XCTAssertTrue(app.navigationBars["Nutrition"].waitForExistence(timeout: 3), "Area Hub should open for the Nutrition Area")
-
-        let openNutrition = app.buttons["Log Food or Nutrition"]
-        scrollToElement(openNutrition)
-        XCTAssertTrue(openNutrition.exists, "Area Hub must expose a way into the Nutrition Dashboard")
-        openNutrition.tap()
-        XCTAssertTrue(app.navigationBars["Nutrition"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["Nutrition"].waitForExistence(timeout: 3), "Nutrition Dashboard should open directly, with no Area Hub screen in between")
     }
 
     private func closeDashboard() {
@@ -103,12 +101,9 @@ final class NutritionReviewUITests: XCTestCase {
     }
 
     private func openTargetsScreen() {
-        let moreMenu = app.buttons["More Nutrition options"]
-        XCTAssertTrue(moreMenu.waitForExistence(timeout: 3))
-        moreMenu.tap()
-        let targetsButton = app.buttons["Nutrition Targets"]
-        XCTAssertTrue(targetsButton.waitForExistence(timeout: 2))
-        targetsButton.tap()
+        let targetsChip = app.buttons["Targets"]
+        XCTAssertTrue(targetsChip.waitForExistence(timeout: 3))
+        targetsChip.tap()
         XCTAssertTrue(app.navigationBars["Nutrition Targets"].waitForExistence(timeout: 3))
     }
 

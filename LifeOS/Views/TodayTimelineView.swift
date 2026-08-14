@@ -130,8 +130,21 @@ struct TodayTimelineView: View {
                 }
             }
             .sheet(item: $selectedOverviewPlan) { category in
-                NavigationStack {
-                    ImprovementCategoryDetailView(selection: selection, category: category)
+                // Nutrition/Body Weight are a self-contained module with
+                // their own Dashboard/Body Tracking screens — the generic
+                // Area Hub (Tasks/Goals/Measurements) has nothing relevant
+                // to show for them, so skip straight to the destination
+                // instead of an extra intermediate screen. Every other
+                // tracking kind (Tasks, Sport, ...) is unchanged.
+                switch category.trackingKind {
+                case .nutrition:
+                    NutritionDashboardView(selection: selection)
+                case .bodyWeight:
+                    BodyTrackingView(selection: selection)
+                case .tasks, .sport:
+                    NavigationStack {
+                        ImprovementCategoryDetailView(selection: selection, category: category)
+                    }
                 }
             }
             .sheet(item: $resultMeasureToRecord) { measure in

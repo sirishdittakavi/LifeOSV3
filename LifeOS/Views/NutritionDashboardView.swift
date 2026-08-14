@@ -53,6 +53,7 @@ struct NutritionDashboardView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: LifeOSSpacing.lg) {
+                    subNavRow
                     if let progress {
                         proteinHeroCard(progress)
                         secondaryMetricsCard(progress)
@@ -67,23 +68,12 @@ struct NutritionDashboardView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { ProfilePicker(selection: selection) }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    // Two visible trailing items only — a fourth icon here
-                    // pushes iOS to auto-collapse everything (including the
-                    // primary Quick Actions button) into a hidden "..."
-                    // overflow menu. Templates/Body Tracking/Progress are
-                    // secondary navigation, so they share one menu; Quick
-                    // Actions stays the one always-visible, always-tappable
-                    // action, matching the approved mockup's single "+".
-                    Menu {
-                        Button { showingTemplates = true } label: { Label("Meal Templates", systemImage: "star") }
-                        Button { showingBodyTracking = true } label: { Label("Body Tracking", systemImage: "scalemass") }
-                        Button { showingProgress = true } label: { Label("Nutrition Progress", systemImage: "chart.line.uptrend.xyaxis") }
-                        Button { showingTargets = true } label: { Label("Nutrition Targets", systemImage: "target") }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                    .accessibilityLabel("More Nutrition options")
+                ToolbarItem(placement: .topBarTrailing) {
+                    // The single always-visible action — a second icon here
+                    // pushes iOS to auto-collapse both into a hidden "..."
+                    // overflow menu. Templates/Body Tracking/Progress/
+                    // Targets moved to a visible tab row below the nav bar
+                    // instead (one tap, not menu-then-tap).
                     Button { showingQuickActions = true } label: { Image(systemName: "plus.circle.fill") }
                         .accessibilityLabel("Log Meal, Water, or Weight")
                 }
@@ -101,6 +91,24 @@ struct NutritionDashboardView: View {
             .sheet(isPresented: $showingBodyTracking) { BodyTrackingView(selection: selection) }
             .sheet(isPresented: $showingProgress) { NutritionProgressView(selection: selection) }
             .sheet(isPresented: $showingTargets) { NutritionTargetsView(selection: selection) }
+        }
+    }
+
+    /// One tap to each secondary Nutrition screen — replaces the earlier
+    /// "•••" overflow menu, which needed a menu-open tap before the actual
+    /// destination tap.
+    private var subNavRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: LifeOSSpacing.sm) {
+                LOChip(title: "Templates", symbol: "star", isSelected: false) { showingTemplates = true }
+                    .fixedSize()
+                LOChip(title: "Body Tracking", symbol: "scalemass", isSelected: false) { showingBodyTracking = true }
+                    .fixedSize()
+                LOChip(title: "Progress", symbol: "chart.line.uptrend.xyaxis", isSelected: false) { showingProgress = true }
+                    .fixedSize()
+                LOChip(title: "Targets", symbol: "target", isSelected: false) { showingTargets = true }
+                    .fixedSize()
+            }
         }
     }
 
