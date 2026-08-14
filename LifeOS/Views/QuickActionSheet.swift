@@ -82,7 +82,15 @@ private struct WaterQuickAddSheet: View {
     @Bindable var selection: SelectedProfile
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Query private var allWaterEntries: [WaterEntry]
     @State private var customAmount: Double?
+
+    private var todaysEntries: [WaterEntry] {
+        guard let profileID = selection.profile?.id else { return [] }
+        return allWaterEntries
+            .filter { $0.profileID == profileID && Calendar.current.isDateInToday($0.recordedAt) }
+            .sorted { $0.recordedAt > $1.recordedAt }
+    }
 
     var body: some View {
         NavigationStack {
@@ -99,6 +107,9 @@ private struct WaterQuickAddSheet: View {
                         if let customAmount, customAmount > 0 { add(customAmount) }
                     }
                 }
+                if !todaysEntries.isEmpty {
+                    loggedTodaySection
+                }
                 Spacer()
             }
             .padding(LifeOSSpacing.lg)
@@ -107,6 +118,27 @@ private struct WaterQuickAddSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             }
+        }
+    }
+
+    private var loggedTodaySection: some View {
+        VStack(alignment: .leading, spacing: LifeOSSpacing.sm) {
+            LOSectionHeader(title: "Logged today")
+            List {
+                ForEach(todaysEntries) { entry in
+                    HStack {
+                        Text("\(Int(entry.amountML)) mL")
+                            .font(.lifeOSBody)
+                        Spacer()
+                        Text(entry.recordedAt, format: .dateTime.hour().minute())
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .onDelete(perform: deleteEntries)
+            }
+            .listStyle(.plain)
+            .frame(height: min(CGFloat(todaysEntries.count) * 44 + 8, 176))
         }
     }
 
@@ -125,7 +157,14 @@ private struct WaterQuickAddSheet: View {
         let entry = WaterEntry(profileID: profileID, amountML: amount)
         let repository = SwiftDataNutritionRepository(context: modelContext)
         repository.insertWaterEntry(entry)
-        if repository.save() { dismiss() }
+        repository.save()
+        customAmount = nil
+    }
+
+    private func deleteEntries(at offsets: IndexSet) {
+        let repository = SwiftDataNutritionRepository(context: modelContext)
+        for index in offsets { repository.deleteWaterEntry(todaysEntries[index]) }
+        repository.save()
     }
 }
 

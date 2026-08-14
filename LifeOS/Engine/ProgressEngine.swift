@@ -175,7 +175,14 @@ enum ProgressEngine {
         entries
             .filter { entry in
                 let matchesDefinition = entry.measurementDefinition?.id == definition.id
-                    || (entry.measurementDefinition == nil && entry.nameSnapshot == definition.name)
+                    || (
+                        entry.measurementDefinition == nil && entry.nameSnapshot == definition.name
+                        // Two profiles can each delete their own identically-named
+                        // definition, leaving two orphaned entries with the same
+                        // nameSnapshot — this must only fall back to the entry that
+                        // actually belongs to the same profile as `definition`.
+                        && entry.activitySession?.activity?.profile?.id == definition.activity?.profile?.id
+                    )
                 guard matchesDefinition else { return false }
                 guard let interval else { return true }
                 return interval.contains(entry.recordedAt)

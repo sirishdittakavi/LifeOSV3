@@ -29,6 +29,7 @@ struct AddEditMealView: View {
 
     @State private var showingTemplateNamePrompt = false
     @State private var templateName = ""
+    @State private var showingDeleteConfirmation = false
 
     init(selection: SelectedProfile, mealType: MealType, existingMeal: MealEntry? = nil) {
         self.selection = selection
@@ -70,6 +71,12 @@ struct AddEditMealView: View {
                     Button("Save as Template") { showingTemplateNamePrompt = true }
                         .disabled(!hasAnyValue)
                 }
+
+                if existingMeal != nil {
+                    Section {
+                        Button("Delete Meal", role: .destructive) { showingDeleteConfirmation = true }
+                    }
+                }
             }
             .navigationTitle(existingMeal == nil ? "Add \(mealType.rawValue)" : "Edit \(mealType.rawValue)")
             .navigationBarTitleDisplayMode(.inline)
@@ -85,6 +92,12 @@ struct AddEditMealView: View {
                 Button("Save") { saveAsTemplate() }
             } message: {
                 Text("This meal's details and totals will be saved for one-tap reuse.")
+            }
+            .confirmationDialog("Delete this meal?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+                Button("Delete Meal", role: .destructive, action: deleteMeal)
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("This removes it from today's totals and history. This can't be undone.")
             }
         }
     }
@@ -116,6 +129,18 @@ struct AddEditMealView: View {
         }
 
         if repository.save() { dismiss() }
+    }
+
+    private func deleteMeal() {
+        guard let meal = existingMeal else { return }
+        let repository = SwiftDataNutritionRepository(context: modelContext)
+        do {
+            try repository.deleteMeal(meal)
+            if repository.save() { dismiss() }
+        } catch {
+            // Deletion failures here mean the persistent store itself is broken;
+            // nothing meaningful to recover from at the form level.
+        }
     }
 
     private func saveAsTemplate() {

@@ -19,6 +19,10 @@ struct LifeOSApp: App {
         WindowGroup {
             StoreRecoveryGate(store: store)
                 .modelContainer(store.container)
+                .onAppear { NotificationRouter.shared.configure(container: store.container) }
+                .onChange(of: store.persistentStoreFailed) { _, failed in
+                    if !failed { NotificationRouter.shared.configure(container: store.container) }
+                }
         }
     }
 }

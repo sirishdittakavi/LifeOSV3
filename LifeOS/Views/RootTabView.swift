@@ -33,20 +33,26 @@ struct RootTabView: View {
     @Query private var activities: [Activity]
     @AppStorage("LifeOS.onboarding.v1.completed") private var onboardingCompleted = false
     @State private var showingOnboarding = false
+    @State private var selectedTab = 0
+    @ObservedObject private var notificationRouter = NotificationRouter.shared
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             TodayTimelineView(selection: selection)
                 .tabItem { Label("Today", systemImage: "calendar") }
+                .tag(0)
 
             ImprovementCategoriesView(selection: selection)
                 .tabItem { Label("Plans", systemImage: "list.bullet.clipboard") }
+                .tag(1)
 
             ImprovementDashboardView(selection: selection)
                 .tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
+                .tag(2)
 
             WeeklyScheduleView(selection: selection)
                 .tabItem { Label("Schedule", systemImage: "calendar.day.timeline.left") }
+                .tag(3)
         }
         .alert("Couldn’t Save", isPresented: Binding(
             get: { persistenceIssues.message != nil },
@@ -64,6 +70,10 @@ struct RootTabView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { refreshReminders() }
         }
+        .onChange(of: notificationRouter.pendingDeepLink) { _, deepLink in
+            handleDeepLink(deepLink)
+        }
+        .onAppear { handleDeepLink(notificationRouter.pendingDeepLink) }
         .sheet(isPresented: $showingOnboarding) {
             if let profile = selection.profile ?? profiles.first(where: \.isActive) {
                 LifeOSOnboardingView(profile: profile) {
@@ -75,6 +85,20 @@ struct RootTabView: View {
                 .presentationDragIndicator(.hidden)
             }
         }
+    }
+
+    /// Tapping a notification must always land the user on the profile and
+    /// screen it was actually for — never whichever profile happened to be
+    /// selected before the app was backgrounded. The payload's profileID is
+    /// the only source of truth here, matched by ID against the real
+    /// Profile list, never by name.
+    private func handleDeepLink(_ deepLink: NotificationRouter.DeepLink?) {
+        guard let deepLink else { return }
+        if let matchedProfile = profiles.first(where: { $0.id == deepLink.profileID }) {
+            selection.profile = matchedProfile
+        }
+        selectedTab = 0
+        notificationRouter.pendingDeepLink = nil
     }
 
     private func presentOnboardingIfNeeded() {

@@ -22,6 +22,7 @@ struct BodyTrackingView: View {
 
     @State private var loggingDefinition: BodyMetricDefinition?
     @State private var showingAddMetric = false
+    @State private var entryPendingDeletion: BodyMetricEntry?
 
     private var profileID: UUID? { selection.profile?.id }
 
@@ -65,7 +66,21 @@ struct BodyTrackingView: View {
                     AddCustomMetricSheet(profileID: profileID, nextSortOrder: definitions.count)
                 }
             }
+            .confirmationDialog("Delete this entry?", isPresented: Binding(
+                get: { entryPendingDeletion != nil }, set: { if !$0 { entryPendingDeletion = nil } }
+            ), titleVisibility: .visible) {
+                Button("Delete Entry", role: .destructive) { deleteEntry(entryPendingDeletion) }
+                Button("Cancel", role: .cancel) { entryPendingDeletion = nil }
+            }
         }
+    }
+
+    private func deleteEntry(_ entry: BodyMetricEntry?) {
+        guard let entry else { return }
+        let repository = SwiftDataBodyTrackingRepository(context: modelContext)
+        repository.deleteEntry(entry)
+        repository.save()
+        entryPendingDeletion = nil
     }
 
     private func weightCard(_ definition: BodyMetricDefinition) -> some View {
@@ -108,14 +123,19 @@ struct BodyTrackingView: View {
                     if recent.count > 1 {
                         Divider()
                         ForEach(recent.prefix(5)) { entry in
-                            HStack {
-                                Text(entry.recordedAt.formatted(date: .abbreviated, time: .omitted))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text("\(entry.value, format: .number.precision(.fractionLength(1))) \(entry.unitSnapshot)")
-                                    .font(.caption.weight(.semibold))
+                            Button { entryPendingDeletion = entry } label: {
+                                HStack {
+                                    Text(entry.recordedAt.formatted(date: .abbreviated, time: .omitted))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text("\(entry.value, format: .number.precision(.fractionLength(1))) \(entry.unitSnapshot)")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.primary)
+                                }
+                                .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }

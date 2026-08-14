@@ -272,6 +272,27 @@ enum PlanningService {
         return calendar.date(byAdding: .day, value: 1, to: day) ?? day
     }
 
+    /// Resolves a notification's (profileID, activityID, occurrence) payload
+    /// back to the exact CalendarItem it was scheduled for — additive, pure,
+    /// dependency-free so NotificationRouter's resolution logic (the part a
+    /// cross-profile leak could hide in) stays unit-testable without a real
+    /// notification runtime. Scoped by BOTH profileID and activityID before
+    /// ever comparing dates, so two profiles' identically named/timed
+    /// Activities can never resolve to each other's item. `occurrence` is
+    /// matched to `plannedStart` within a minute — both this and
+    /// `reminderOccurrenceDates` compute planned times to whole-minute
+    /// precision, so this only absorbs serialization rounding, never a
+    /// different occurrence.
+    static func resolveCalendarItem(
+        profileID: UUID, activityID: UUID, occurrence: Date, in items: [CalendarItem]
+    ) -> CalendarItem? {
+        items.first { item in
+            guard item.profile?.id == profileID, item.activity?.id == activityID,
+                  let plannedStart = item.plannedStart else { return false }
+            return abs(plannedStart.timeIntervalSince(occurrence)) < 60
+        }
+    }
+
     /// Concrete future dates used by local notifications. Finite dates avoid
     /// repeating notifications firing before a Task starts or after it ends.
     static func reminderOccurrenceDates(

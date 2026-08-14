@@ -20,7 +20,8 @@ let package = Package(
                 "Assets.xcassets",
                 "LifeOSApp.swift",
                 "PrivacyInfo.xcprivacy",
-                "Engine/ReminderService.swift"
+                "Engine/ReminderService.swift",
+                "Engine/NotificationRouter.swift"
             ],
             sources: [
                 "Models/Models.swift",

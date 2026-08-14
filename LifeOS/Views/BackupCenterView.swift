@@ -17,6 +17,12 @@ struct BackupCenterView: View {
     @Query private var weightEntries: [WeightEntry]
     @Query private var sportEntries: [SportEntry]
     @Query private var savedTemplates: [SavedCategoryTemplate]
+    @Query private var nutritionGoals: [NutritionGoal]
+    @Query private var mealTemplates: [MealTemplate]
+    @Query private var mealEntries: [MealEntry]
+    @Query private var waterEntries: [WaterEntry]
+    @Query private var bodyMetricDefinitions: [BodyMetricDefinition]
+    @Query private var bodyMetricEntries: [BodyMetricEntry]
 
     @State private var exporting = false
     @State private var importing = false
@@ -59,6 +65,12 @@ struct BackupCenterView: View {
                 countRow("Weight entries", weightEntries.count)
                 countRow("Sport entries", sportEntries.count)
                 countRow("Saved Area Templates", savedTemplates.count)
+                countRow("Nutrition targets", nutritionGoals.count)
+                countRow("Meal templates", mealTemplates.count)
+                countRow("Meal entries", mealEntries.count)
+                countRow("Water entries", waterEntries.count)
+                countRow("Body metric definitions", bodyMetricDefinitions.count)
+                countRow("Body metric entries", bodyMetricEntries.count)
             }
         }
         .navigationTitle("Backup & Restore")
@@ -96,7 +108,10 @@ struct BackupCenterView: View {
             resultMeasures: resultMeasures, resultEntries: resultEntries,
             calendarItems: calendarItems, sessions: sessions, foodEntries: foodEntries,
             weightEntries: weightEntries, sportEntries: sportEntries,
-            savedTemplates: savedTemplates
+            savedTemplates: savedTemplates,
+            nutritionGoals: nutritionGoals, mealTemplates: mealTemplates,
+            mealEntries: mealEntries, waterEntries: waterEntries,
+            bodyMetricDefinitions: bodyMetricDefinitions, bodyMetricEntries: bodyMetricEntries
         )
         do {
             let encoder = JSONEncoder()

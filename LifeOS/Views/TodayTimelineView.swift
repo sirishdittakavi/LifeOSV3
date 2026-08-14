@@ -22,6 +22,8 @@ struct TodayTimelineView: View {
     @Query private var sportEntries: [SportEntry]
     @Query private var nutritionMeals: [MealEntry]
     @Query private var nutritionGoals: [NutritionGoal]
+    @Query private var bodyMetricDefinitions: [BodyMetricDefinition]
+    @Query private var bodyMetricEntries: [BodyMetricEntry]
     @Query private var categories: [AppCategory]
     @Query private var resultMeasures: [ResultMeasure]
     @Query private var measurementDefinitions: [MeasurementDefinition]
@@ -324,10 +326,21 @@ struct TodayTimelineView: View {
                 progress: nil
             )
         case .bodyWeight:
-            let latest = weightEntries.first { $0.profile?.id == profile?.id }
-            let unit = profile?.weightUnit ?? .kilograms
+            // Reads the Body Tracking module's own data (BodyMetricEntry)
+            // instead of the old WeightEntry — nothing writes WeightEntry
+            // from the current Body Tracking screen anymore, so this tile
+            // would otherwise never reflect a weight logged there.
+            guard let profileID = profile?.id else {
+                return TodayPlanSnapshot(value: "No entry", detail: "No profile", progress: nil)
+            }
+            let weightDefinitionID = bodyMetricDefinitions.first {
+                $0.profileID == profileID && $0.name == "Weight"
+            }?.id
+            let latest = weightDefinitionID.flatMap {
+                BodyTrackingEngine.latestEntry(definitionID: $0, entries: bodyMetricEntries)
+            }
             let value = latest.map {
-                "\(unit.displayValue(kilograms: $0.kilograms).formatted(.number.precision(.fractionLength(1)))) \(unit.rawValue)"
+                "\($0.value.formatted(.number.precision(.fractionLength(1)))) \($0.unitSnapshot)"
             } ?? "No entry"
             return TodayPlanSnapshot(value: value, detail: "Latest check-in", progress: nil)
         case .sport:
@@ -468,11 +481,18 @@ struct TodayTimelineView: View {
             item: item,
             onStart: { feedbackTrigger += 1; viewModel.start(item) },
             onDone: { feedbackTrigger += 1; finish(item) },
-            onSkip: { feedbackTrigger += 1; viewModel.skip(item) },
+            onSkip: { feedbackTrigger += 1; viewModel.skip(item); cancelReminder(for: item) },
             onUndoSkip: { feedbackTrigger += 1; viewModel.undoSkip(item) },
             onDetails: { selectedTask = item.activity },
             isOverdue: PlanningService.isOverdue(item, now: currentTime)
         )
+    }
+
+    /// A decided occurrence (done/skipped) must never still fire its "do
+    /// this" reminder. No-op if nothing was pending for it.
+    private func cancelReminder(for item: CalendarItem) {
+        guard let activityID = item.activity?.id, let plannedStart = item.plannedStart else { return }
+        ReminderService.cancelReminder(activityID: activityID, occurrence: plannedStart)
     }
 
     /// If the Activity has nothing worth recording (no legacy target, no
@@ -491,8 +511,8 @@ struct TodayTimelineView: View {
         } ?? false
         if hasTarget || hasMeasurements {
             recordingItem = item
-        } else {
-            viewModel.quickFinish(item, at: .now)
+        } else if viewModel.quickFinish(item, at: .now) {
+            cancelReminder(for: item)
         }
     }
 

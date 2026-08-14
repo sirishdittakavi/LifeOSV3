@@ -76,6 +76,7 @@
 		F42DCA721A7B4B2CAA1BFA93 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 35C6B98C8F971900A44C84BF /* PrivacyInfo.xcprivacy */; };
 		FC2EA2AA95DB24C0A8D641E1 /* ProgressAndHierarchyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6706225FC9F05BDD4511CA8 /* ProgressAndHierarchyTests.swift */; };
 		FCCB7CFB039353917E4E9B3B /* ReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435730B566CC4241E3E8EFBB /* ReminderService.swift */; };
+		47F39C42DD26C94C9205DBFC /* NotificationRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52EDCA0ECF2D61E229D2AC47 /* NotificationRouter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -114,6 +115,7 @@
 		27E775220D569D469F979936 /* BackupCenterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupCenterView.swift; sourceTree = "<group>"; };
 		35C6B98C8F971900A44C84BF /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		435730B566CC4241E3E8EFBB /* ReminderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderService.swift; sourceTree = "<group>"; };
+		52EDCA0ECF2D61E229D2AC47 /* NotificationRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationRouter.swift; sourceTree = "<group>"; };
 		46AC7BCC0343BDFD1C809C3B /* WeightTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightTrackerView.swift; sourceTree = "<group>"; };
 		499BF422BE2A1E261CED49CF /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
 		4A7C22D36339973B2F083F70 /* PersistenceSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceSupport.swift; sourceTree = "<group>"; };
@@ -208,6 +210,7 @@
 				63317EE8BB5E28D2329FF026 /* PortableMetricService.swift */,
 				BD82E4B5D3273000FF862511 /* ProgressEngine.swift */,
 				435730B566CC4241E3E8EFBB /* ReminderService.swift */,
+				52EDCA0ECF2D61E229D2AC47 /* NotificationRouter.swift */,
 			);
 			path = Engine;
 			sourceTree = "<group>";
@@ -527,6 +530,7 @@
 				25626A01A87437B9D35B52C4 /* ProgressEngine.swift in Sources */,
 				BE651337EF518EAB4A766D74 /* RecordActualView.swift in Sources */,
 				FCCB7CFB039353917E4E9B3B /* ReminderService.swift in Sources */,
+				47F39C42DD26C94C9205DBFC /* NotificationRouter.swift in Sources */,
 				B81953C3320806B779E6011A /* RootTabView.swift in Sources */,
 				12622E1A22DA370EE36385DF /* SchemaVersioning.swift in Sources */,
 				A43A08B6DE4301A6DA5A8890 /* SeedData.swift in Sources */,

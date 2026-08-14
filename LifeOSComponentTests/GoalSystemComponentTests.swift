@@ -67,7 +67,9 @@ final class GoalSystemComponentTests: XCTestCase {
             schemaVersion: 2, exportedAt: .now, profiles: [profile, profile], categories: [],
             goals: [], goalContributions: [], resultMeasures: [], resultEntries: [],
             activities: [], calendarItems: [], sessions: [], foodEntries: [],
-            weightEntries: [], sportEntries: [], savedTemplates: []
+            weightEntries: [], sportEntries: [], savedTemplates: [],
+            nutritionGoals: [], mealTemplates: [], mealEntries: [], waterEntries: [],
+            bodyMetricDefinitions: [], bodyMetricEntries: []
         )
         let container = try LifeOSDataStore.makeContainer(inMemory: true)
 
@@ -590,6 +592,246 @@ final class GoalSystemComponentTests: XCTestCase {
         XCTAssertEqual(entries.first?.sourceLabel, "Home scale")
     }
 
+    // MARK: - Body metric delete consistency (Nutrition fix pass §4c/4d)
+
+    /// Create 80.0 / 79.0 / 78.5 (in that chronological order), delete 78.5, and
+    /// verify every reader of this data — latest-entry lookup (what the Today
+    /// tile and Body Tracking's hero both call), trend/history, and a Goal
+    /// linked via linkedBodyMetricDefinitionID — agrees the current value is
+    /// 79.0 and that 78.5 is gone everywhere, not just from one query.
+    func testDeletingABodyMetricEntryUpdatesLatestHistoryAndLinkedGoalEverywhere() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let profile = Profile(name: "Tester", kind: .individual, colorToken: "blue")
+        context.insert(profile)
+
+        let definition = BodyMetricDefinition(profileID: profile.id, name: "Weight", unit: "kg", isSystemDefault: true, sortOrder: 0)
+        let repository = SwiftDataBodyTrackingRepository(context: context)
+        repository.insertDefinition(definition)
+
+        let day1 = TestDate.make(2026, 3, 1)
+        let day2 = TestDate.make(2026, 3, 2)
+        let day3 = TestDate.make(2026, 3, 3)
+        let entry80 = BodyMetricEntry(profileID: profile.id, bodyMetricDefinition: definition, nameSnapshot: "Weight", unitSnapshot: "kg", value: 80.0, recordedAt: day1)
+        let entry79 = BodyMetricEntry(profileID: profile.id, bodyMetricDefinition: definition, nameSnapshot: "Weight", unitSnapshot: "kg", value: 79.0, recordedAt: day2)
+        let entry785 = BodyMetricEntry(profileID: profile.id, bodyMetricDefinition: definition, nameSnapshot: "Weight", unitSnapshot: "kg", value: 78.5, recordedAt: day3)
+        repository.insertEntry(entry80)
+        repository.insertEntry(entry79)
+        repository.insertEntry(entry785)
+
+        // A Goal whose primary Result Measure reads this Weight metric directly
+        // (the same linkedBodyMetricDefinitionID mechanism CategoryProgressEngine
+        // uses for "Your Goals" cards) — achieved only once the value is <= 78.9.
+        let goal = Goal(profile: profile, name: "Reach race weight")
+        let measure = ResultMeasure(
+            goal: goal, name: "Body weight", role: .primary, unit: "kg",
+            direction: .decrease, baselineValue: 80, targetValue: 78.9,
+            linkedBodyMetricDefinitionID: definition.id
+        )
+        context.insert(goal)
+        context.insert(measure)
+        XCTAssertTrue(repository.save())
+
+        let interval = DateInterval(start: day1, end: TestDate.make(2026, 3, 4))
+
+        // Before deletion: 78.5 is latest, and it satisfies the linked Goal's target.
+        let entriesBefore = try context.fetch(FetchDescriptor<BodyMetricEntry>())
+        XCTAssertEqual(BodyTrackingEngine.latestEntry(definitionID: definition.id, entries: entriesBefore, on: day3)?.value, 78.5)
+        XCTAssertEqual(BodyTrackingEngine.trend(definitionID: definition.id, entries: entriesBefore, interval: interval), -1.5)
+        let progressBefore = GoalProgressEngine.progress(
+            goal: goal, period: .month, now: day3, categories: [], contributions: [],
+            measures: [measure], entries: [], activities: [], calendarItems: [],
+            bodyMetricEntries: entriesBefore
+        )
+        XCTAssertEqual(progressBefore.status, .achieved, "78.5 <= 78.9 target must read as achieved before deletion")
+
+        // Delete 78.5 through the same repository the UI uses.
+        repository.deleteEntry(entry785)
+        XCTAssertTrue(repository.save())
+
+        // After deletion: re-fetch from the store (not the stale in-memory array)
+        // so this proves the persisted data, not just object-graph state.
+        let entriesAfter = try context.fetch(FetchDescriptor<BodyMetricEntry>())
+        XCTAssertEqual(entriesAfter.count, 2)
+        XCTAssertEqual(Set(entriesAfter.map(\.value)), Set([80.0, 79.0]), "78.5 must be gone from history everywhere, not just the latest lookup")
+
+        let latestAfter = BodyTrackingEngine.latestEntry(definitionID: definition.id, entries: entriesAfter, on: day3)
+        XCTAssertEqual(latestAfter?.value, 79.0, "Today Body Weight / hero value must fall back to 79.0")
+
+        XCTAssertEqual(BodyTrackingEngine.trend(definitionID: definition.id, entries: entriesAfter, interval: interval), -1.0)
+
+        let progressAfter = GoalProgressEngine.progress(
+            goal: goal, period: .month, now: day3, categories: [], contributions: [],
+            measures: [measure], entries: [], activities: [], calendarItems: [],
+            bodyMetricEntries: entriesAfter
+        )
+        // 79.0 no longer satisfies the 78.9 target (so no longer .achieved), but
+        // it's still moving in the right direction from the 80 baseline, so the
+        // engine correctly reports .onTrack rather than .achieved — proving the
+        // status genuinely recomputed from 79.0, not left over from 78.5.
+        XCTAssertEqual(progressAfter.status, .onTrack, "must recompute from 79.0, not remain achieved from the deleted 78.5 entry")
+    }
+
+    // MARK: - Backup/restore determinism (Nutrition fix pass §1)
+
+    /// The strongest correctness claim for backups: export realistic Nutrition
+    /// + Body Tracking + linked-Goal data, restore it into a brand-new empty
+    /// ModelContainer, and prove every derived report value (daily totals,
+    /// target progress, consistency days, latest weight, trend, and linked
+    /// Goal status) is bit-for-bit identical before and after — not just that
+    /// the raw record counts match.
+    func testBackupRestoreIntoEmptyContainerReproducesEveryDerivedNutritionAndBodyValue() throws {
+        let source = try makeContainer()
+        let sourceContext = source.mainContext
+        let profile = Profile(name: "Vihaan", kind: .individual, colorToken: "blue")
+        sourceContext.insert(profile)
+
+        let day = TestDate.make(2026, 4, 10)
+        let dayBefore = TestDate.make(2026, 4, 9)
+
+        let nutritionGoal = NutritionGoal(
+            profileID: profile.id, calorieTarget: 2_200, proteinTargetG: 150,
+            carbsTargetG: 250, fatTargetG: 70, waterTargetML: 2_500
+        )
+
+        let breakfastTemplate = MealTemplate(
+            profileID: profile.id, name: "Protein Breakfast", mealTypeDefault: .breakfast,
+            details: "Eggs + oats", totals: NutritionValue(calories: 500, proteinG: 40, carbsG: 30, fatG: 15)
+        )
+        let lunchTemplate = MealTemplate(
+            profileID: profile.id, name: "Quick Lunch", mealTypeDefault: .lunch,
+            details: "Chicken + rice", totals: NutritionValue(calories: 650, proteinG: 35, carbsG: 60, fatG: 20)
+        )
+
+        let breakfast = MealEntry(
+            profileID: profile.id, mealType: .breakfast, recordedAt: TestDate.make(2026, 4, 10, hour: 8),
+            sourceTemplateID: breakfastTemplate.id, sourceTemplateNameSnapshot: breakfastTemplate.name,
+            details: breakfastTemplate.details
+        )
+        breakfast.setTotals(breakfastTemplate.totals)
+        let lunch = MealEntry(profileID: profile.id, mealType: .lunch, recordedAt: TestDate.make(2026, 4, 10, hour: 13), details: "Leftovers")
+        lunch.setTotals(NutritionValue(calories: 600, proteinG: 42, carbsG: 55, fatG: 18))
+        let dinner = MealEntry(profileID: profile.id, mealType: .dinner, recordedAt: TestDate.make(2026, 4, 10, hour: 19), details: "Salmon + rice")
+        dinner.setTotals(NutritionValue(calories: 700, proteinG: 45, carbsG: 65, fatG: 22))
+
+        let water1 = WaterEntry(profileID: profile.id, recordedAt: TestDate.make(2026, 4, 10, hour: 9), amountML: 500)
+        let water2 = WaterEntry(profileID: profile.id, recordedAt: TestDate.make(2026, 4, 10, hour: 15), amountML: 750)
+
+        let weightDefinition = BodyMetricDefinition(profileID: profile.id, name: "Weight", unit: "kg", isSystemDefault: true, sortOrder: 0)
+        let weightYesterday = BodyMetricEntry(profileID: profile.id, bodyMetricDefinition: weightDefinition, nameSnapshot: "Weight", unitSnapshot: "kg", value: 80.0, recordedAt: dayBefore)
+        let weightToday = BodyMetricEntry(profileID: profile.id, bodyMetricDefinition: weightDefinition, nameSnapshot: "Weight", unitSnapshot: "kg", value: 79.0, recordedAt: day)
+
+        let goal = Goal(profile: profile, name: "Reach race weight")
+        let measure = ResultMeasure(
+            goal: goal, name: "Body weight", role: .primary, unit: "kg",
+            direction: .decrease, baselineValue: 82, targetValue: 78,
+            linkedBodyMetricDefinitionID: weightDefinition.id
+        )
+
+        sourceContext.insert(nutritionGoal)
+        sourceContext.insert(breakfastTemplate)
+        sourceContext.insert(lunchTemplate)
+        sourceContext.insert(breakfast)
+        sourceContext.insert(lunch)
+        sourceContext.insert(dinner)
+        sourceContext.insert(water1)
+        sourceContext.insert(water2)
+        sourceContext.insert(weightDefinition)
+        sourceContext.insert(weightYesterday)
+        sourceContext.insert(weightToday)
+        sourceContext.insert(goal)
+        sourceContext.insert(measure)
+        try sourceContext.save()
+
+        let meals = [breakfast, lunch, dinner]
+        let waterEntries = [water1, water2]
+        let bodyEntries = [weightYesterday, weightToday]
+        let interval = DateInterval(start: dayBefore, end: TestDate.make(2026, 4, 11))
+
+        func derivedValues(profileID: UUID, meals: [MealEntry], water: [WaterEntry], goal nGoal: NutritionGoal?, weightDefID: UUID, bodyEntries: [BodyMetricEntry], goal2: Goal, measure2: ResultMeasure) -> [String: Double] {
+            let totals = NutritionEngine.dailyTotals(profileID: profileID, date: day, meals: meals, waterEntries: water)
+            let progress = NutritionEngine.targetProgress(profileID: profileID, date: day, meals: meals, waterEntries: water, goal: nGoal)
+            let consistency = NutritionEngine.consistencyDays(profileID: profileID, interval: interval, metric: .protein, meals: meals, waterEntries: water, goal: nGoal)
+            let latest = BodyTrackingEngine.latestEntry(definitionID: weightDefID, entries: bodyEntries, on: day)
+            let trend = BodyTrackingEngine.trend(definitionID: weightDefID, entries: bodyEntries, interval: interval)
+            let goalProgress = GoalProgressEngine.progress(
+                goal: goal2, period: .month, now: day, categories: [], contributions: [],
+                measures: [measure2], entries: [], activities: [], calendarItems: [],
+                bodyMetricEntries: bodyEntries
+            )
+            return [
+                "calories": totals.calories, "protein": totals.proteinG,
+                "carbs": totals.carbsG, "fat": totals.fatG, "water": totals.waterML,
+                "calorieFraction": progress.calorieFraction ?? -1, "proteinFraction": progress.proteinFraction ?? -1,
+                "consistencyAchieved": Double(consistency?.achieved ?? -1), "consistencyTotalDays": Double(consistency?.totalDays ?? -1),
+                "latestWeight": latest?.value ?? -1, "trend": trend ?? .nan,
+                "goalAchieved": goalProgress.status == .achieved ? 1 : 0,
+            ]
+        }
+
+        let before = derivedValues(
+            profileID: profile.id, meals: meals, water: waterEntries, goal: nutritionGoal,
+            weightDefID: weightDefinition.id, bodyEntries: bodyEntries, goal2: goal, measure2: measure
+        )
+
+        let payload = LifeOSBackupService.make(
+            profiles: [profile], categories: [], activities: [], goals: [goal],
+            goalContributions: [], resultMeasures: [measure], resultEntries: [],
+            calendarItems: [], sessions: [], foodEntries: [], weightEntries: [],
+            sportEntries: [], savedTemplates: [],
+            nutritionGoals: [nutritionGoal], mealTemplates: [breakfastTemplate, lunchTemplate],
+            mealEntries: meals, waterEntries: waterEntries,
+            bodyMetricDefinitions: [weightDefinition], bodyMetricEntries: bodyEntries
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let encoded = try encoder.encode(payload)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(LifeOSBackupPayload.self, from: encoded)
+
+        let destination = try makeContainer()
+        try LifeOSBackupService.restore(decoded, into: destination.mainContext)
+        let destinationContext = destination.mainContext
+
+        // Source records equivalent — counts and identity, not just totals.
+        let restoredProfiles = try destinationContext.fetch(FetchDescriptor<Profile>())
+        let restoredNutritionGoals = try destinationContext.fetch(FetchDescriptor<NutritionGoal>())
+        let restoredMealTemplates = try destinationContext.fetch(FetchDescriptor<MealTemplate>())
+        let restoredMeals = try destinationContext.fetch(FetchDescriptor<MealEntry>())
+        let restoredWater = try destinationContext.fetch(FetchDescriptor<WaterEntry>())
+        let restoredDefinitions = try destinationContext.fetch(FetchDescriptor<BodyMetricDefinition>())
+        let restoredEntries = try destinationContext.fetch(FetchDescriptor<BodyMetricEntry>())
+        let restoredGoals = try destinationContext.fetch(FetchDescriptor<Goal>())
+        let restoredMeasures = try destinationContext.fetch(FetchDescriptor<ResultMeasure>())
+
+        XCTAssertEqual(restoredProfiles.map(\.id), [profile.id])
+        XCTAssertEqual(restoredNutritionGoals.count, 1)
+        XCTAssertEqual(restoredMealTemplates.count, 2)
+        XCTAssertEqual(restoredMeals.count, 3)
+        XCTAssertEqual(Set(restoredMeals.map(\.totals.calories)), Set(meals.map(\.totals.calories)))
+        XCTAssertEqual(restoredWater.count, 2)
+        XCTAssertEqual(restoredWater.reduce(0) { $0 + $1.amountML }, waterEntries.reduce(0) { $0 + $1.amountML })
+        XCTAssertEqual(restoredDefinitions.count, 1)
+        XCTAssertEqual(restoredEntries.count, 2)
+        XCTAssertEqual(Set(restoredEntries.map(\.value)), Set([80.0, 79.0]))
+        XCTAssertEqual(restoredGoals.count, 1)
+        XCTAssertEqual(restoredMeasures.count, 1)
+        XCTAssertEqual(restoredMeasures.first?.linkedBodyMetricDefinitionID, weightDefinition.id, "the Goal<->Weight link must survive backup/restore, not just the raw entries")
+
+        let restoredGoal = try XCTUnwrap(restoredGoals.first)
+        let restoredMeasure = try XCTUnwrap(restoredMeasures.first)
+        let restoredNutritionGoal = restoredNutritionGoals.first
+        let restoredDefinitionID = try XCTUnwrap(restoredDefinitions.first?.id)
+
+        let after = derivedValues(
+            profileID: profile.id, meals: restoredMeals, water: restoredWater, goal: restoredNutritionGoal,
+            weightDefID: restoredDefinitionID, bodyEntries: restoredEntries, goal2: restoredGoal, measure2: restoredMeasure
+        )
+
+        XCTAssertEqual(before, after, "every derived Nutrition/Body report value must be identical before and after a backup round trip")
+    }
+
     func testPersistedManualWorkDoesNotChangePlannedGoalAdherence() throws {
         let container = try makeContainer()
         let context = container.mainContext
@@ -681,6 +923,470 @@ final class GoalSystemComponentTests: XCTestCase {
         XCTAssertEqual(storedGoal.targetDate, TestDate.make(2026, 6, 1)); XCTAssertFalse(storedGoal.isActive)
         XCTAssertEqual(storedMeasure.name, "Edited result"); XCTAssertEqual(storedMeasure.targetValue, 20)
         XCTAssertEqual(storedMeasure.cadence, .weekly); XCTAssertEqual(storedMeasure.reminderHour, 19)
+    }
+
+    // MARK: - Profile isolation audit (STOP-feature-development integrity pass)
+    //
+    // Every test below creates TWO profiles (Alice/Bob) with intentionally
+    // IDENTICAL names for their Areas/Activities/Tasks/Measurements/
+    // Templates/Definitions, to catch any code path that resolves ownership
+    // by name instead of by profileID/relationship-to-an-already-scoped-
+    // object. Every assertion checks both halves: the acting profile's data
+    // changed as expected, AND the other profile's identically-named data
+    // did not change at all.
+
+    func testIdenticalNamedAreasAndActivitiesAreIsolatedByProfileIDNotName() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let alice = Profile(name: "Alice", kind: .individual, colorToken: "blue")
+        let bob = Profile(name: "Bob", kind: .individual, colorToken: "orange")
+        context.insert(alice); context.insert(bob)
+
+        let aliceSports = AppCategory(profile: alice, name: "Sports", symbol: "figure.run", colorToken: "blue", pillar: .sport, trackingKind: .sport)
+        let alicelearning = AppCategory(profile: alice, name: "Learning", symbol: "book", colorToken: "green", pillar: .learning)
+        let bobSports = AppCategory(profile: bob, name: "Sports", symbol: "figure.run", colorToken: "orange", pillar: .sport, trackingKind: .sport)
+        context.insert(aliceSports); context.insert(alicelearning); context.insert(bobSports)
+
+        let aliceActivity = Activity(profile: alice, category: aliceSports, name: "Practice", plannedStartMinutes: 420, estimatedDurationMinutes: 30, startDate: TestDate.make(2026, 5, 1))
+        let bobActivity = Activity(profile: bob, category: bobSports, name: "Practice", plannedStartMinutes: 420, estimatedDurationMinutes: 30, startDate: TestDate.make(2026, 5, 1))
+        context.insert(aliceActivity); context.insert(bobActivity)
+        try context.save()
+
+        // A same-name "Sports" category must never resolve to the other profile's row.
+        XCTAssertNotEqual(aliceSports.id, bobSports.id)
+        let allCategories = try context.fetch(FetchDescriptor<AppCategory>())
+        let sportsNamedRows = allCategories.filter { $0.name == "Sports" }
+        XCTAssertEqual(sportsNamedRows.count, 2, "both profiles' identically-named Sports category must persist as two distinct rows")
+        XCTAssertEqual(Set(sportsNamedRows.map { $0.profile?.id }), Set([alice.id, bob.id]))
+
+        // Editing Alice's Sports category must never rename Bob's.
+        aliceSports.name = "Baseball"
+        try context.save()
+        XCTAssertEqual(bobSports.name, "Sports", "editing Alice's category must not rename Bob's identically-named category")
+
+        // Deleting Alice's Sports category must never delete Bob's.
+        context.delete(aliceSports)
+        try context.save()
+        let remainingCategories = try context.fetch(FetchDescriptor<AppCategory>())
+        XCTAssertTrue(remainingCategories.contains { $0.id == bobSports.id }, "deleting Alice's category must not delete Bob's identically-named category")
+        XCTAssertFalse(remainingCategories.contains { $0.id == aliceSports.id })
+
+        // Alice's Activity must never resolve to Bob's identically-named Activity.
+        let allActivities = try context.fetch(FetchDescriptor<Activity>())
+        let practiceRows = allActivities.filter { $0.name == "Practice" }
+        XCTAssertEqual(practiceRows.count, 2)
+        XCTAssertEqual(Set(practiceRows.map { $0.profile?.id }), Set([alice.id, bob.id]))
+    }
+
+    func testIdenticalNamedGoalsUseOnlyTheirOwnProfilesEvidence() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let alice = Profile(name: "Alice", kind: .individual, colorToken: "blue")
+        let bob = Profile(name: "Bob", kind: .individual, colorToken: "orange")
+        context.insert(alice); context.insert(bob)
+
+        // Same title, different targets — the exact "similar-looking data" trap.
+        let aliceGoal = Goal(profile: alice, name: "Practice Baseball")
+        let bobGoal = Goal(profile: bob, name: "Practice Baseball")
+        let aliceMeasure = ResultMeasure(goal: aliceGoal, name: "Sessions", role: .primary, valueType: .number, unit: "sessions", direction: .increase, baselineValue: 0, targetValue: 3)
+        let bobMeasure = ResultMeasure(goal: bobGoal, name: "Sessions", role: .primary, valueType: .number, unit: "sessions", direction: .increase, baselineValue: 0, targetValue: 5)
+        context.insert(aliceGoal); context.insert(bobGoal)
+        context.insert(aliceMeasure); context.insert(bobMeasure)
+
+        // Manual check-ins — Bob logs a much higher value than Alice.
+        let aliceEntry = ResultEntry(profile: alice, measure: aliceMeasure, date: TestDate.make(2026, 5, 5), numericValue: 2)
+        let bobEntry = ResultEntry(profile: bob, measure: bobMeasure, date: TestDate.make(2026, 5, 5), numericValue: 9)
+        context.insert(aliceEntry); context.insert(bobEntry)
+        try context.save()
+
+        let progressAlice = GoalProgressEngine.progress(
+            goal: aliceGoal, period: .month, now: TestDate.make(2026, 5, 6), categories: [], contributions: [],
+            measures: [aliceMeasure, bobMeasure], entries: [aliceEntry, bobEntry], activities: [], calendarItems: []
+        )
+        let progressBob = GoalProgressEngine.progress(
+            goal: bobGoal, period: .month, now: TestDate.make(2026, 5, 6), categories: [], contributions: [],
+            measures: [aliceMeasure, bobMeasure], entries: [aliceEntry, bobEntry], activities: [], calendarItems: []
+        )
+
+        XCTAssertEqual(progressAlice.latestEntry?.numericValue, 2, "Alice's Goal must read only Alice's ResultEntry even though both engine calls were given both profiles' measures/entries")
+        XCTAssertEqual(progressBob.latestEntry?.numericValue, 9, "Bob's Goal must read only Bob's ResultEntry")
+        XCTAssertNotEqual(progressAlice.latestEntry?.id, progressBob.latestEntry?.id)
+
+        // A measurement-linked Goal source must also stay confined to its own profile.
+        let aliceActivity = Activity(profile: alice, category: nil, name: "Fielding", plannedStartMinutes: 0, estimatedDurationMinutes: 10, startDate: TestDate.make(2026, 5, 1))
+        let bobActivity = Activity(profile: bob, category: nil, name: "Fielding", plannedStartMinutes: 0, estimatedDurationMinutes: 10, startDate: TestDate.make(2026, 5, 1))
+        context.insert(aliceActivity); context.insert(bobActivity)
+        let aliceDefinition = MeasurementDefinition(activity: aliceActivity, name: "Ground Balls", type: .count)
+        let bobDefinition = MeasurementDefinition(activity: bobActivity, name: "Ground Balls", type: .count)
+        context.insert(aliceDefinition); context.insert(bobDefinition)
+        aliceGoal.createdAt = TestDate.make(2026, 5, 1)
+        let aliceLinkedMeasure = ResultMeasure(goal: aliceGoal, name: "Ground Balls total", role: .supporting, direction: .increase, baselineValue: 0, targetValue: 100, linkedMeasurementDefinitionID: aliceDefinition.id)
+        context.insert(aliceLinkedMeasure)
+        let aliceSession = ActivitySession(activity: aliceActivity, calendarItem: nil, date: TestDate.make(2026, 5, 5))
+        let bobSession = ActivitySession(activity: bobActivity, calendarItem: nil, date: TestDate.make(2026, 5, 5))
+        context.insert(aliceSession); context.insert(bobSession)
+        let aliceMeasurementEntry = MeasurementEntry(activitySession: aliceSession, measurementDefinition: aliceDefinition, nameSnapshot: "Ground Balls", typeSnapshot: .count, numericValue: 100, recordedAt: TestDate.make(2026, 5, 5))
+        let bobMeasurementEntry = MeasurementEntry(activitySession: bobSession, measurementDefinition: bobDefinition, nameSnapshot: "Ground Balls", typeSnapshot: .count, numericValue: 200, recordedAt: TestDate.make(2026, 5, 5))
+        context.insert(aliceMeasurementEntry); context.insert(bobMeasurementEntry)
+        try context.save()
+
+        let linkedProgress = GoalProgressEngine.progress(
+            goal: aliceGoal, period: .month, now: TestDate.make(2026, 5, 6), categories: [], contributions: [],
+            measures: [aliceLinkedMeasure], entries: [],
+            activities: [aliceActivity, bobActivity], calendarItems: [],
+            measurementDefinitions: [aliceDefinition, bobDefinition],
+            measurementEntries: [aliceMeasurementEntry, bobMeasurementEntry]
+        )
+        XCTAssertEqual(linkedProgress.status, .achieved, "Alice's own 100 ground balls must satisfy her 100-target Goal")
+        // Prove it isn't silently summing Bob's 200 in too (300 would still exceed target, so
+        // this must be checked via the raw engine total, not just the achieved boolean).
+        let aliceOnlyTotal = ProgressEngine.measurementTotal(for: aliceDefinition, entries: [aliceMeasurementEntry, bobMeasurementEntry])
+        XCTAssertEqual(aliceOnlyTotal, 100, "measurementTotal for Alice's definition must never include Bob's identically-named definition's entries")
+    }
+
+    func testCompletingIdenticalNamedTaskOnlyAffectsTheOwningProfileEverywhere() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let alice = Profile(name: "Alice", kind: .individual, colorToken: "blue")
+        let bob = Profile(name: "Bob", kind: .individual, colorToken: "orange")
+        context.insert(alice); context.insert(bob)
+        let today = TestDate.make(2026, 6, 1)
+
+        let aliceCategory = AppCategory(profile: alice, name: "Baseball", symbol: "figure.baseball", colorToken: "blue", pillar: .sport, trackingKind: .sport)
+        let bobCategory = AppCategory(profile: bob, name: "Baseball", symbol: "figure.baseball", colorToken: "orange", pillar: .sport, trackingKind: .sport)
+        context.insert(aliceCategory); context.insert(bobCategory)
+        let aliceActivity = Activity(profile: alice, category: aliceCategory, name: "Hitting Practice", repeatType: .daily, weekdays: Array(1...7), plannedStartMinutes: 18 * 60, estimatedDurationMinutes: 30, startDate: today)
+        let bobActivity = Activity(profile: bob, category: bobCategory, name: "Hitting Practice", repeatType: .daily, weekdays: Array(1...7), plannedStartMinutes: 18 * 60, estimatedDurationMinutes: 30, startDate: today)
+        context.insert(aliceActivity); context.insert(bobActivity)
+        try context.save()
+
+        try PlanningService.insertMissingCalendarItems(profile: alice, date: today, activities: [aliceActivity, bobActivity], context: context, calendar: TestDate.calendar)
+        try PlanningService.insertMissingCalendarItems(profile: bob, date: today, activities: [aliceActivity, bobActivity], context: context, calendar: TestDate.calendar)
+        try context.save()
+
+        let allItems = try context.fetch(FetchDescriptor<CalendarItem>())
+        let aliceItem = try XCTUnwrap(allItems.first { $0.profile?.id == alice.id })
+        let bobItem = try XCTUnwrap(allItems.first { $0.profile?.id == bob.id })
+        XCTAssertNotEqual(aliceItem.id, bobItem.id)
+        XCTAssertEqual(aliceItem.activity?.name, bobItem.activity?.name, "same-titled task on both profiles, by design, to stress-test isolation")
+
+        let repository = SwiftDataCalendarRepository(context: context)
+        let viewModel = TodayViewModel(profile: alice, items: allItems, activities: [aliceActivity, bobActivity], resultMeasures: [], currentTime: today, repository: repository)
+
+        // Duplicate-completion (scenario 6): tap twice, expect exactly one session.
+        XCTAssertTrue(viewModel.quickFinish(aliceItem, at: TestDate.make(2026, 6, 1, hour: 18, minute: 30)))
+        XCTAssertFalse(viewModel.quickFinish(aliceItem, at: TestDate.make(2026, 6, 1, hour: 18, minute: 31)), "quickFinish must be idempotent once done")
+
+        XCTAssertEqual(aliceItem.status, .done)
+        XCTAssertEqual(bobItem.status, .planned, "Bob's identically-named/timed task must remain untouched")
+
+        let sessions = try context.fetch(FetchDescriptor<ActivitySession>())
+        XCTAssertEqual(sessions.filter { $0.activity?.id == aliceActivity.id }.count, 1, "exactly one session, no duplicates from the double tap")
+        XCTAssertEqual(sessions.filter { $0.activity?.id == bobActivity.id }.count, 0, "Bob's session count must remain unchanged")
+
+        // Derived progress must reflect only Alice.
+        let aliceViewModelAfter = TodayViewModel(profile: alice, items: allItems, activities: [aliceActivity, bobActivity], resultMeasures: [], currentTime: today, repository: repository)
+        let bobViewModelAfter = TodayViewModel(profile: bob, items: allItems, activities: [aliceActivity, bobActivity], resultMeasures: [], currentTime: today, repository: repository)
+        XCTAssertEqual(aliceViewModelAfter.summary.done, 1)
+        XCTAssertEqual(bobViewModelAfter.summary.done, 0, "Bob's Today completion count must not increment from Alice's completion")
+
+        // Skip + undoSkip (scenario 8) on a second occurrence proves per-item, not per-title, resolution.
+        let tomorrow = try XCTUnwrap(TestDate.calendar.date(byAdding: .day, value: 1, to: today))
+        try PlanningService.insertMissingCalendarItems(profile: alice, date: tomorrow, activities: [aliceActivity, bobActivity], context: context, calendar: TestDate.calendar)
+        try PlanningService.insertMissingCalendarItems(profile: bob, date: tomorrow, activities: [aliceActivity, bobActivity], context: context, calendar: TestDate.calendar)
+        try context.save()
+        let nextDayItems = try context.fetch(FetchDescriptor<CalendarItem>()).filter { TestDate.calendar.isDate($0.date, inSameDayAs: tomorrow) }
+        let aliceNextItem = try XCTUnwrap(nextDayItems.first { $0.profile?.id == alice.id })
+        let bobNextItem = try XCTUnwrap(nextDayItems.first { $0.profile?.id == bob.id })
+
+        let aliceTomorrowVM = TodayViewModel(profile: alice, items: nextDayItems, activities: [aliceActivity, bobActivity], resultMeasures: [], currentTime: tomorrow, repository: repository)
+        aliceTomorrowVM.skip(aliceNextItem)
+        XCTAssertEqual(aliceNextItem.status, .skipped)
+        XCTAssertEqual(bobNextItem.status, .planned, "skipping Alice's occurrence must never skip Bob's identically-scheduled occurrence")
+        aliceTomorrowVM.undoSkip(aliceNextItem)
+        XCTAssertEqual(aliceNextItem.status, .planned, "undoSkip must restore Alice's own item")
+        XCTAssertEqual(bobNextItem.status, .planned, "Bob remains unaffected by Alice's skip/undo cycle")
+    }
+
+    func testNutritionAndBodyTrackingIsolationWithIdenticalTargetsAndDefinitionNames() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let alice = Profile(name: "Alice", kind: .individual, colorToken: "blue")
+        let bob = Profile(name: "Bob", kind: .individual, colorToken: "orange")
+        context.insert(alice); context.insert(bob)
+
+        let aliceGoal = NutritionGoal(profileID: alice.id, proteinTargetG: 220)
+        let bobGoal = NutritionGoal(profileID: bob.id, proteinTargetG: 100)
+        context.insert(aliceGoal); context.insert(bobGoal)
+
+        let day = TestDate.make(2026, 7, 1)
+        let aliceMeal = MealEntry(profileID: alice.id, mealType: .lunch, recordedAt: day, details: "Chicken")
+        aliceMeal.setTotals(NutritionValue(calories: 500, proteinG: 70, carbsG: 40, fatG: 15))
+        let bobMeal = MealEntry(profileID: bob.id, mealType: .lunch, recordedAt: day, details: "Chicken")
+        bobMeal.setTotals(NutritionValue(calories: 300, proteinG: 40, carbsG: 20, fatG: 10))
+        context.insert(aliceMeal); context.insert(bobMeal)
+        try context.save()
+
+        let allMeals = try context.fetch(FetchDescriptor<MealEntry>())
+        let aliceProgress = NutritionEngine.targetProgress(profileID: alice.id, date: day, meals: allMeals, waterEntries: [], goal: aliceGoal)
+        let bobProgress = NutritionEngine.targetProgress(profileID: bob.id, date: day, meals: allMeals, waterEntries: [], goal: bobGoal)
+        XCTAssertEqual(aliceProgress.totals.proteinG, 70, "Alice's dashboard must read 70, not 70+40=110")
+        XCTAssertEqual(bobProgress.totals.proteinG, 40)
+        XCTAssertEqual(aliceProgress.proteinTarget, 220)
+        XCTAssertEqual(bobProgress.proteinTarget, 100)
+
+        // Same-named "Weight" BodyMetricDefinition per profile.
+        let aliceWeightDef = BodyMetricDefinition(profileID: alice.id, name: "Weight", unit: "kg", isSystemDefault: true)
+        let bobWeightDef = BodyMetricDefinition(profileID: bob.id, name: "Weight", unit: "kg", isSystemDefault: true)
+        context.insert(aliceWeightDef); context.insert(bobWeightDef)
+        let aliceEntry = BodyMetricEntry(profileID: alice.id, bodyMetricDefinition: aliceWeightDef, nameSnapshot: "Weight", unitSnapshot: "kg", value: 78.5, recordedAt: day)
+        let bobEntry = BodyMetricEntry(profileID: bob.id, bodyMetricDefinition: bobWeightDef, nameSnapshot: "Weight", unitSnapshot: "kg", value: 92, recordedAt: day)
+        context.insert(aliceEntry); context.insert(bobEntry)
+        try context.save()
+
+        let allBodyEntries = try context.fetch(FetchDescriptor<BodyMetricEntry>())
+        // A "Weight" definition lookup by NAME ALONE (not ID) would wrongly
+        // match either profile's row — this proves the definition itself,
+        // not just the entry, is what must be profile-scoped before lookup.
+        let aliceLatest = BodyTrackingEngine.latestEntry(definitionID: aliceWeightDef.id, entries: allBodyEntries, on: day)
+        let bobLatest = BodyTrackingEngine.latestEntry(definitionID: bobWeightDef.id, entries: allBodyEntries, on: day)
+        XCTAssertEqual(aliceLatest?.value, 78.5)
+        XCTAssertEqual(bobLatest?.value, 92)
+
+        // Edit/delete isolation (scenario 19): deleting Alice's meal/body entry
+        // must never touch Bob's identically-shaped row.
+        context.delete(aliceMeal)
+        context.delete(aliceEntry)
+        try context.save()
+        let remainingMeals = try context.fetch(FetchDescriptor<MealEntry>())
+        let remainingBodyEntries = try context.fetch(FetchDescriptor<BodyMetricEntry>())
+        XCTAssertEqual(remainingMeals.map(\.profileID), [bob.id])
+        XCTAssertEqual(remainingBodyEntries.map(\.profileID), [bob.id])
+        XCTAssertEqual(remainingBodyEntries.first?.value, 92, "Bob's Weight entry must be untouched by deleting Alice's identically-named-definition entry")
+    }
+
+    func testTwoProfileBackupRestorePreservesOwnershipAndReportsMatchAfterRestore() throws {
+        let source = try makeContainer()
+        let sourceContext = source.mainContext
+        let alice = Profile(name: "Alice", kind: .individual, colorToken: "blue")
+        let bob = Profile(name: "Bob", kind: .individual, colorToken: "orange")
+        sourceContext.insert(alice); sourceContext.insert(bob)
+
+        let day = TestDate.make(2026, 8, 1)
+        let aliceGoal = NutritionGoal(profileID: alice.id, proteinTargetG: 220)
+        let bobGoal = NutritionGoal(profileID: bob.id, proteinTargetG: 100)
+        let aliceMeal = MealEntry(profileID: alice.id, mealType: .lunch, recordedAt: day, details: "Chicken")
+        aliceMeal.setTotals(NutritionValue(calories: 500, proteinG: 70, carbsG: 40, fatG: 15))
+        let bobMeal = MealEntry(profileID: bob.id, mealType: .lunch, recordedAt: day, details: "Chicken")
+        bobMeal.setTotals(NutritionValue(calories: 300, proteinG: 40, carbsG: 20, fatG: 10))
+        let aliceWeightDef = BodyMetricDefinition(profileID: alice.id, name: "Weight", unit: "kg", isSystemDefault: true)
+        let bobWeightDef = BodyMetricDefinition(profileID: bob.id, name: "Weight", unit: "kg", isSystemDefault: true)
+        let aliceEntry = BodyMetricEntry(profileID: alice.id, bodyMetricDefinition: aliceWeightDef, nameSnapshot: "Weight", unitSnapshot: "kg", value: 78.5, recordedAt: day)
+        let bobEntry = BodyMetricEntry(profileID: bob.id, bodyMetricDefinition: bobWeightDef, nameSnapshot: "Weight", unitSnapshot: "kg", value: 92, recordedAt: day)
+        [aliceGoal, bobGoal].forEach(sourceContext.insert)
+        [aliceMeal, bobMeal].forEach(sourceContext.insert)
+        [aliceWeightDef, bobWeightDef].forEach(sourceContext.insert)
+        [aliceEntry, bobEntry].forEach(sourceContext.insert)
+        try sourceContext.save()
+
+        let payload = LifeOSBackupService.make(
+            profiles: [alice, bob], categories: [], activities: [], goals: [],
+            goalContributions: [], resultMeasures: [], resultEntries: [],
+            calendarItems: [], sessions: [], foodEntries: [], weightEntries: [],
+            sportEntries: [], savedTemplates: [],
+            nutritionGoals: [aliceGoal, bobGoal], mealTemplates: [],
+            mealEntries: [aliceMeal, bobMeal], waterEntries: [],
+            bodyMetricDefinitions: [aliceWeightDef, bobWeightDef], bodyMetricEntries: [aliceEntry, bobEntry]
+        )
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        let encoded = try encoder.encode(payload)
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(LifeOSBackupPayload.self, from: encoded)
+
+        let destination = try makeContainer()
+        try LifeOSBackupService.restore(decoded, into: destination.mainContext)
+        // Restoring the same backup twice must not duplicate records (scenario 21).
+        try LifeOSBackupService.restore(decoded, into: destination.mainContext)
+        let destinationContext = destination.mainContext
+
+        let restoredProfiles = try destinationContext.fetch(FetchDescriptor<Profile>())
+        XCTAssertEqual(Set(restoredProfiles.map(\.id)), Set([alice.id, bob.id]))
+
+        let restoredMeals = try destinationContext.fetch(FetchDescriptor<MealEntry>())
+        XCTAssertEqual(restoredMeals.count, 2, "restoring the same backup twice must not duplicate MealEntry rows")
+        let restoredAliceMeal = try XCTUnwrap(restoredMeals.first { $0.profileID == alice.id })
+        let restoredBobMeal = try XCTUnwrap(restoredMeals.first { $0.profileID == bob.id })
+        XCTAssertEqual(restoredAliceMeal.totals.proteinG, 70, "Alice's restored meal must keep her own values, not Bob's")
+        XCTAssertEqual(restoredBobMeal.totals.proteinG, 40)
+
+        let restoredDefinitions = try destinationContext.fetch(FetchDescriptor<BodyMetricDefinition>())
+        XCTAssertEqual(restoredDefinitions.count, 2, "two identically-named Weight definitions must restore as two distinct rows, not merge into one")
+        let restoredEntries = try destinationContext.fetch(FetchDescriptor<BodyMetricEntry>())
+        XCTAssertEqual(restoredEntries.count, 2)
+
+        // Recompute reports from restored data and confirm no ownership crossed over.
+        let restoredAliceGoal = try XCTUnwrap((try destinationContext.fetch(FetchDescriptor<NutritionGoal>())).first { $0.profileID == alice.id })
+        let restoredBobGoal = try XCTUnwrap((try destinationContext.fetch(FetchDescriptor<NutritionGoal>())).first { $0.profileID == bob.id })
+        let restoredAliceProgress = NutritionEngine.targetProgress(profileID: alice.id, date: day, meals: restoredMeals, waterEntries: [], goal: restoredAliceGoal)
+        let restoredBobProgress = NutritionEngine.targetProgress(profileID: bob.id, date: day, meals: restoredMeals, waterEntries: [], goal: restoredBobGoal)
+        XCTAssertEqual(restoredAliceProgress.totals.proteinG, 70)
+        XCTAssertEqual(restoredBobProgress.totals.proteinG, 40)
+
+        let restoredAliceDef = try XCTUnwrap(restoredDefinitions.first { $0.profileID == alice.id })
+        let restoredBobDef = try XCTUnwrap(restoredDefinitions.first { $0.profileID == bob.id })
+        XCTAssertEqual(BodyTrackingEngine.latestEntry(definitionID: restoredAliceDef.id, entries: restoredEntries, on: day)?.value, 78.5)
+        XCTAssertEqual(BodyTrackingEngine.latestEntry(definitionID: restoredBobDef.id, entries: restoredEntries, on: day)?.value, 92)
+    }
+
+    // MARK: - End-to-end user journeys (cancel/skip/complete/update, and Nutrition save+reflect)
+
+    /// Simulates a full single-user session against a real store: schedule →
+    /// start → skip → undo the skip → complete → undo the completion
+    /// (mirrors ImprovementCategoryDetailView.undoComplete) — checking after
+    /// EVERY step that CalendarItem status, ActivitySession existence, Today
+    /// completion count, and the linked Goal's progress all agree, and that
+    /// no step ever leaves a duplicate or orphaned record behind.
+    func testFullTaskLifecycleJourneyKeepsCalendarSessionTodayAndGoalProgressInSync() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let profile = Profile(name: "Tester", kind: .individual, colorToken: "blue")
+        let today = TestDate.make(2026, 9, 1)
+        context.insert(profile)
+
+        let category = AppCategory(profile: profile, name: "Baseball", symbol: "figure.baseball", colorToken: "orange", pillar: .sport, trackingKind: .sport)
+        context.insert(category)
+        let activity = Activity(
+            profile: profile, category: category, name: "Hitting Practice",
+            repeatType: .daily, weekdays: Array(1...7),
+            plannedStartMinutes: 18 * 60, estimatedDurationMinutes: 30, startDate: today
+        )
+        context.insert(activity)
+        let goal = Goal(profile: profile, name: "Improve hitting")
+        goal.createdAt = today
+        let contribution = GoalAreaContribution(goal: goal, category: category, weeklyTargetSessions: 7, weeklyTargetMinutes: 210)
+        context.insert(goal); context.insert(contribution)
+        try context.save()
+
+        try PlanningService.insertMissingCalendarItems(profile: profile, date: today, activities: [activity], context: context, calendar: TestDate.calendar)
+        try context.save()
+
+        let item = try XCTUnwrap(try context.fetch(FetchDescriptor<CalendarItem>()).first)
+        let repository = SwiftDataCalendarRepository(context: context)
+        let viewModel = TodayViewModel(profile: profile, items: [item], activities: [activity], resultMeasures: [], currentTime: today, repository: repository)
+
+        func goalProgress() -> GoalProgress {
+            GoalProgressEngine.progress(
+                goal: goal, period: .week, now: today, categories: [category], contributions: [contribution],
+                measures: [], entries: [], activities: [activity],
+                calendarItems: try! context.fetch(FetchDescriptor<CalendarItem>())
+            )
+        }
+
+        // Step 1: start.
+        viewModel.start(item)
+        XCTAssertEqual(item.status, .inProgress)
+        XCTAssertEqual(viewModel.summary.done, 0)
+
+        // Step 2: skip — no session, Goal sees zero completed actions.
+        viewModel.skip(item)
+        XCTAssertEqual(item.status, .skipped)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<ActivitySession>()).isEmpty)
+        XCTAssertEqual(goalProgress().contributions.first?.completedActions, 0)
+
+        // Step 3: undo the skip — back to planned, still no session.
+        viewModel.undoSkip(item)
+        XCTAssertEqual(item.status, .planned)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<ActivitySession>()).isEmpty)
+
+        // Step 4: complete — exactly one session, Today +1, Goal sees it.
+        XCTAssertTrue(viewModel.quickFinish(item, at: TestDate.make(2026, 9, 1, hour: 18, minute: 30)))
+        XCTAssertEqual(item.status, .done)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<ActivitySession>()).count, 1)
+        XCTAssertEqual(viewModel.summary.done, 1)
+        XCTAssertEqual(goalProgress().contributions.first?.completedActions, 1)
+
+        // Step 5: undo the completion (ImprovementCategoryDetailView.undoComplete's
+        // exact logic — by CalendarItem.id, never by activity name/time) — back to
+        // planned, session removed, Today and Goal both revert to zero.
+        let sessionsForItem = try context.fetch(FetchDescriptor<ActivitySession>()).filter { $0.calendarItem?.id == item.id }
+        item.status = .planned
+        item.actualStart = nil
+        item.actualEnd = nil
+        sessionsForItem.forEach(context.delete)
+        try context.save()
+
+        XCTAssertEqual(item.status, .planned)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<ActivitySession>()).isEmpty, "undo must remove exactly the session it created, leaving none behind")
+        let finalViewModel = TodayViewModel(profile: profile, items: [item], activities: [activity], resultMeasures: [], currentTime: today, repository: repository)
+        XCTAssertEqual(finalViewModel.summary.done, 0)
+        XCTAssertEqual(goalProgress().contributions.first?.completedActions, 0)
+    }
+
+    /// Simulates a full single-user Nutrition session: log a meal from a
+    /// Template → confirm the Dashboard-level totals reflect it → edit the
+    /// meal's totals → confirm the change is reflected immediately → delete
+    /// the meal → confirm it drops back to zero. Every step recomputes
+    /// NutritionEngine.dailyTotals/targetProgress fresh from the persisted
+    /// store (not cached state), for the one profile throughout.
+    func testNutritionLogEditDeleteJourneyIsReflectedInDashboardTotalsAtEveryStep() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let profile = Profile(name: "Tester", kind: .individual, colorToken: "blue")
+        context.insert(profile)
+        let goal = NutritionGoal(profileID: profile.id, proteinTargetG: 150)
+        context.insert(goal)
+        let day = TestDate.make(2026, 9, 5)
+        let repository = SwiftDataNutritionRepository(context: context)
+
+        func totals() throws -> NutritionEngine.DailyTotals {
+            let meals = try context.fetch(FetchDescriptor<MealEntry>())
+            return NutritionEngine.dailyTotals(profileID: profile.id, date: day, meals: meals, waterEntries: [])
+        }
+
+        // Step 1: before logging anything, totals are zero.
+        XCTAssertEqual(try totals().proteinG, 0)
+
+        // Step 2: log from a Template — fixed totals copied verbatim (no scaling/calc).
+        let template = MealTemplate(
+            profileID: profile.id, name: "Protein Breakfast", mealTypeDefault: .breakfast,
+            details: "Eggs + oats", totals: NutritionValue(calories: 500, proteinG: 40, carbsG: 30, fatG: 15)
+        )
+        repository.insertTemplate(template, foodEntries: [])
+        let meal = MealEntry(
+            profileID: profile.id, mealType: .breakfast, recordedAt: day,
+            sourceTemplateID: template.id, sourceTemplateNameSnapshot: template.name, details: template.details
+        )
+        repository.insertMeal(meal, foodEntries: [])
+        meal.setTotals(template.totals)
+        XCTAssertTrue(repository.save())
+
+        XCTAssertEqual(try totals().proteinG, 40, "logging from a template must be reflected immediately")
+        XCTAssertEqual(try totals().calories, 500)
+
+        // Step 3: edit the meal (AddEditMealView.saveMeal's exact path) —
+        // change must be reflected immediately, not just on the next fetch cycle.
+        meal.details = "Eggs + oats + extra protein shake"
+        meal.setTotals(NutritionValue(calories: 650, proteinG: 60, carbsG: 35, fatG: 18))
+        XCTAssertTrue(repository.save())
+
+        XCTAssertEqual(try totals().proteinG, 60, "editing must be reflected immediately, not the stale 40")
+        XCTAssertEqual(try totals().calories, 650)
+
+        // Also verify target-progress framing recomputes with the edit.
+        let progressAfterEdit = NutritionEngine.targetProgress(
+            profileID: profile.id, date: day, meals: try context.fetch(FetchDescriptor<MealEntry>()),
+            waterEntries: [], goal: goal
+        )
+        XCTAssertEqual(progressAfterEdit.proteinFraction ?? -1, 0.4, accuracy: 0.0001, "60/150 target")
+
+        // Step 4: delete the meal (AddEditMealView.deleteMeal's exact path) —
+        // totals must drop back to zero, not linger from the deleted row.
+        try repository.deleteMeal(meal)
+        XCTAssertTrue(repository.save())
+
+        XCTAssertEqual(try totals().proteinG, 0, "deleting the meal must zero the total immediately")
+        XCTAssertEqual(try totals().calories, 0)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<MealEntry>()).isEmpty)
     }
 
     #if canImport(UIKit)

@@ -184,6 +184,9 @@ struct RecordActualView: View {
         item.note = note
 
         if modelContext.saveOrReport() {
+            if let activityID = item.activity?.id, let plannedStart = item.plannedStart {
+                ReminderService.cancelReminder(activityID: activityID, occurrence: plannedStart)
+            }
             dismiss()
         } else {
             for entry in insertedEntries {

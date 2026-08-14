@@ -3,6 +3,90 @@ import SwiftData
 @testable import LifeOS
 
 final class PlanningServiceTests: XCTestCase {
+    // MARK: - Notification resolution (LifeOS fix pass: Notification Ownership)
+
+    /// The exact matching logic NotificationRouter relies on to turn a
+    /// tapped/actioned notification back into a CalendarItem. Two profiles
+    /// with an identically-named/timed Activity must never resolve to each
+    /// other's item — this is the part a leak could hide in, so it's tested
+    /// independently of the (untestable) UNUserNotificationCenter runtime.
+    func testResolveCalendarItemMatchesOnlyTheOwningProfilesActivityAtTheSameOccurrence() {
+        let alice = TestFixtures.profile("Alice")
+        let bob = TestFixtures.profile("Bob")
+        let aliceArea = TestFixtures.area(profile: alice)
+        let bobArea = TestFixtures.area(profile: bob)
+        let aliceActivity = Activity(
+            profile: alice, category: aliceArea, name: "Hitting Practice",
+            plannedStartMinutes: 18 * 60, estimatedDurationMinutes: 30,
+            startDate: TestFixtures.date(2026, 6, 1)
+        )
+        let bobActivity = Activity(
+            profile: bob, category: bobArea, name: "Hitting Practice",
+            plannedStartMinutes: 18 * 60, estimatedDurationMinutes: 30,
+            startDate: TestFixtures.date(2026, 6, 1)
+        )
+        let occurrence = TestFixtures.date(2026, 6, 1, hour: 18)
+        let aliceItem = CalendarItem(
+            profile: alice, activity: aliceActivity, date: TestFixtures.date(2026, 6, 1),
+            plannedStart: occurrence
+        )
+        let bobItem = CalendarItem(
+            profile: bob, activity: bobActivity, date: TestFixtures.date(2026, 6, 1),
+            plannedStart: occurrence
+        )
+
+        let resolved = PlanningService.resolveCalendarItem(
+            profileID: alice.id, activityID: aliceActivity.id, occurrence: occurrence,
+            in: [aliceItem, bobItem]
+        )
+
+        XCTAssertEqual(resolved?.id, aliceItem.id, "must resolve to Alice's item, never Bob's identically-named/timed one")
+    }
+
+    func testResolveCalendarItemReturnsNilWhenProfileAndActivityDisagree() {
+        let alice = TestFixtures.profile("Alice")
+        let bob = TestFixtures.profile("Bob")
+        let bobActivity = Activity(
+            profile: bob, category: nil, name: "Hitting Practice",
+            plannedStartMinutes: 18 * 60, estimatedDurationMinutes: 30,
+            startDate: TestFixtures.date(2026, 6, 1)
+        )
+        let occurrence = TestFixtures.date(2026, 6, 1, hour: 18)
+        let bobItem = CalendarItem(
+            profile: bob, activity: bobActivity, date: TestFixtures.date(2026, 6, 1),
+            plannedStart: occurrence
+        )
+
+        // Alice's profileID paired with Bob's activityID (e.g. a corrupted
+        // or forged payload) must never resolve to Bob's item.
+        let resolved = PlanningService.resolveCalendarItem(
+            profileID: alice.id, activityID: bobActivity.id, occurrence: occurrence, in: [bobItem]
+        )
+
+        XCTAssertNil(resolved)
+    }
+
+    func testResolveCalendarItemMatchesOccurrenceWithinAMinuteButNotFurther() {
+        let profile = TestFixtures.profile()
+        let activity = Activity(
+            profile: profile, category: nil, name: "Practice",
+            plannedStartMinutes: 600, estimatedDurationMinutes: 10,
+            startDate: TestFixtures.date(2026, 6, 1)
+        )
+        let plannedStart = TestFixtures.date(2026, 6, 1, hour: 10)
+        let item = CalendarItem(profile: profile, activity: activity, date: TestFixtures.date(2026, 6, 1), plannedStart: plannedStart)
+
+        XCTAssertNotNil(PlanningService.resolveCalendarItem(
+            profileID: profile.id, activityID: activity.id,
+            occurrence: plannedStart.addingTimeInterval(30), in: [item]
+        ), "sub-minute serialization rounding must still match")
+        XCTAssertNil(PlanningService.resolveCalendarItem(
+            profileID: profile.id, activityID: activity.id,
+            occurrence: plannedStart.addingTimeInterval(120), in: [item]
+        ), "a different occurrence two minutes away must not match")
+    }
+
+
     func testReminderDatesRespectLifecycleAndExcludeElapsedOccurrences() {
         let profile = TestFixtures.profile()
         let area = TestFixtures.area(profile: profile)

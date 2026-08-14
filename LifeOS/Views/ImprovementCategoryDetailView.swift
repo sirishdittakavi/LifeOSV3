@@ -280,7 +280,12 @@ struct ImprovementCategoryDetailView: View {
     private func statusTapAction(for item: CalendarItem) -> (() -> Void)? {
         switch item.status {
         case .planned, .inProgress:
-            return { todayViewModel.quickFinish(item, at: .now) }
+            return {
+                if todayViewModel.quickFinish(item, at: .now),
+                   let activityID = item.activity?.id, let plannedStart = item.plannedStart {
+                    ReminderService.cancelReminder(activityID: activityID, occurrence: plannedStart)
+                }
+            }
         case .done:
             return { undoComplete(item) }
         case .skipped, .rescheduled, .unplanned:

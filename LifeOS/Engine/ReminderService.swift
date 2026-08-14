@@ -66,15 +66,43 @@ enum ReminderService {
         }
         content.body = "\(actionCategory.name) · This action supports the weekly improvement target."
         content.sound = .default
+        content.categoryIdentifier = NotificationRouter.activityCategoryIdentifier
+        // The tap/action payload carries stable identity (profile + activity +
+        // exact occurrence) so routing/actions never depend on title text —
+        // two profiles' identically-named Activities have different IDs here.
+        if let profileID = activity.profile?.id {
+            content.userInfo = [
+                NotificationRouter.profileIDKey: profileID.uuidString,
+                NotificationRouter.activityIDKey: activity.id.uuidString,
+                NotificationRouter.occurrenceKey: ISO8601DateFormatter().string(from: date)
+            ]
+        }
 
         let components = Calendar.current.dateComponents(
             [.year, .month, .day, .hour, .minute], from: date
         )
         try await center.add(UNNotificationRequest(
-            identifier: "activity.\(activity.id.uuidString).\(Int(date.timeIntervalSince1970))",
+            identifier: identifier(activityID: activity.id, occurrence: date),
             content: content,
             trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         ))
+    }
+
+    /// Shared with `cancelReminder` so the identifier used to schedule an
+    /// occurrence's reminder and the identifier used to cancel it can never
+    /// silently drift apart.
+    private static func identifier(activityID: UUID, occurrence date: Date) -> String {
+        "activity.\(activityID.uuidString).\(Int(date.timeIntervalSince1970))"
+    }
+
+    /// Cancels one specific occurrence's already-scheduled reminder — called
+    /// when that occurrence is completed or skipped, so a decided Task never
+    /// still fires a "do this" reminder afterward. A no-op if nothing was
+    /// pending for that exact (activity, occurrence) pair.
+    static func cancelReminder(activityID: UUID, occurrence date: Date) {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(
+            withIdentifiers: [identifier(activityID: activityID, occurrence: date)]
+        )
     }
 }
 

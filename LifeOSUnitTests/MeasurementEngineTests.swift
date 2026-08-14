@@ -112,6 +112,44 @@ final class MeasurementAggregationTests: XCTestCase {
         XCTAssertEqual(ProgressEngine.measurementTotal(for: definition, entries: entries), 100)
     }
 
+    /// Profile-isolation regression: the nameSnapshot fallback (above) exists
+    /// to keep counting an entry once ITS OWN definition is deleted, but must
+    /// never adopt an orphaned entry belonging to a DIFFERENT profile's
+    /// identically-named, separately-deleted definition. Two profiles each
+    /// had their own "Ground Balls" definition deleted; only the entry that
+    /// actually belongs to Alice's Activity may contribute to Alice's total.
+    func testNameSnapshotFallbackNeverAdoptsAnotherProfilesOrphanedEntry() {
+        let alice = Profile(name: "Alice", kind: .individual, colorToken: "blue")
+        let bob = Profile(name: "Bob", kind: .individual, colorToken: "orange")
+        let aliceActivity = Activity(profile: alice, category: nil, name: "Fielding", plannedStartMinutes: 0, estimatedDurationMinutes: 10)
+        let bobActivity = Activity(profile: bob, category: nil, name: "Fielding", plannedStartMinutes: 0, estimatedDurationMinutes: 10)
+        // Alice's live definition — its own definition was NOT deleted, so a
+        // correct implementation only needs entries whose measurementDefinition
+        // still points at it, or (fallback) whose orphaned entry is actually hers.
+        let aliceDefinition = MeasurementDefinition(activity: aliceActivity, name: "Ground Balls", type: .count)
+
+        let aliceSession = ActivitySession(activity: aliceActivity, calendarItem: nil)
+        let bobSession = ActivitySession(activity: bobActivity, calendarItem: nil)
+        // Bob's own "Ground Balls" definition was deleted after this entry was
+        // recorded, so it fell back to nameSnapshot matching — exactly like
+        // testFallsBackToNameSnapshotWhenTheLiveDefinitionLinkIsAbsent, but on
+        // a DIFFERENT profile's orphaned entry with the same definition name.
+        let bobOrphanedEntry = MeasurementEntry(
+            activitySession: bobSession, measurementDefinition: nil,
+            nameSnapshot: "Ground Balls", typeSnapshot: .count, numericValue: 999,
+            recordedAt: TestFixtures.date(2026, 1, 5)
+        )
+        let aliceEntry = MeasurementEntry(
+            activitySession: aliceSession, measurementDefinition: aliceDefinition,
+            nameSnapshot: "Ground Balls", typeSnapshot: .count, numericValue: 100,
+            recordedAt: TestFixtures.date(2026, 1, 5)
+        )
+
+        let total = ProgressEngine.measurementTotal(for: aliceDefinition, entries: [aliceEntry, bobOrphanedEntry])
+
+        XCTAssertEqual(total, 100, "Bob's orphaned identically-named entry (999) must never be added to Alice's total")
+    }
+
     func testIntervalBoundsExcludeEntriesOutsideTheRange() {
         let definition = groundBallsDefinition()
         let entries = [

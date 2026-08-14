@@ -17,6 +17,14 @@ struct LifeOSBackupPayload: Codable {
     let weightEntries: [WeightBackup]
     let sportEntries: [SportBackup]
     let savedTemplates: [SavedTemplateBackup]
+    // Nutrition v1 — optional, like goals/resultMeasures above, so a
+    // backup exported before this module existed still restores cleanly.
+    let nutritionGoals: [NutritionGoalBackup]?
+    let mealTemplates: [MealTemplateBackup]?
+    let mealEntries: [MealEntryBackup]?
+    let waterEntries: [WaterEntryBackup]?
+    let bodyMetricDefinitions: [BodyMetricDefinitionBackup]?
+    let bodyMetricEntries: [BodyMetricEntryBackup]?
 }
 
 struct ProfileBackup: Codable {
@@ -51,6 +59,11 @@ struct ResultMeasureBackup: Codable {
     let targetMinimum: Double?; let targetMaximum: Double?; let ratingLabels: [String]
     let cadenceRaw: String; let nextCheckInDate: Date?; let reminderEnabled: Bool
     let reminderHour: Int; let reminderMinute: Int; let isActive: Bool
+    // Goal-integration links (measurement/nutrition/body metric) — optional so a
+    // backup exported before these existed still restores cleanly.
+    let linkedMeasurementDefinitionID: UUID?
+    let linkedNutritionMetricRaw: String?
+    let linkedBodyMetricDefinitionID: UUID?
 }
 
 struct ResultEntryBackup: Codable {
@@ -102,6 +115,47 @@ struct SavedTemplateBackup: Codable {
     let taskBlueprintData: Data; let createdAt: Date
 }
 
+// MARK: - Nutrition v1
+
+struct NutritionGoalBackup: Codable {
+    let id: UUID; let profileID: UUID?
+    let calorieTarget: Double?; let proteinTargetG: Double?; let carbsTargetG: Double?
+    let fatTargetG: Double?; let waterTargetML: Double?
+    let createdAt: Date; let updatedAt: Date
+}
+
+struct MealTemplateBackup: Codable {
+    let id: UUID; let profileID: UUID?; let name: String; let mealTypeDefaultRaw: String?
+    let details: String; let totals: NutritionValue
+    let isFavorite: Bool; let useCount: Int; let lastUsedAt: Date?
+    let createdAt: Date; let updatedAt: Date
+}
+
+struct MealEntryBackup: Codable {
+    let id: UUID; let profileID: UUID?; let mealTypeRaw: String; let recordedAt: Date
+    let sourceTemplateID: UUID?; let sourceTemplateNameSnapshot: String?
+    let details: String; let totals: NutritionValue
+    let lastEditedAt: Date?; let editCount: Int
+    let createdAt: Date; let updatedAt: Date
+}
+
+struct WaterEntryBackup: Codable {
+    let id: UUID; let profileID: UUID?; let recordedAt: Date; let amountML: Double
+    let createdAt: Date; let updatedAt: Date
+}
+
+struct BodyMetricDefinitionBackup: Codable {
+    let id: UUID; let profileID: UUID?; let name: String; let unit: String
+    let isSystemDefault: Bool; let sortOrder: Int
+    let createdAt: Date; let updatedAt: Date
+}
+
+struct BodyMetricEntryBackup: Codable {
+    let id: UUID; let profileID: UUID?; let bodyMetricDefinitionID: UUID?
+    let nameSnapshot: String; let unitSnapshot: String; let value: Double; let recordedAt: Date
+    let createdAt: Date; let updatedAt: Date
+}
+
 enum LifeOSBackupService {
     static func make(
         profiles: [Profile], categories: [AppCategory], activities: [Activity],
@@ -109,7 +163,10 @@ enum LifeOSBackupService {
         resultMeasures: [ResultMeasure], resultEntries: [ResultEntry],
         calendarItems: [CalendarItem], sessions: [ActivitySession], foodEntries: [FoodEntry],
         weightEntries: [WeightEntry], sportEntries: [SportEntry],
-        savedTemplates: [SavedCategoryTemplate]
+        savedTemplates: [SavedCategoryTemplate],
+        nutritionGoals: [NutritionGoal] = [], mealTemplates: [MealTemplate] = [],
+        mealEntries: [MealEntry] = [], waterEntries: [WaterEntry] = [],
+        bodyMetricDefinitions: [BodyMetricDefinition] = [], bodyMetricEntries: [BodyMetricEntry] = []
     ) -> LifeOSBackupPayload {
         LifeOSBackupPayload(
             schemaVersion: 2, exportedAt: .now,
@@ -152,7 +209,10 @@ enum LifeOSBackupService {
                     targetMaximum: $0.targetMaximum, ratingLabels: $0.ratingLabels,
                     cadenceRaw: $0.cadenceRaw, nextCheckInDate: $0.nextCheckInDate,
                     reminderEnabled: $0.reminderEnabled, reminderHour: $0.reminderHour,
-                    reminderMinute: $0.reminderMinute, isActive: $0.isActive)
+                    reminderMinute: $0.reminderMinute, isActive: $0.isActive,
+                    linkedMeasurementDefinitionID: $0.linkedMeasurementDefinitionID,
+                    linkedNutritionMetricRaw: $0.linkedNutritionMetricRaw,
+                    linkedBodyMetricDefinitionID: $0.linkedBodyMetricDefinitionID)
             },
             resultEntries: resultEntries.map {
                 ResultEntryBackup(id: $0.id, profileID: $0.profile?.id,
@@ -204,6 +264,42 @@ enum LifeOSBackupService {
                     symbol: $0.symbol, colorToken: $0.colorToken, purpose: $0.purpose,
                     weeklySessions: $0.weeklySessions, weeklyMinutes: $0.weeklyMinutes,
                     taskBlueprintData: $0.taskBlueprintData, createdAt: $0.createdAt)
+            },
+            nutritionGoals: nutritionGoals.map {
+                NutritionGoalBackup(id: $0.id, profileID: $0.profileID,
+                    calorieTarget: $0.calorieTarget, proteinTargetG: $0.proteinTargetG,
+                    carbsTargetG: $0.carbsTargetG, fatTargetG: $0.fatTargetG,
+                    waterTargetML: $0.waterTargetML, createdAt: $0.createdAt, updatedAt: $0.updatedAt)
+            },
+            mealTemplates: mealTemplates.map {
+                MealTemplateBackup(id: $0.id, profileID: $0.profileID, name: $0.name,
+                    mealTypeDefaultRaw: $0.mealTypeDefaultRaw, details: $0.details, totals: $0.totals,
+                    isFavorite: $0.isFavorite, useCount: $0.useCount, lastUsedAt: $0.lastUsedAt,
+                    createdAt: $0.createdAt, updatedAt: $0.updatedAt)
+            },
+            mealEntries: mealEntries.map {
+                MealEntryBackup(id: $0.id, profileID: $0.profileID, mealTypeRaw: $0.mealTypeRaw,
+                    recordedAt: $0.recordedAt, sourceTemplateID: $0.sourceTemplateID,
+                    sourceTemplateNameSnapshot: $0.sourceTemplateNameSnapshot,
+                    details: $0.details, totals: $0.totals,
+                    lastEditedAt: $0.lastEditedAt, editCount: $0.editCount,
+                    createdAt: $0.createdAt, updatedAt: $0.updatedAt)
+            },
+            waterEntries: waterEntries.map {
+                WaterEntryBackup(id: $0.id, profileID: $0.profileID, recordedAt: $0.recordedAt,
+                    amountML: $0.amountML, createdAt: $0.createdAt, updatedAt: $0.updatedAt)
+            },
+            bodyMetricDefinitions: bodyMetricDefinitions.map {
+                BodyMetricDefinitionBackup(id: $0.id, profileID: $0.profileID, name: $0.name,
+                    unit: $0.unit, isSystemDefault: $0.isSystemDefault, sortOrder: $0.sortOrder,
+                    createdAt: $0.createdAt, updatedAt: $0.updatedAt)
+            },
+            bodyMetricEntries: bodyMetricEntries.map {
+                BodyMetricEntryBackup(id: $0.id, profileID: $0.profileID,
+                    bodyMetricDefinitionID: $0.bodyMetricDefinition?.id,
+                    nameSnapshot: $0.nameSnapshot, unitSnapshot: $0.unitSnapshot,
+                    value: $0.value, recordedAt: $0.recordedAt,
+                    createdAt: $0.createdAt, updatedAt: $0.updatedAt)
             }
         )
     }
@@ -294,6 +390,9 @@ enum LifeOSBackupService {
             item.nextCheckInDate = record.nextCheckInDate; item.reminderEnabled = record.reminderEnabled
             item.reminderHour = record.reminderHour; item.reminderMinute = record.reminderMinute
             item.isActive = record.isActive
+            item.linkedMeasurementDefinitionID = record.linkedMeasurementDefinitionID
+            item.linkedNutritionMetricRaw = record.linkedNutritionMetricRaw
+            item.linkedBodyMetricDefinitionID = record.linkedBodyMetricDefinitionID
             if measureMap[record.id] == nil { context.insert(item); measureMap[record.id] = item }
         }
 
@@ -392,6 +491,92 @@ enum LifeOSBackupService {
             item.taskBlueprintData = record.taskBlueprintData; item.createdAt = record.createdAt
             context.insert(item); templateIDs.insert(record.id)
         }
+        // Nutrition v1 — all upsert-by-id (like Profile/ResultMeasure above),
+        // not insert-only, because every one of these models supports
+        // normal user editing after creation.
+        var nutritionGoalMap = Dictionary(uniqueKeysWithValues:
+            (try context.fetch(FetchDescriptor<NutritionGoal>())).map { ($0.id, $0) })
+        for record in backup.nutritionGoals ?? [] {
+            let item = nutritionGoalMap[record.id] ?? NutritionGoal(
+                profileID: record.profileID ?? UUID())
+            item.id = record.id; item.profileID = record.profileID ?? item.profileID
+            item.calorieTarget = record.calorieTarget; item.proteinTargetG = record.proteinTargetG
+            item.carbsTargetG = record.carbsTargetG; item.fatTargetG = record.fatTargetG
+            item.waterTargetML = record.waterTargetML
+            item.createdAt = record.createdAt; item.updatedAt = record.updatedAt
+            if nutritionGoalMap[record.id] == nil { context.insert(item); nutritionGoalMap[record.id] = item }
+        }
+
+        var mealTemplateMap = Dictionary(uniqueKeysWithValues:
+            (try context.fetch(FetchDescriptor<MealTemplate>())).map { ($0.id, $0) })
+        for record in backup.mealTemplates ?? [] {
+            let item = mealTemplateMap[record.id] ?? MealTemplate(
+                profileID: record.profileID ?? UUID(), name: record.name)
+            item.id = record.id; item.profileID = record.profileID ?? item.profileID
+            item.name = record.name; item.mealTypeDefaultRaw = record.mealTypeDefaultRaw
+            item.details = record.details; item.totals = record.totals
+            item.isFavorite = record.isFavorite; item.useCount = record.useCount
+            item.lastUsedAt = record.lastUsedAt
+            item.createdAt = record.createdAt; item.updatedAt = record.updatedAt
+            if mealTemplateMap[record.id] == nil { context.insert(item); mealTemplateMap[record.id] = item }
+        }
+
+        var mealEntryMap = Dictionary(uniqueKeysWithValues:
+            (try context.fetch(FetchDescriptor<MealEntry>())).map { ($0.id, $0) })
+        for record in backup.mealEntries ?? [] {
+            let item = mealEntryMap[record.id] ?? MealEntry(
+                profileID: record.profileID ?? UUID(),
+                mealType: MealType(rawValue: record.mealTypeRaw) ?? .snack)
+            item.id = record.id; item.profileID = record.profileID ?? item.profileID
+            item.mealTypeRaw = record.mealTypeRaw; item.recordedAt = record.recordedAt
+            item.sourceTemplateID = record.sourceTemplateID
+            item.sourceTemplateNameSnapshot = record.sourceTemplateNameSnapshot
+            item.details = record.details; item.totals = record.totals
+            item.lastEditedAt = record.lastEditedAt; item.editCount = record.editCount
+            item.createdAt = record.createdAt; item.updatedAt = record.updatedAt
+            if mealEntryMap[record.id] == nil { context.insert(item); mealEntryMap[record.id] = item }
+        }
+
+        var waterEntryMap = Dictionary(uniqueKeysWithValues:
+            (try context.fetch(FetchDescriptor<WaterEntry>())).map { ($0.id, $0) })
+        for record in backup.waterEntries ?? [] {
+            let item = waterEntryMap[record.id] ?? WaterEntry(
+                profileID: record.profileID ?? UUID(), amountML: record.amountML)
+            item.id = record.id; item.profileID = record.profileID ?? item.profileID
+            item.recordedAt = record.recordedAt; item.amountML = record.amountML
+            item.createdAt = record.createdAt; item.updatedAt = record.updatedAt
+            if waterEntryMap[record.id] == nil { context.insert(item); waterEntryMap[record.id] = item }
+        }
+
+        var bodyMetricDefinitionMap = Dictionary(uniqueKeysWithValues:
+            (try context.fetch(FetchDescriptor<BodyMetricDefinition>())).map { ($0.id, $0) })
+        for record in backup.bodyMetricDefinitions ?? [] {
+            let item = bodyMetricDefinitionMap[record.id] ?? BodyMetricDefinition(
+                profileID: record.profileID ?? UUID(), name: record.name, unit: record.unit)
+            item.id = record.id; item.profileID = record.profileID ?? item.profileID
+            item.name = record.name; item.unit = record.unit
+            item.isSystemDefault = record.isSystemDefault; item.sortOrder = record.sortOrder
+            item.createdAt = record.createdAt; item.updatedAt = record.updatedAt
+            if bodyMetricDefinitionMap[record.id] == nil {
+                context.insert(item); bodyMetricDefinitionMap[record.id] = item
+            }
+        }
+
+        var bodyMetricEntryMap = Dictionary(uniqueKeysWithValues:
+            (try context.fetch(FetchDescriptor<BodyMetricEntry>())).map { ($0.id, $0) })
+        for record in backup.bodyMetricEntries ?? [] {
+            let definition = record.bodyMetricDefinitionID.flatMap { bodyMetricDefinitionMap[$0] }
+            let item = bodyMetricEntryMap[record.id] ?? BodyMetricEntry(
+                profileID: record.profileID ?? UUID(), bodyMetricDefinition: definition,
+                nameSnapshot: record.nameSnapshot, unitSnapshot: record.unitSnapshot, value: record.value)
+            item.id = record.id; item.profileID = record.profileID ?? item.profileID
+            item.bodyMetricDefinition = definition
+            item.nameSnapshot = record.nameSnapshot; item.unitSnapshot = record.unitSnapshot
+            item.value = record.value; item.recordedAt = record.recordedAt
+            item.createdAt = record.createdAt; item.updatedAt = record.updatedAt
+            if bodyMetricEntryMap[record.id] == nil { context.insert(item); bodyMetricEntryMap[record.id] = item }
+        }
+
         try SeedData.repairDuplicateCategories(context: context)
         try context.save()
     }
@@ -409,6 +594,12 @@ enum LifeOSBackupService {
         let contributions = backup.goalContributions ?? []
         let measures = backup.resultMeasures ?? []
         let results = backup.resultEntries ?? []
+        let nutritionGoals = backup.nutritionGoals ?? []
+        let mealTemplates = backup.mealTemplates ?? []
+        let mealEntries = backup.mealEntries ?? []
+        let waterEntries = backup.waterEntries ?? []
+        let bodyMetricDefinitions = backup.bodyMetricDefinitions ?? []
+        let bodyMetricEntries = backup.bodyMetricEntries ?? []
         try requireUnique(backup.profiles, "profile", id: \ProfileBackup.id)
         try requireUnique(backup.categories, "plan", id: \CategoryBackup.id)
         try requireUnique(goals, "goal", id: \GoalBackup.id)
@@ -422,6 +613,12 @@ enum LifeOSBackupService {
         try requireUnique(backup.weightEntries, "weight entry", id: \WeightBackup.id)
         try requireUnique(backup.sportEntries, "sport entry", id: \SportBackup.id)
         try requireUnique(backup.savedTemplates, "template", id: \SavedTemplateBackup.id)
+        try requireUnique(nutritionGoals, "nutrition goal", id: \NutritionGoalBackup.id)
+        try requireUnique(mealTemplates, "meal template", id: \MealTemplateBackup.id)
+        try requireUnique(mealEntries, "meal entry", id: \MealEntryBackup.id)
+        try requireUnique(waterEntries, "water entry", id: \WaterEntryBackup.id)
+        try requireUnique(bodyMetricDefinitions, "body metric definition", id: \BodyMetricDefinitionBackup.id)
+        try requireUnique(bodyMetricEntries, "body metric entry", id: \BodyMetricEntryBackup.id)
 
         let profileIDs = Set(backup.profiles.map(\.id))
         let categoryIDs = Set(backup.categories.map(\.id))
@@ -429,6 +626,7 @@ enum LifeOSBackupService {
         let measureIDs = Set(measures.map(\.id))
         let activityIDs = Set(backup.activities.map(\.id))
         let calendarIDs = Set(backup.calendarItems.map(\.id))
+        let bodyMetricDefinitionIDs = Set(bodyMetricDefinitions.map(\.id))
 
         for value in backup.categories {
             try requireReference(value.profileID, in: profileIDs, "plan profile")
@@ -470,6 +668,15 @@ enum LifeOSBackupService {
         for value in backup.sportEntries {
             try requireReference(value.profileID, in: profileIDs, "sport profile")
             try requireReference(value.categoryID, in: categoryIDs, "sport plan")
+        }
+        for value in nutritionGoals { try requireReference(value.profileID, in: profileIDs, "nutrition goal profile") }
+        for value in mealTemplates { try requireReference(value.profileID, in: profileIDs, "meal template profile") }
+        for value in mealEntries { try requireReference(value.profileID, in: profileIDs, "meal entry profile") }
+        for value in waterEntries { try requireReference(value.profileID, in: profileIDs, "water entry profile") }
+        for value in bodyMetricDefinitions { try requireReference(value.profileID, in: profileIDs, "body metric definition profile") }
+        for value in bodyMetricEntries {
+            try requireReference(value.profileID, in: profileIDs, "body metric entry profile")
+            try requireReference(value.bodyMetricDefinitionID, in: bodyMetricDefinitionIDs, "body metric entry definition")
         }
     }
 }
