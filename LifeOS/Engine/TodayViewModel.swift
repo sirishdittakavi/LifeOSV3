@@ -21,10 +21,28 @@ struct TodayViewModel {
     let profile: Profile?
     let items: [CalendarItem]
     let activities: [Activity]
-    let sessions: [ActivitySession] = []
+    let sessions: [ActivitySession]
     let resultMeasures: [ResultMeasure]
     let currentTime: Date
     let repository: CalendarRepository
+
+    init(
+        profile: Profile?,
+        items: [CalendarItem],
+        activities: [Activity],
+        sessions: [ActivitySession] = [],
+        resultMeasures: [ResultMeasure],
+        currentTime: Date,
+        repository: CalendarRepository
+    ) {
+        self.profile = profile
+        self.items = items
+        self.activities = activities
+        self.sessions = sessions
+        self.resultMeasures = resultMeasures
+        self.currentTime = currentTime
+        self.repository = repository
+    }
 
     var todayItems: [CalendarItem] {
         guard let profile else { return [] }
