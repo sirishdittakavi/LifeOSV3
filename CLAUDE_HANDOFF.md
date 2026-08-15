@@ -24,6 +24,10 @@ Read [the v3 mock reference guide](docs/lifeos-v3/MockReferences.md) before
 touching a screen. All current UI-rebuild material lives under
 `docs/lifeos-v3/`; do not use older documents as visual direction.
 
+For the exact task order, files, acceptance checks, and required review stop
+after every commit, follow
+[ClaudeExecutionPlan.md](docs/lifeos-v3/ClaudeExecutionPlan.md).
+
 ## Completed in the current commit
 
 - Shared visual tokens: `LifeOSColors`, typography, components, and primary
