@@ -141,6 +141,7 @@ struct MealLoggingView: View {
                 }
             }
         }
+        .accessibilityIdentifier("nutrition.mealSourceTabs")
     }
 
     private var templatesSection: some View {
@@ -292,6 +293,7 @@ struct MealLoggingView: View {
                 }
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("nutrition.meal.loggedCard")
         }
     }
 

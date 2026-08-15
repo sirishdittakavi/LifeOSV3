@@ -10,6 +10,8 @@
 		A10000000000000000000001 /* LifeOSUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* LifeOSUITests.swift */; };
 		4D7DDDAD3E274551AD548319 /* NutritionReviewUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94021F40ED40484F8CB32627 /* NutritionReviewUITests.swift */; };
 		6BDB912637A0BB458CA5B770 /* ProfileIsolationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38919F689E4F86BB59E8D286 /* ProfileIsolationUITests.swift */; };
+		AD2C17F66F75C03010BACED4 /* RemainingReleasePassUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88179F868385FB6164C8E57D /* RemainingReleasePassUITests.swift */; };
+		4B234D8EFE32D45408657FB4 /* LifeOSUITestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2103EF7B988D3D09FBBCE7A1 /* LifeOSUITestSupport.swift */; };
 		12622E1A22DA370EE36385DF /* SchemaVersioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 591D05654CEDC34BDF4C3EEC /* SchemaVersioning.swift */; };
 		14EAFD7F341772B2A55053C2 /* ImprovementDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9AAA0DFB09417257C7322E2 /* ImprovementDashboardView.swift */; };
 		156B7C224336DE2D8ADCDCD6 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E9628B470CB2D29FB799F92 /* Models.swift */; };
@@ -114,6 +116,8 @@
 		A10000000000000000000002 /* LifeOSUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeOSUITests.swift; sourceTree = "<group>"; };
 		94021F40ED40484F8CB32627 /* NutritionReviewUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NutritionReviewUITests.swift; sourceTree = "<group>"; };
 		38919F689E4F86BB59E8D286 /* ProfileIsolationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileIsolationUITests.swift; sourceTree = "<group>"; };
+		88179F868385FB6164C8E57D /* RemainingReleasePassUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemainingReleasePassUITests.swift; sourceTree = "<group>"; };
+		2103EF7B988D3D09FBBCE7A1 /* LifeOSUITestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeOSUITestSupport.swift; sourceTree = "<group>"; };
 		A10000000000000000000004 /* LifeOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LifeOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		005D6CDEEC34ED5565B337DF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		034D9080C0B31279987A0CD7 /* LifeOSComponentTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LifeOSComponentTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -201,6 +205,8 @@
 				A10000000000000000000002 /* LifeOSUITests.swift */,
 				94021F40ED40484F8CB32627 /* NutritionReviewUITests.swift */,
 				38919F689E4F86BB59E8D286 /* ProfileIsolationUITests.swift */,
+				88179F868385FB6164C8E57D /* RemainingReleasePassUITests.swift */,
+				2103EF7B988D3D09FBBCE7A1 /* LifeOSUITestSupport.swift */,
 			);
 			path = LifeOSUITests;
 			sourceTree = "<group>";
@@ -481,6 +487,8 @@
 				A10000000000000000000001 /* LifeOSUITests.swift in Sources */,
 				4D7DDDAD3E274551AD548319 /* NutritionReviewUITests.swift in Sources */,
 				6BDB912637A0BB458CA5B770 /* ProfileIsolationUITests.swift in Sources */,
+				AD2C17F66F75C03010BACED4 /* RemainingReleasePassUITests.swift in Sources */,
+				4B234D8EFE32D45408657FB4 /* LifeOSUITestSupport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

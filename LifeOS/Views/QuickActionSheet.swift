@@ -150,6 +150,7 @@ private struct WaterQuickAddSheet: View {
                 .padding(.vertical, LifeOSSpacing.lg)
         }
         .buttonStyle(LifeOSSecondaryButtonStyle())
+        .accessibilityIdentifier("nutrition.water.add\(Int(amount))")
     }
 
     private func add(_ amount: Double) {

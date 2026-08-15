@@ -85,6 +85,7 @@ struct AddEditMealView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save Meal", action: saveMeal).disabled(!hasAnyValue)
+                        .accessibilityIdentifier("nutrition.meal.save")
                 }
             }
             .alert("Save as Template", isPresented: $showingTemplateNamePrompt) {
@@ -111,6 +112,7 @@ struct AddEditMealView: View {
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
                 .frame(width: 80)
+                .accessibilityIdentifier("nutrition.field.\(title.lowercased())")
             Text(suffix).font(.lifeOSSecondary).foregroundStyle(.secondary)
         }
     }

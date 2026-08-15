@@ -286,6 +286,7 @@ struct TodayTimelineView: View {
             .frame(height: 108)
             .accessibilityLabel("Plans, horizontal list")
             .accessibilityHint("Swipe left or right to see more Plans")
+            .accessibilityIdentifier("today.plansRow")
         }
     }
 

@@ -59,7 +59,8 @@ final class ProfileIsolationUITests: XCTestCase {
         // render, while the label text is already correct.
         let nutrition = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "Nutrition")).firstMatch
         scrollToElement(nutrition)
-        nutrition.tap()
+        LifeOSUITestSupport.scrollHorizontalRow(app, containerIdentifier: "today.plansRow", target: nutrition)
+        LifeOSUITestSupport.robustTap(nutrition)
         XCTAssertTrue(app.navigationBars["Nutrition"].waitForExistence(timeout: 3))
         let childProtein = app.descendants(matching: .any)["nutrition.total.protein"]
         XCTAssertTrue(childProtein.waitForExistence(timeout: 3))
@@ -68,6 +69,7 @@ final class ProfileIsolationUITests: XCTestCase {
         // swipe down, matching NutritionReviewUITests' closeDashboard().
         app.swipeDown()
         XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 3))
+        LifeOSUITestSupport.waitForDisappearance(app.navigationBars["Nutrition"])
 
         switchProfile(to: "Parent")
         switchProfile(to: "Child")
@@ -134,30 +136,8 @@ final class ProfileIsolationUITests: XCTestCase {
 
     // MARK: - Helpers
 
-    /// A SwiftUI Menu row whose label is a custom composite view (not a
-    /// plain Label/Text) is accessibility-opaque inside a native menu
-    /// popup on this iOS version — no label, no identifier, nothing is
-    /// exposed to XCUITest regardless of modifiers. "Manage Profiles" (a
-    /// plain List row, fully accessible) is used instead; selecting a row
-    /// there dismisses back to Today automatically.
     private func switchProfile(to name: String) {
-        let selector = app.buttons["profile.selector"].firstMatch
-        scrollUpToElement(selector)
-        XCTAssertTrue(selector.exists, "Expected the profile selector")
-        let manageProfiles = app.buttons["person.2.badge.gearshape"]
-        // The menu trigger can occasionally miss under XCUITest — retry
-        // rather than fail on a single flaky tap.
-        for _ in 0..<3 where !manageProfiles.exists {
-            selector.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            if manageProfiles.waitForExistence(timeout: 2) { break }
-        }
-        XCTAssertTrue(manageProfiles.exists, "Expected the Manage Profiles menu item")
-        manageProfiles.tap()
-
-        let row = app.buttons["profile.row.\(name.lowercased())"]
-        XCTAssertTrue(row.waitForExistence(timeout: 3), "Expected a profile row for \(name)")
-        row.tap()
-        XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 3), "Selecting a profile must dismiss back to Today")
+        LifeOSUITestSupport.switchProfile(app, to: name)
     }
 
     private func completeHittingFromHome() {
@@ -176,18 +156,10 @@ final class ProfileIsolationUITests: XCTestCase {
     }
 
     private func scrollToElement(_ element: XCUIElement, attempts: Int = 8) {
-        var remaining = attempts
-        while (!element.exists || !element.isHittable) && remaining > 0 {
-            app.swipeUp()
-            remaining -= 1
-        }
+        LifeOSUITestSupport.scrollToElement(app, element, attempts: attempts)
     }
 
     private func scrollUpToElement(_ element: XCUIElement, attempts: Int = 8) {
-        var remaining = attempts
-        while (!element.exists || !element.isHittable) && remaining > 0 {
-            app.swipeDown()
-            remaining -= 1
-        }
+        LifeOSUITestSupport.scrollUpToElement(app, element, attempts: attempts)
     }
 }
