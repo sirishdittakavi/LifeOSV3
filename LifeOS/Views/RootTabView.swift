@@ -29,6 +29,22 @@ private func debugOnboardingScreenshotStep() -> Int? {
 private func debugOnboardingAutoCreateRequested() -> Bool {
     ProcessInfo.processInfo.arguments.contains("-onboarding-screenshot-autocreate")
 }
+
+/// Reads `-screenshot-scene <name>` from launch arguments, used only to
+/// deterministically navigate straight to a given screen/sheet for manual
+/// screenshot capture, without simulator tap automation. Never compiled
+/// into Release/TestFlight.
+func debugScreenshotScene() -> String? {
+    let args = ProcessInfo.processInfo.arguments
+    guard let flagIndex = args.firstIndex(of: "-screenshot-scene"),
+          flagIndex + 1 < args.count else { return nil }
+    return args[flagIndex + 1]
+}
+
+private enum DebugScreenshotSheet: String, Identifiable {
+    case addTask, nutrition, taskDetail
+    var id: String { rawValue }
+}
 #endif
 
 /// Holds which profile is currently active, shared across tabs.
@@ -56,6 +72,9 @@ struct RootTabView: View {
     @State private var showingOnboarding = false
     @State private var selectedTab = 0
     @ObservedObject private var notificationRouter = NotificationRouter.shared
+    #if DEBUG
+    @State private var debugSheet: DebugScreenshotSheet?
+    #endif
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -90,8 +109,25 @@ struct RootTabView: View {
         .onAppear {
             presentOnboardingIfNeeded()
             refreshReminders()
+            #if DEBUG
+            applyDebugScreenshotSceneIfNeeded()
+            #endif
         }
         .onChange(of: profiles.count) { presentOnboardingIfNeeded() }
+        #if DEBUG
+        .sheet(item: $debugSheet) { sheet in
+            if let profile = selection.profile ?? profiles.first(where: \.isActive) {
+                switch sheet {
+                case .addTask: AddActivityView(profile: profile)
+                case .nutrition: NutritionDashboardView(selection: selection)
+                case .taskDetail:
+                    if let activity = activities.first(where: { $0.profile?.id == profile.id && $0.isActive }) {
+                        TaskDetailView(activity: activity)
+                    }
+                }
+            }
+        }
+        #endif
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { refreshReminders() }
         }
@@ -158,6 +194,25 @@ struct RootTabView: View {
         if selection.profile == nil { selection.profile = profile }
         showingOnboarding = true
     }
+
+    #if DEBUG
+    /// Deterministic navigation for manual screenshot capture — see
+    /// debugScreenshotScene(). Never compiled into Release/TestFlight.
+    private func applyDebugScreenshotSceneIfNeeded() {
+        guard let scene = debugScreenshotScene() else { return }
+        if selection.profile == nil { selection.profile = profiles.first(where: \.isActive) }
+        switch scene {
+        case "today": selectedTab = 0
+        case "plans": selectedTab = 1
+        case "progress", "add-goal": selectedTab = 2
+        case "schedule": selectedTab = 3
+        case "add-task": selectedTab = 0; debugSheet = .addTask
+        case "nutrition": selectedTab = 0; debugSheet = .nutrition
+        case "task-detail": selectedTab = 0; debugSheet = .taskDetail
+        default: break
+        }
+    }
+    #endif
 
     private func refreshReminders() {
         guard !categories.isEmpty else { return }

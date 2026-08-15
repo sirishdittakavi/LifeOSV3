@@ -108,6 +108,14 @@ struct ImprovementDashboardView: View {
                 .padding()
             }
             .background(Color.lifeOSCanvas)
+            #if DEBUG
+            .onAppear {
+                // Deterministic navigation for manual screenshot capture —
+                // see debugScreenshotScene() in RootTabView.swift. Never
+                // compiled into Release/TestFlight.
+                if debugScreenshotScene() == "add-goal" { showingAddGoal = true }
+            }
+            #endif
             .navigationTitle("Progress")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { ProfilePicker(selection: selection) }
