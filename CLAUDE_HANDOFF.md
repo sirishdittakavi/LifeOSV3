@@ -18,13 +18,20 @@ The user journey is:
 7. Weekly review places adherence beside observed outcome; it must not imply
    that effort caused a result.
 
+## Approved mock screens
+
+Read [the mock reference guide](docs/ClaudeMockReferences.md) before touching a
+screen. The source images are committed under `docs/mock-references/`, so the
+visual standard stays available to every implementation agent.
+
 ## Completed in the current commit
 
 - Shared visual tokens: `LifeOSColors`, typography, components, and primary
   button styles now use the ivory/oxblood/serif direction.
 - Root navigation tint uses `Color.lifeOSAccent`.
 - Today has the warm shell, editorial heading, filled Add button, and one
-  direct completion action instead of its previous Start/Finish/Skip menu.
+  **immediate** completion action instead of its previous Start/Finish/Skip
+  menu. Optional measurement capture no longer interrupts a completion tap.
 - `AddGoalView` is now a three-step guided flow using the existing `Goal`,
   `ResultMeasure`, and `GoalAreaContribution` persistence logic:
   own words -> outcome/target -> supporting plan/check-in.

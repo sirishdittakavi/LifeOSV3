@@ -26,11 +26,9 @@ struct TodayTimelineView: View {
     @Query private var bodyMetricEntries: [BodyMetricEntry]
     @Query private var categories: [AppCategory]
     @Query private var resultMeasures: [ResultMeasure]
-    @Query private var measurementDefinitions: [MeasurementDefinition]
 
     @State private var showingAddActivity = false
     @State private var showingAddWhatHappened = false
-    @State private var recordingItem: CalendarItem?
     @State private var resultMeasureToRecord: ResultMeasure?
     @State private var selectedTask: Activity?
     @State private var feedbackTrigger = 0
@@ -115,9 +113,6 @@ struct TodayTimelineView: View {
             }
             .sheet(isPresented: $showingAddWhatHappened) {
                 if let profile = selection.profile { AddWhatHappenedView(profile: profile) }
-            }
-            .sheet(item: $recordingItem) { item in
-                RecordActualView(item: item)
             }
             .sheet(item: $selectedTask) { TaskDetailView(activity: $0) }
             .sheet(isPresented: $showingTaskOverview) {
@@ -501,23 +496,13 @@ struct TodayTimelineView: View {
         ReminderService.cancelReminder(activityID: activityID, occurrence: plannedStart, center: RealNotificationCenter.shared)
     }
 
-    /// If the Activity has nothing worth recording (no legacy target, no
-    /// active measurements), Finish completes immediately — no sheet, no
-    /// blank form to dismiss. Otherwise it opens the existing focused
-    /// measurement-entry sheet, unchanged.
-    /// Only the "does this need a form" decision lives on the View — it's
-    /// UI-level (depends on what's currently on screen). The actual
-    /// persistence/rollback for the immediate-finish path lives on
-    /// `TodayViewModel.quickFinish`, on the same repository boundary as
-    /// `start`/`skip`/`undoSkip`, not duplicated here.
+    /// Today is intentionally one-tap: touching the circle records the
+    /// occurrence as done immediately, even when the Task has optional
+    /// measurements. Capturing values belongs in Task detail or a later
+    /// logging flow; it must never turn the everyday completion control into
+    /// a multi-screen decision.
     private func finish(_ item: CalendarItem) {
-        let hasTarget = item.activity?.targetValue != nil
-        let hasMeasurements = item.activity.map { activity in
-            measurementDefinitions.contains { $0.activity?.id == activity.id && $0.isActive }
-        } ?? false
-        if hasTarget || hasMeasurements {
-            recordingItem = item
-        } else if viewModel.quickFinish(item, at: .now) {
+        if viewModel.quickFinish(item, at: .now) {
             cancelReminder(for: item)
         }
     }
@@ -768,8 +753,8 @@ private struct CalendarItemRow: View {
     }
 
     /// A single, direct completion control replaces the old Start/Finish/Skip
-    /// menu. A task that needs values still opens its focused recording sheet
-    /// through `onDone`; a plain task completes immediately.
+    /// menu. It always completes immediately; optional measurements are
+    /// captured separately from the high-frequency Today flow.
     @ViewBuilder
     private var statusCluster: some View {
         switch item.status {
