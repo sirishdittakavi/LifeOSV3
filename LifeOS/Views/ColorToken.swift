@@ -71,9 +71,9 @@ struct LifeOSPrimaryButtonStyle: ButtonStyle {
             .background(
                 LinearGradient(
                     colors: [
-                        Color.accentColor.opacity(0.92),
-                        Color.accentColor,
-                        Color.accentColor.blendedTowardBlack(0.22)
+                        Color.lifeOSAccent.opacity(0.92),
+                        Color.lifeOSAccent,
+                        Color.lifeOSAccent.blendedTowardBlack(0.22)
                     ],
                     startPoint: .top, endPoint: .bottom
                 )
@@ -87,7 +87,7 @@ struct LifeOSPrimaryButtonStyle: ButtonStyle {
                         lineWidth: 1
                     )
             }
-            .shadow(color: Color.accentColor.opacity(configuration.isPressed ? 0.12 : 0.28), radius: configuration.isPressed ? 5 : 10, x: 0, y: configuration.isPressed ? 2 : 5)
+            .shadow(color: Color.lifeOSAccent.opacity(configuration.isPressed ? 0.12 : 0.28), radius: configuration.isPressed ? 5 : 10, x: 0, y: configuration.isPressed ? 2 : 5)
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(.lifeOSTap, value: configuration.isPressed)
     }
@@ -98,7 +98,7 @@ struct LifeOSPrimaryButtonStyle: ButtonStyle {
 /// (e.g. a floating quick-add bar) — tinted text on a soft tinted fill
 /// instead of a solid saturated block.
 struct LifeOSTonalButtonStyle: ButtonStyle {
-    var tint: Color = .accentColor
+    var tint: Color = .lifeOSAccent
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -150,7 +150,7 @@ struct LifeOSSecondaryButtonStyle: ButtonStyle {
 }
 
 struct LifeOSCompactButtonStyle: ButtonStyle {
-    var tint: Color = .accentColor
+    var tint: Color = .lifeOSAccent
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -172,7 +172,7 @@ struct LifeOSCompactButtonStyle: ButtonStyle {
 struct LifeOSInlineButtonStyle: ButtonStyle {
     enum Emphasis { case quiet, raised }
 
-    var tint: Color = .accentColor
+    var tint: Color = .lifeOSAccent
     var emphasis: Emphasis = .quiet
 
     private var isRaised: Bool { emphasis == .raised }
@@ -204,7 +204,7 @@ extension View {
             .lifeOSElevated(cornerRadius: cornerRadius, tint: tint)
     }
 
-    func lifeOSGlassCard(tint: Color = .blue, cornerRadius: CGFloat = 20) -> some View {
+    func lifeOSGlassCard(tint: Color = .lifeOSAccent, cornerRadius: CGFloat = 20) -> some View {
         modifier(LifeOSGlassCardModifier(tint: tint, cornerRadius: cornerRadius))
     }
 }

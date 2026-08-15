@@ -2,7 +2,7 @@
 //  LifeOSTypography.swift
 //  LifeOS
 //
-//  Native SF type ramp shared by every screen, so hierarchy reads the same
+//  Native New York display + SF Pro body ramp shared by every screen, so hierarchy reads the same
 //  everywhere and no view invents its own font sizes. Built on relative
 //  text styles (`.largeTitle`, `.title2`, `.headline`, ...), never a fixed
 //  `size:` point value, so every token scales under Dynamic Type.
@@ -11,14 +11,15 @@
 import SwiftUI
 
 extension Font {
-    /// Screen title, e.g. "Baseball", "Today". 28–32 semibold.
-    static var lifeOSScreenTitle: Font { .system(.title, design: .rounded).weight(.semibold) }
+    /// Screen title, e.g. "Baseball", "Today". A native serif display face
+    /// creates the calm editorial hierarchy approved for the V3 redesign.
+    static var lifeOSScreenTitle: Font { .system(.title, design: .serif).weight(.semibold) }
 
     /// The single hero number on a screen, e.g. a headline metric or ring center.
     /// Uses the relative `.largeTitle` text style (not a fixed point size) so
     /// it actually scales under Dynamic Type — a fixed `size:` value silently
     /// ignores the user's text-size setting, which a hero number shouldn't.
-    static var lifeOSHeroMetric: Font { .system(.largeTitle, design: .rounded).weight(.semibold) }
+    static var lifeOSHeroMetric: Font { .system(.largeTitle, design: .serif).weight(.semibold) }
 
     /// Section heading inside a screen, e.g. "Today", "Progress". 20–22 semibold.
     static var lifeOSSectionTitle: Font { .title3.weight(.semibold) }

@@ -23,7 +23,7 @@ import SwiftUI
 /// Centralized so every card/tile/row lifts off the background the same way.
 private struct LOElevation: ViewModifier {
     var cornerRadius: CGFloat
-    var tint: Color = .primary
+    var tint: Color = .lifeOSAccent
     @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
@@ -55,7 +55,7 @@ private struct LOElevation: ViewModifier {
 
 extension View {
     /// Applies the shared LifeOS elevation treatment (stroke + soft shadow).
-    func lifeOSElevated(cornerRadius: CGFloat = LifeOSRadius.md, tint: Color = .primary) -> some View {
+    func lifeOSElevated(cornerRadius: CGFloat = LifeOSRadius.md, tint: Color = .lifeOSAccent) -> some View {
         modifier(LOElevation(cornerRadius: cornerRadius, tint: tint))
     }
 }
@@ -112,7 +112,7 @@ struct LOIconBadge: View {
 /// flat fill.
 struct LOCard<Content: View>: View {
     var padding: CGFloat = LifeOSSpacing.lg
-    var tint: Color = .primary
+    var tint: Color = .lifeOSAccent
     @ViewBuilder var content: () -> Content
 
     var body: some View {
@@ -139,7 +139,7 @@ struct LOSectionHeader: View {
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
                     .font(.lifeOSSecondary.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Color.lifeOSAccent)
             }
         }
     }
@@ -399,14 +399,14 @@ struct LOChip: View {
             .background {
                 Capsule().fill(
                     isSelected
-                        ? AnyShapeStyle(LinearGradient(colors: [Color.accentColor, Color.accentColor.opacity(0.78)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        ? AnyShapeStyle(LinearGradient(colors: [Color.lifeOSAccent, Color.lifeOSAccent.opacity(0.78)], startPoint: .topLeading, endPoint: .bottomTrailing))
                         : AnyShapeStyle(Color.lifeOSSurface)
                 )
             }
             .overlay {
                 Capsule().stroke(isSelected ? Color.clear : Color.primary.opacity(0.08), lineWidth: 1)
             }
-            .shadow(color: isSelected ? Color.accentColor.opacity(0.35) : .clear, radius: 6, x: 0, y: 3)
+            .shadow(color: isSelected ? Color.lifeOSAccent.opacity(0.35) : .clear, radius: 6, x: 0, y: 3)
         }
         .buttonStyle(LOScalePressStyle())
     }

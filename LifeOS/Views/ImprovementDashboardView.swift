@@ -782,6 +782,7 @@ private struct AddGoalView: View {
     @State private var selectedMeasurementDefinitionID: UUID?
     @State private var selectedNutritionMetric: NutritionEngine.Metric?
     @State private var selectedBodyMetricDefinitionID: UUID?
+    @State private var setupStep = 0
 
     init(profile: Profile, template: GoalStarterTemplate? = nil) {
         self.profile = profile
@@ -840,42 +841,78 @@ private struct AddGoalView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                if let template {
-                    Section {
-                        Label("Starting from \(template.name)", systemImage: template.symbol)
-                            .foregroundStyle(ColorToken.color(for: template.colorToken))
-                        Text(template.needsPersonalValues
-                             ? "Enter personal starting and target values before saving. The app never guesses health targets."
-                             : "Everything below is editable. Confirm that the example values fit this person.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+            VStack(spacing: 0) {
+                ProgressView(value: Double(setupStep + 1), total: 3)
+                    .tint(.lifeOSAccent)
+                    .padding(.horizontal, LifeOSSpacing.lg)
+                    .padding(.top, LifeOSSpacing.sm)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: LifeOSSpacing.lg) {
+                        setupContent
                     }
+                    .padding(LifeOSSpacing.lg)
                 }
 
-                Section("1. What result do you want?") {
-                    TextField("Example: Improve Mathematics score", text: $name)
-                    TextField("Why does this matter?", text: $purpose, axis: .vertical)
-                    Toggle("Set a target date", isOn: $hasTargetDate)
-                    if hasTargetDate {
-                        DatePicker("Target date", selection: $targetDate, in: Date.now..., displayedComponents: .date)
-                    }
-                }
+                setupFooter
+            }
+            .background(Color.lifeOSCanvas)
+            .navigationTitle("New Goal")
+            .navigationBarTitleDisplayMode(.inline)
+            .onAppear { applySuggestedAreasIfNeeded() }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+            }
+        }
+    }
 
-                Section("2. How will you measure it?") {
-                    TextField("Example: Mock-test score", text: $measureName)
+    @ViewBuilder
+    private var setupContent: some View {
+        switch setupStep {
+        case 0: goalSetup
+        case 1: outcomeSetup
+        default: planSetup
+        }
+    }
+
+    private var goalSetup: some View {
+        VStack(alignment: .leading, spacing: LifeOSSpacing.lg) {
+            Text("What would you like to improve?")
+                .font(.lifeOSScreenTitle)
+            Text("Use your own words. LifeOS will connect the goal to the tasks that support it.")
+                .font(.lifeOSBody)
+                .foregroundStyle(.secondary)
+            LOCard {
+                VStack(alignment: .leading, spacing: LifeOSSpacing.md) {
+                    TextField("For example, feel confident in maths", text: $name, axis: .vertical)
+                        .font(.title3.weight(.medium))
+                    Divider()
+                    TextField("Why does this matter? (optional)", text: $purpose, axis: .vertical)
+                        .font(.lifeOSBody)
+                }
+            }
+            if let template {
+                Label("Starting from \(template.name) — everything remains editable.", systemImage: template.symbol)
+                    .font(.lifeOSSecondary)
+                    .foregroundStyle(ColorToken.color(for: template.colorToken))
+            }
+        }
+    }
+
+    private var outcomeSetup: some View {
+        VStack(alignment: .leading, spacing: LifeOSSpacing.lg) {
+            Text("How will you know it improved?")
+                .font(.lifeOSScreenTitle)
+            Text("This is the outcome you observe. Tasks show your effort separately.")
+                .font(.lifeOSBody)
+                .foregroundStyle(.secondary)
+            LOCard {
+                VStack(alignment: .leading, spacing: LifeOSSpacing.md) {
+                    TextField("For example, mock-test score", text: $measureName)
                     Picker("Result type", selection: $valueType) {
                         ForEach(ResultValueType.allCases) { Text($0.rawValue).tag($0) }
                     }
                     if valueType == .number || valueType == .rating {
-                        ResultLinkPicker(
-                            resultSource: $resultSource,
-                            selectedMeasurementDefinitionID: $selectedMeasurementDefinitionID,
-                            selectedNutritionMetric: $selectedNutritionMetric,
-                            selectedBodyMetricDefinitionID: $selectedBodyMetricDefinitionID,
-                            compatibleMeasurementDefinitions: compatibleMeasurementDefinitions,
-                            bodyMetricDefinitions: bodyMetricDefinitions
-                        )
                         TextField("Unit, such as %, kg, mph or seconds", text: $unit)
                         Picker("Desired result", selection: $direction) {
                             ForEach(ResultDirection.allCases) { Text($0.rawValue).tag($0) }
@@ -892,11 +929,26 @@ private struct AddGoalView: View {
                                 .keyboardType(.decimalPad)
                         }
                     }
+                    Toggle("Set a target date", isOn: $hasTargetDate)
+                    if hasTargetDate {
+                        DatePicker("Target date", selection: $targetDate, in: Date.now..., displayedComponents: .date)
+                    }
                 }
+            }
+        }
+    }
 
-                Section("3. Which Areas support this Goal?") {
+    private var planSetup: some View {
+        VStack(alignment: .leading, spacing: LifeOSSpacing.lg) {
+            Text("Which plan will support this?")
+                .font(.lifeOSScreenTitle)
+            Text("Choose the areas where you will create tasks. You can add details and measurements later.")
+                .font(.lifeOSBody)
+                .foregroundStyle(.secondary)
+            LOCard {
+                VStack(alignment: .leading, spacing: LifeOSSpacing.sm) {
                     if profileAreas.isEmpty {
-                        Text("Create an Area first, then return to create this Goal.")
+                        Text("Create a plan first, then return to link it to this goal.")
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(profileAreas) { area in
@@ -905,24 +957,26 @@ private struct AddGoalView: View {
                                 else { selectedAreaIDs.insert(area.id) }
                             } label: {
                                 HStack {
-                                    Label(area.name, systemImage: area.symbol)
+                                    LOIconBadge(symbol: area.symbol, tint: ColorToken.color(for: area.colorToken), diameter: 34)
+                                    Text(area.name).font(.lifeOSCardTitle)
                                     Spacer()
-                                    if selectedAreaIDs.contains(area.id) { Image(systemName: "checkmark.circle.fill") }
+                                    Image(systemName: selectedAreaIDs.contains(area.id) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(selectedAreaIDs.contains(area.id) ? Color.lifeOSAccent : .secondary)
                                 }
+                                .padding(.vertical, LifeOSSpacing.xs)
                             }
-                            .foregroundStyle(.primary)
+                            .buttonStyle(.plain)
                         }
                     }
-                    Text("Tasks inside selected Areas automatically count as supporting effort.")
-                        .font(.caption).foregroundStyle(.secondary)
                 }
-
-                Section("4. When is a result available?") {
+            }
+            LOCard {
+                VStack(alignment: .leading, spacing: LifeOSSpacing.sm) {
                     Picker("Check-in", selection: $cadence) {
                         ForEach(ResultCheckInCadence.allCases) { Text($0.rawValue).tag($0) }
                     }
                     if cadence != .onDemand {
-                        DatePicker("Next result", selection: $nextCheckInDate, in: Date.now..., displayedComponents: .date)
+                        DatePicker("First check-in", selection: $nextCheckInDate, in: Date.now..., displayedComponents: .date)
                         Toggle("Remind me", isOn: $reminderEnabled)
                         if reminderEnabled {
                             DatePicker("Reminder time", selection: $reminderTime, displayedComponents: .hourAndMinute)
@@ -930,16 +984,30 @@ private struct AddGoalView: View {
                     }
                 }
             }
-            .navigationTitle("New Goal")
-            .navigationBarTitleDisplayMode(.inline)
-            .onAppear { applySuggestedAreasIfNeeded() }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save).disabled(!canSave)
-                }
+        }
+    }
+
+    private var setupFooter: some View {
+        HStack(spacing: LifeOSSpacing.sm) {
+            if setupStep > 0 {
+                Button("Back") { withAnimation(.lifeOSTap) { setupStep -= 1 } }
+                    .buttonStyle(LifeOSInlineButtonStyle(tint: .lifeOSAccent, emphasis: .raised))
+            }
+            LOPrimaryButton(
+                title: setupStep == 2 ? "Create Goal" : "Continue",
+                symbol: setupStep == 2 ? "checkmark" : "arrow.right",
+                isDisabled: setupStep == 0
+                    ? name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    : setupStep == 1
+                        ? measureName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !validNumericTarget
+                        : !canSave
+            ) {
+                if setupStep == 2 { save() }
+                else { withAnimation(.lifeOSTap) { setupStep += 1 } }
             }
         }
+        .padding(LifeOSSpacing.lg)
+        .background(.ultraThinMaterial)
     }
 
     private func applySuggestedAreasIfNeeded() {

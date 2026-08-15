@@ -58,14 +58,30 @@ enum LOStatus: Equatable {
 }
 
 extension Color {
-    static let lifeOSAttention = Color.red
-    static let lifeOSWatch = Color.orange
-    static let lifeOSOnTrack = Color.green
-    static let lifeOSFocus = Color.blue
-    static let lifeOSRecovery = Color.purple
-    static let lifeOSNeutral = Color.gray
+    /// The application accent. It is deliberately a deep oxblood rather than
+    /// the default iOS blue, so actions feel considered without competing
+    /// with a user's Area color.
+    static let lifeOSAccent = Color(red: 0.40, green: 0.07, blue: 0.12)
+
+    /// Warm parchment background used by the rebuilt product shell.
+    static let lifeOSCanvas = Color(red: 0.97, green: 0.95, blue: 0.90)
+
+    // Semantic colors remain distinct from identity colors. These muted
+    // values retain their meaning while belonging to the same warm palette.
+    static let lifeOSAttention = Color(red: 0.69, green: 0.20, blue: 0.17)
+    static let lifeOSWatch = Color(red: 0.69, green: 0.39, blue: 0.10)
+    static let lifeOSOnTrack = Color(red: 0.22, green: 0.45, blue: 0.31)
+    static let lifeOSFocus = Color(red: 0.40, green: 0.07, blue: 0.12)
+    static let lifeOSRecovery = Color(red: 0.40, green: 0.29, blue: 0.53)
+    static let lifeOSNeutral = Color(red: 0.43, green: 0.42, blue: 0.39)
 
     /// Card/tile surface that separates clearly from the grouped background
     /// in both light and dark mode, without relying on a heavy material.
-    static var lifeOSSurface: Color { Color(.secondarySystemGroupedBackground) }
+    static var lifeOSSurface: Color {
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor.secondarySystemGroupedBackground
+                : UIColor(red: 1.0, green: 0.99, blue: 0.96, alpha: 1)
+        })
+    }
 }

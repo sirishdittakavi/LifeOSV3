@@ -69,7 +69,7 @@ struct TodayTimelineView: View {
                     }
                     .padding(.horizontal, LifeOSSpacing.lg)
                     .padding(.top, LifeOSSpacing.sm)
-                    .padding(.bottom, LifeOSSpacing.xxl)
+                    .padding(.bottom, LifeOSSpacing.xxl + LifeOSSpacing.lg)
                 }
             }
             .navigationTitle("Today")
@@ -87,8 +87,11 @@ struct TodayTimelineView: View {
                         Image(systemName: "plus")
                             .font(.body.weight(.semibold))
                             .frame(width: 44, height: 44)
+                            .foregroundStyle(Color.white)
+                            .background(Color.lifeOSAccent, in: Circle())
                             .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .accessibilityLabel("Add Task")
                     .accessibilityIdentifier("today.addTask")
                     .accessibilityHint("Opens the new Task form")
@@ -164,12 +167,12 @@ struct TodayTimelineView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text(currentTime.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                    .font(.title2.weight(.bold))
+                    .font(.lifeOSScreenTitle)
                 Spacer(minLength: 12)
                 Image(systemName: viewModel.summary.remaining == 0 && viewModel.summary.total > 0
                       ? "checkmark.seal.fill" : "sun.max.fill")
                     .font(.title3)
-                    .foregroundStyle(viewModel.summary.remaining == 0 && viewModel.summary.total > 0 ? Color.lifeOSOnTrack : .orange)
+                    .foregroundStyle(viewModel.summary.remaining == 0 && viewModel.summary.total > 0 ? Color.lifeOSOnTrack : Color.lifeOSWatch)
                     .accessibilityHidden(true)
             }
             compactDailyProgress
@@ -485,10 +488,7 @@ struct TodayTimelineView: View {
     private func itemRow(_ item: CalendarItem) -> some View {
         CalendarItemRow(
             item: item,
-            onStart: { feedbackTrigger += 1; viewModel.start(item) },
             onDone: { feedbackTrigger += 1; finish(item) },
-            onSkip: { feedbackTrigger += 1; viewModel.skip(item); cancelReminder(for: item) },
-            onUndoSkip: { feedbackTrigger += 1; viewModel.undoSkip(item) },
             onDetails: { selectedTask = item.activity },
             isOverdue: PlanningService.isOverdue(item, now: currentTime)
         )
@@ -540,16 +540,16 @@ private struct TodayAtmosphericBackground: View {
 
     var body: some View {
         ZStack {
-            Color(.systemGroupedBackground)
+            Color.lifeOSCanvas
             LinearGradient(
                 colors: colorScheme == .dark
-                    ? [.indigo.opacity(0.18), .clear, .blue.opacity(0.08)]
-                    : [.blue.opacity(0.10), .clear, .mint.opacity(0.08)],
+                    ? [.black.opacity(0.22), .clear, Color.lifeOSAccent.opacity(0.12)]
+                    : [Color.lifeOSAccent.opacity(0.07), .clear, Color.lifeOSWatch.opacity(0.05)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             Circle()
-                .fill(.blue.opacity(colorScheme == .dark ? 0.10 : 0.08))
+                .fill(Color.lifeOSAccent.opacity(colorScheme == .dark ? 0.12 : 0.06))
                 .frame(width: 280, height: 280)
                 .blur(radius: 80)
                 .offset(x: 160, y: -280)
@@ -712,24 +712,17 @@ private struct TodayTaskOverviewView: View {
 
 private struct CalendarItemRow: View {
     let item: CalendarItem
-    let onStart: () -> Void
     let onDone: () -> Void
-    let onSkip: () -> Void
-    let onUndoSkip: () -> Void
     let onDetails: () -> Void
     let isOverdue: Bool
 
     private var categoryColor: Color {
-        item.activity?.category.map { ColorToken.color(for: $0.colorToken) } ?? .blue
+        item.activity?.category.map { ColorToken.color(for: $0.colorToken) } ?? .lifeOSAccent
     }
 
-    /// icon + title + time/duration + concise status + one status/action
-    /// control. Tapping the row body opens Task Detail; tapping the status
-    /// control performs the single obvious action directly (Skipped →
-    /// Undo Skip) or opens a `Menu` when there's a real choice (Planned,
-    /// In Progress) — see `statusCluster` below. Either way, the specific
-    /// actions stay individually identified so LifeOSUITests can still
-    /// find and tap `today.done.*`/`today.skip.*` once the menu is open.
+    /// The Today surface deliberately has one action: tap the completion
+    /// control. Editing, rescheduling and skipping belong in Task detail so
+    /// a person can act quickly without decoding a per-row action menu.
     var body: some View {
         HStack(spacing: LifeOSSpacing.md) {
             Button(action: onDetails) {
@@ -774,52 +767,26 @@ private struct CalendarItemRow: View {
         return "\(time) · \(duration) min"
     }
 
-    /// ONE status/action control per row. When there's exactly one sensible
-    /// next action (Skip → Undo Skip), tapping the control performs it
-    /// directly. When there's a real choice (Planned → Start/Finish/Skip;
-    /// In Progress → Finish/Skip), the control is a `Menu` — still a single
-    /// visible affordance, but its items stay individually identified so
-    /// `today.done.*`/`today.skip.*` remain real, distinctly-tappable
-    /// elements once the menu is open, per LifeOSUITests.
+    /// A single, direct completion control replaces the old Start/Finish/Skip
+    /// menu. A task that needs values still opens its focused recording sheet
+    /// through `onDone`; a plain task completes immediately.
     @ViewBuilder
     private var statusCluster: some View {
         switch item.status {
-        case .planned:
-            Menu {
-                Button(action: onStart) { Label("Start", systemImage: "play.fill") }
-                Button(action: onDone) { Label("Finish", systemImage: "checkmark") }
-                    .accessibilityIdentifier("today.done.\(taskIdentifier)")
-                Button(action: onSkip) { Label("Skip", systemImage: "arrow.uturn.forward") }
-                    .accessibilityIdentifier("today.skip.\(taskIdentifier)")
-            } label: {
+        case .planned, .inProgress:
+            Button(action: onDone) {
                 actionGlyph(symbol: "circle", tint: .lifeOSFocus)
             }
+            .buttonStyle(LOScalePressStyle())
             .accessibilityIdentifier("today.actions.\(taskIdentifier)")
-            .accessibilityLabel("Task actions")
-            .accessibilityHint("Start, finish, or skip this Task")
-        case .inProgress:
-            Menu {
-                Button(action: onDone) { Label("Finish", systemImage: "checkmark") }
-                    .accessibilityIdentifier("today.done.\(taskIdentifier)")
-                Button(action: onSkip) { Label("Skip", systemImage: "arrow.uturn.forward") }
-                    .accessibilityIdentifier("today.skip.\(taskIdentifier)")
-            } label: {
-                actionGlyph(symbol: "bolt.fill", tint: .lifeOSFocus)
-            }
-            .accessibilityIdentifier("today.actions.\(taskIdentifier)")
-            .accessibilityLabel("Task actions")
-            .accessibilityHint("Finish or skip this Task")
+            .accessibilityLabel("Complete \(item.activity?.name ?? "Task")")
+            .accessibilityHint("Completes this Task, or opens its recording details")
         case .done:
             LOStatusControl(status: .complete, size: 30)
                 .accessibilityLabel(completionText)
         case .skipped:
-            Button(action: onUndoSkip) {
-                actionGlyph(symbol: "arrow.uturn.backward", tint: .lifeOSFocus)
-            }
-            .buttonStyle(LOScalePressStyle())
-            .accessibilityLabel("Undo Skip")
-            .accessibilityHint("Returns this occurrence to the active Home plan")
-            .accessibilityIdentifier("today.undoSkip.\(taskIdentifier)")
+            LOStatusControl(status: .neutral, size: 30)
+                .accessibilityLabel("Skipped")
         case .rescheduled, .unplanned:
             EmptyView()
         }

@@ -57,6 +57,7 @@ struct RootTabView: View {
                 .tabItem { Label("Schedule", systemImage: "calendar.day.timeline.left") }
                 .tag(3)
         }
+        .tint(.lifeOSAccent)
         .alert("Couldn’t Save", isPresented: Binding(
             get: { persistenceIssues.message != nil },
             set: { if !$0 { persistenceIssues.message = nil } }
