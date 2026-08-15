@@ -1411,18 +1411,37 @@ final class GoalSystemComponentTests: XCTestCase {
         let taskHost = UIHostingController(
             rootView: TaskDetailView(activity: task).modelContainer(container)
         )
-        goalsHost.loadViewIfNeeded()
-        todayHost.loadViewIfNeeded()
-        taskHost.loadViewIfNeeded()
-        goalsHost.view.layoutIfNeeded()
-        todayHost.view.layoutIfNeeded()
-        taskHost.view.layoutIfNeeded()
+        // A hosting controller never attached to a window doesn't reliably
+        // materialize its SwiftUI subview hierarchy on-demand from
+        // loadViewIfNeeded()/layoutIfNeeded() alone on current SwiftUI/UIKit
+        // — the window is what gives it a trait collection and rendering
+        // pass. Attach each in turn so `subviews` below actually reflects
+        // what SwiftUI built rather than an as-yet-unrendered empty view.
+        let goalsWindow = attachedToKeyWindow(goalsHost)
+        let todayWindow = attachedToKeyWindow(todayHost)
+        let taskWindow = attachedToKeyWindow(taskHost)
 
         XCTAssertNotNil(goalsHost.view)
         XCTAssertNotNil(todayHost.view)
         XCTAssertNotNil(taskHost.view)
         XCTAssertFalse(goalsHost.view.subviews.isEmpty)
         XCTAssertFalse(todayHost.view.subviews.isEmpty)
+
+        // Keep the windows alive until the assertions above have run.
+        _ = (goalsWindow, todayWindow, taskWindow)
+    }
+
+    /// Attaches `host` as the root view controller of a new key window and
+    /// forces layout, so SwiftUI actually builds its subview hierarchy.
+    /// Returns the window — the caller must keep it alive for as long as it
+    /// needs `host.view`'s hierarchy to remain populated.
+    private func attachedToKeyWindow<V: View>(_ host: UIHostingController<V>) -> UIWindow {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 430, height: 932))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.setNeedsLayout()
+        host.view.layoutIfNeeded()
+        return window
     }
     #endif
 
