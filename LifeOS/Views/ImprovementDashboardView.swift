@@ -107,6 +107,7 @@ struct ImprovementDashboardView: View {
                 }
                 .padding()
             }
+            .background(Color.lifeOSCanvas)
             .navigationTitle("Progress")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { ProfilePicker(selection: selection) }
@@ -589,7 +590,7 @@ private struct GoalDetailView: View {
             }
             .padding()
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color.lifeOSCanvas)
         .navigationTitle(goal.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
