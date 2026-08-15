@@ -178,6 +178,13 @@ enum CategoryProgressEngine {
             status = .onTrack
         } else if potentialSessions >= targetSessions {
             status = .needsAttention
+        } else if completedSessions == 0 && decidedDueTasks == 0 {
+            // Zero evidence either way (nothing completed, nothing decided
+            // yet this period) must never read as "Behind" -- that implies a
+            // judgment the data doesn't support yet, even for a Plan created
+            // moments ago with too few days left in the period to hit its
+            // target on paper.
+            status = .insufficientData
         } else {
             status = .behind
         }

@@ -53,7 +53,7 @@ struct WeeklyScheduleView: View {
                     dayAgenda
                 }
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Color.lifeOSCanvas)
             .navigationTitle("Schedule")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -309,17 +309,17 @@ private struct DayScheduleSummary: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(date.formatted(.dateTime.weekday(.wide)))
-                        .font(.title2.weight(.bold))
+                        .font(.lifeOSScreenTitle)
                     Text(date.formatted(.dateTime.month(.wide).day()))
                         .font(.subheadline).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Text("\(done)/\(items.count) done")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(done == items.count ? .green : .blue)
+                    .foregroundStyle(done == items.count ? Color.lifeOSOnTrack : Color.lifeOSAccent)
             }
             ProgressView(value: items.isEmpty ? 0 : Double(done) / Double(items.count))
-                .tint(done == items.count ? .green : .blue)
+                .tint(done == items.count ? Color.lifeOSOnTrack : Color.lifeOSAccent)
             Text("\(items.count) Tasks · \(minutes) planned minutes")
                 .font(.caption).foregroundStyle(.secondary)
         }
