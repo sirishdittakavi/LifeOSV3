@@ -489,8 +489,15 @@ struct TodayTimelineView: View {
     private func itemRow(_ item: CalendarItem) -> some View {
         CalendarItemRow(
             item: item,
-            onDone: { feedbackTrigger += 1; finish(item) },
-            onUndo: { feedbackTrigger += 1; undoFinish(item) },
+            onDone: {
+                guard finish(item) else { return }
+                feedbackTrigger += 1
+                withAnimation(.lifeOSReveal) { completedExpanded = true }
+            },
+            onUndo: {
+                guard undoFinish(item) else { return }
+                feedbackTrigger += 1
+            },
             onDetails: { selectedTask = item.activity },
             isOverdue: PlanningService.isOverdue(item, now: currentTime)
         )
@@ -508,14 +515,18 @@ struct TodayTimelineView: View {
     /// measurements. Capturing values belongs in Task detail or a later
     /// logging flow; it must never turn the everyday completion control into
     /// a multi-screen decision.
-    private func finish(_ item: CalendarItem) {
+    @discardableResult
+    private func finish(_ item: CalendarItem) -> Bool {
         if viewModel.quickFinish(item, at: .now) {
             cancelReminder(for: item)
+            return true
         }
+        return false
     }
 
-    private func undoFinish(_ item: CalendarItem) {
-        _ = viewModel.undoQuickFinish(item)
+    @discardableResult
+    private func undoFinish(_ item: CalendarItem) -> Bool {
+        viewModel.undoQuickFinish(item)
     }
 
     private func sectionLabel(_ title: String, symbol: String) -> some View {
