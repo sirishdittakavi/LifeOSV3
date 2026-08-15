@@ -17,6 +17,7 @@ struct TodayTimelineView: View {
 
     @Query private var activities: [Activity]
     @Query private var allItems: [CalendarItem]
+    @Query private var activitySessions: [ActivitySession]
     @Query private var foodEntries: [FoodEntry]
     @Query(sort: \WeightEntry.date, order: .reverse) private var weightEntries: [WeightEntry]
     @Query private var sportEntries: [SportEntry]
@@ -47,7 +48,7 @@ struct TodayTimelineView: View {
     /// through TodayViewModel instead of living on the View directly.
     private var viewModel: TodayViewModel {
         TodayViewModel(
-            profile: selection.profile, items: allItems, activities: activities,
+            profile: selection.profile, items: allItems, activities: activities, sessions: activitySessions,
             resultMeasures: resultMeasures, currentTime: currentTime,
             repository: SwiftDataCalendarRepository(context: modelContext)
         )
@@ -84,9 +85,14 @@ struct TodayTimelineView: View {
                     } label: {
                         Image(systemName: "plus")
                             .font(.body.weight(.semibold))
-                            .frame(width: 44, height: 44)
+                            .frame(width: 52, height: 48)
                             .foregroundStyle(Color.white)
-                            .background(Color.lifeOSAccent, in: Circle())
+                            .background(Color.lifeOSAccent, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 17, style: .continuous)
+                                    .stroke(Color.white.opacity(0.92), lineWidth: 3)
+                            }
+                            .shadow(color: Color.lifeOSAccent.opacity(0.18), radius: 8, x: 0, y: 4)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -484,6 +490,7 @@ struct TodayTimelineView: View {
         CalendarItemRow(
             item: item,
             onDone: { feedbackTrigger += 1; finish(item) },
+            onUndo: { feedbackTrigger += 1; undoFinish(item) },
             onDetails: { selectedTask = item.activity },
             isOverdue: PlanningService.isOverdue(item, now: currentTime)
         )
@@ -505,6 +512,10 @@ struct TodayTimelineView: View {
         if viewModel.quickFinish(item, at: .now) {
             cancelReminder(for: item)
         }
+    }
+
+    private func undoFinish(_ item: CalendarItem) {
+        _ = viewModel.undoQuickFinish(item)
     }
 
     private func sectionLabel(_ title: String, symbol: String) -> some View {
@@ -698,6 +709,7 @@ private struct TodayTaskOverviewView: View {
 private struct CalendarItemRow: View {
     let item: CalendarItem
     let onDone: () -> Void
+    let onUndo: () -> Void
     let onDetails: () -> Void
     let isOverdue: Bool
 
@@ -710,6 +722,8 @@ private struct CalendarItemRow: View {
     /// a person can act quickly without decoding a per-row action menu.
     var body: some View {
         HStack(spacing: LifeOSSpacing.md) {
+            statusCluster
+
             Button(action: onDetails) {
                 HStack(spacing: 12) {
                     LOIconBadge(symbol: item.activity?.category?.symbol ?? "circle.fill", tint: categoryColor, diameter: 40)
@@ -737,8 +751,6 @@ private struct CalendarItemRow: View {
             }
             .buttonStyle(.plain)
             .accessibilityHint("Shows all Task details")
-
-            statusCluster
         }
         .padding(LifeOSSpacing.md)
         .lifeOSElevated(cornerRadius: LifeOSRadius.md, tint: categoryColor)
@@ -760,15 +772,20 @@ private struct CalendarItemRow: View {
         switch item.status {
         case .planned, .inProgress:
             Button(action: onDone) {
-                actionGlyph(symbol: "circle", tint: .lifeOSFocus)
+                actionGlyph(symbol: "circle", tint: .lifeOSAccent)
             }
             .buttonStyle(LOScalePressStyle())
             .accessibilityIdentifier("today.actions.\(taskIdentifier)")
             .accessibilityLabel("Complete \(item.activity?.name ?? "Task")")
             .accessibilityHint("Completes this Task, or opens its recording details")
         case .done:
-            LOStatusControl(status: .complete, size: 30)
-                .accessibilityLabel(completionText)
+            Button(action: onUndo) {
+                LOStatusControl(status: .complete, size: 30)
+            }
+            .buttonStyle(LOScalePressStyle())
+            .accessibilityIdentifier("today.undo.\(taskIdentifier)")
+            .accessibilityLabel(completionText)
+            .accessibilityHint("Undo completion")
         case .skipped:
             LOStatusControl(status: .neutral, size: 30)
                 .accessibilityLabel("Skipped")

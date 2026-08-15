@@ -135,6 +135,46 @@ final class TodayViewModelTests: XCTestCase {
         XCTAssertEqual(repository.saveCallCount, saveCallCountBefore)
     }
 
+    func testUndoQuickFinishDeletesOnlyTheMatchingOccurrenceSessionAndRollsBackSafely() {
+        let profile = TestFixtures.profile()
+        let area = TestFixtures.area(profile: profile)
+        let today = TestFixtures.date(2026, 1, 6)
+        let activity = Activity(
+            profile: profile, category: area, name: "Practice",
+            plannedStartMinutes: 600, estimatedDurationMinutes: 20, startDate: today
+        )
+        let item = CalendarItem(
+            profile: profile, activity: activity, date: today,
+            plannedStart: TestFixtures.date(2026, 1, 6, hour: 10), status: .done
+        )
+        item.actualStart = TestFixtures.date(2026, 1, 6, hour: 10)
+        item.actualEnd = TestFixtures.date(2026, 1, 6, hour: 10, minute: 20)
+        let matchingSession = ActivitySession(activity: activity, calendarItem: item, date: today)
+        let otherItem = CalendarItem(profile: profile, activity: activity, date: today)
+        let unrelatedSession = ActivitySession(activity: activity, calendarItem: otherItem, date: today)
+        let repository = FakeCalendarRepository()
+        let viewModel = TodayViewModel(
+            profile: profile, items: [item], activities: [activity],
+            sessions: [matchingSession, unrelatedSession], resultMeasures: [],
+            currentTime: today, repository: repository
+        )
+
+        XCTAssertTrue(viewModel.undoQuickFinish(item))
+        XCTAssertEqual(item.status, .planned)
+        XCTAssertNil(item.actualStart)
+        XCTAssertNil(item.actualEnd)
+        XCTAssertEqual(repository.deletedSessions.map(\.id), [matchingSession.id])
+
+        // Refuse to guess when the historical invariant is broken.
+        item.status = .done
+        let ambiguousViewModel = TodayViewModel(
+            profile: profile, items: [item], activities: [activity],
+            sessions: [matchingSession, ActivitySession(activity: activity, calendarItem: item, date: today)],
+            resultMeasures: [], currentTime: today, repository: repository
+        )
+        XCTAssertFalse(ambiguousViewModel.undoQuickFinish(item))
+    }
+
     func testQuickFinishOnInProgressItemPreservesRealStartTime() {
         let profile = TestFixtures.profile()
         let area = TestFixtures.area(profile: profile)

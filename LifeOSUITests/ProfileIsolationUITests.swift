@@ -76,22 +76,15 @@ final class ProfileIsolationUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 3), "Profile switching must never mutate stored ownership or leave the app in an inconsistent state")
     }
 
-    /// Rapidly tapping Complete twice on the SAME occurrence must create
-    /// exactly one completion, not two — regression-style UI coverage for
-    /// TodayViewModel.quickFinish's idempotency guard.
-    func testDoubleTapQuickCompletionCreatesOneCompletion() {
+    /// Today has one direct action. Repository-level unit tests cover the
+    /// double-tap idempotency guard; this UI test proves the interaction does
+    /// not branch into the old Finish form.
+    func testOneTapQuickCompletionCreatesOneCompletion() {
         switchProfile(to: "Child")
         let actions = app.buttons["today.actions.hitting"]
         scrollToElement(actions)
         XCTAssertTrue(actions.isHittable)
         actions.tap()
-        let done = app.buttons["today.done.hitting"]
-        XCTAssertTrue(done.waitForExistence(timeout: 2))
-        done.tap()
-        XCTAssertTrue(app.navigationBars["Finish"].waitForExistence(timeout: 3))
-        let save = app.buttons["completion.save"]
-        XCTAssertTrue(save.waitForExistence(timeout: 2))
-        save.tap()
         XCTAssertFalse(app.navigationBars["Finish"].waitForExistence(timeout: 1))
 
         // The row's status control is gone once done — a second, unrelated
@@ -104,31 +97,23 @@ final class ProfileIsolationUITests: XCTestCase {
         XCTAssertFalse(app.buttons["today.actions.hitting"].exists, "a completed occurrence exposes no further action control to double-tap")
     }
 
-    /// Completing then undoing a Task must return Today/Progress to exactly
-    /// their pre-completion state.
+    /// A completed task exposes its green leading checkmark in history. A
+    /// second tap restores that exact occurrence without touching another
+    /// profile's identically named task.
     func testUndoCompletionUpdatesTodayPlanAndProgress() {
         switchProfile(to: "Child")
-        let actions = app.buttons["today.actions.hitting"]
-        scrollToElement(actions)
-        actions.tap()
-        app.buttons["today.done.hitting"].tap()
-        XCTAssertTrue(app.navigationBars["Finish"].waitForExistence(timeout: 3))
-        app.buttons["completion.save"].tap()
+        completeHittingFromHome()
 
-        let progressAfterComplete = app.descendants(matching: .any)["today.progress"]
-        scrollUpToElement(progressAfterComplete)
-        XCTAssertEqual(progressAfterComplete.label, "Today's progress, 100 percent, 1 of 1 Tasks complete")
+        let completed = app.buttons["today.completedSection"]
+        scrollToElement(completed)
+        XCTAssertTrue(completed.isHittable)
+        completed.tap()
 
-        // Undo via the Plans tab's tap-to-toggle affordance (ImprovementCategoryDetailView).
-        app.buttons["list.bullet.clipboard"].tap()
-        let baseballRow = app.staticTexts["Baseball"]
-        if baseballRow.waitForExistence(timeout: 3) { baseballRow.tap() }
-        let hittingStatus = app.buttons["plan.task.status.hitting"]
-        XCTAssertTrue(hittingStatus.waitForExistence(timeout: 3), "Expected the Plans-screen status control for Hitting")
-        hittingStatus.tap()
+        let undo = app.buttons["today.undo.hitting"]
+        scrollToElement(undo)
+        XCTAssertTrue(undo.isHittable, "Expected a completed Task's leading checkmark to undo it")
+        undo.tap()
 
-        app.buttons["calendar"].tap()
-        XCTAssertTrue(app.navigationBars["Today"].waitForExistence(timeout: 3))
         let progressAfterUndo = app.descendants(matching: .any)["today.progress"]
         scrollUpToElement(progressAfterUndo)
         XCTAssertFalse(progressAfterUndo.label.contains("100 percent"), "undo must remove the completion from Today's progress: got \(progressAfterUndo.label)")
@@ -145,13 +130,6 @@ final class ProfileIsolationUITests: XCTestCase {
         scrollToElement(actions)
         XCTAssertTrue(actions.isHittable, "Expected an active status control for Hitting")
         actions.tap()
-        let done = app.buttons["today.done.hitting"]
-        XCTAssertTrue(done.waitForExistence(timeout: 2))
-        done.tap()
-        XCTAssertTrue(app.navigationBars["Finish"].waitForExistence(timeout: 3))
-        let save = app.buttons["completion.save"]
-        XCTAssertTrue(save.waitForExistence(timeout: 2))
-        save.tap()
         XCTAssertFalse(app.navigationBars["Finish"].waitForExistence(timeout: 1))
     }
 

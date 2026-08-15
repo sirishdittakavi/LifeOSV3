@@ -35,22 +35,13 @@ final class RemainingReleasePassUITests: XCTestCase {
 
     // MARK: - Measured completion
 
-    /// Hitting has a legacy target (10 min), so Finish opens RecordActualView
-    /// (the Stepper form) rather than completing immediately — this IS the
-    /// "measured completion" path.
-    func testMeasuredCompletionCreatesOneResultAndOneCompletion() {
+    /// A Task may retain a legacy target, but completing it from Today stays
+    /// one tap. Optional value logging belongs in the detail flow.
+    func testMeasuredTaskCompletesDirectlyWithoutOpeningAForm() {
         switchProfile(to: "Child")
         let actions = app.buttons["today.actions.hitting"]
         scrollToElement(actions)
         actions.tap()
-        let done = app.buttons["today.done.hitting"]
-        XCTAssertTrue(done.waitForExistence(timeout: 2))
-        done.tap()
-
-        XCTAssertTrue(app.navigationBars["Finish"].waitForExistence(timeout: 3))
-        let save = app.buttons["completion.save"]
-        XCTAssertTrue(save.waitForExistence(timeout: 2))
-        save.tap()
         XCTAssertFalse(app.navigationBars["Finish"].waitForExistence(timeout: 1))
 
         let progress = app.descendants(matching: .any)["today.progress"]

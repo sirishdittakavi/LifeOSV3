@@ -21,6 +21,7 @@ struct TodayViewModel {
     let profile: Profile?
     let items: [CalendarItem]
     let activities: [Activity]
+    let sessions: [ActivitySession] = []
     let resultMeasures: [ResultMeasure]
     let currentTime: Date
     let repository: CalendarRepository
@@ -172,6 +173,34 @@ struct TodayViewModel {
         }
 
         repository.deleteSession(session)
+        item.status = previousStatus
+        item.actualStart = previousStart
+        item.actualEnd = previousEnd
+        return false
+    }
+
+    /// Reverses only the completion evidence belonging to this exact calendar
+    /// occurrence. A name, time, Activity, or Profile match alone is never
+    /// enough: identical Tasks can legitimately exist in multiple profiles.
+    /// If the historical data is not exactly one session, preserve it and
+    /// refuse the undo rather than guessing which evidence to remove.
+    @discardableResult
+    func undoQuickFinish(_ item: CalendarItem) -> Bool {
+        guard item.status == .done else { return false }
+        let matchingSessions = sessions.filter { $0.calendarItem?.id == item.id }
+        guard matchingSessions.count == 1, let session = matchingSessions.first else { return false }
+
+        let previousStatus = item.status
+        let previousStart = item.actualStart
+        let previousEnd = item.actualEnd
+        item.status = .planned
+        item.actualStart = nil
+        item.actualEnd = nil
+        repository.deleteSession(session)
+
+        if repository.save() { return true }
+
+        repository.insertSession(session)
         item.status = previousStatus
         item.actualStart = previousStart
         item.actualEnd = previousEnd

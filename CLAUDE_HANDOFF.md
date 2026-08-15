@@ -20,9 +20,9 @@ The user journey is:
 
 ## Approved mock screens
 
-Read [the mock reference guide](docs/ClaudeMockReferences.md) before touching a
-screen. The source images are committed under `docs/mock-references/`, so the
-visual standard stays available to every implementation agent.
+Read [the v3 mock reference guide](docs/lifeos-v3/MockReferences.md) before
+touching a screen. All current UI-rebuild material lives under
+`docs/lifeos-v3/`; do not use older documents as visual direction.
 
 ## Completed in the current commit
 
@@ -86,13 +86,13 @@ Apply the shared components rather than local colors. Do not label a plan
 "Behind" at zero evidence; use neutral, descriptive copy. Task detail owns
 edit, skip, and reschedule; Today remains direct.
 
-### 5. Completion undo — separate behavioral change
+### 5. Completion undo — already implemented; preserve it
 
-Do only after the UI screens above are stable. A second tap on a completed
-simple task should safely undo completion. It must restore CalendarItem state
-and remove only the matching ActivitySession for that occurrence, with a save
-rollback. Add a repository-level operation and focused unit tests; do not
-delete sessions by activity name or across profiles.
+Today now completes a Task with one tap and a second tap on the leading green
+checkmark undoes it. The undo only removes the single `ActivitySession` whose
+`calendarItem.id` matches the occurrence; it refuses to guess when data is
+ambiguous and rolls back if saving fails. Keep this identity rule intact. The
+focused coverage is in `TodayViewModelTests`.
 
 ## Verification
 

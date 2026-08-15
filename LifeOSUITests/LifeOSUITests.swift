@@ -85,12 +85,7 @@ final class LifeOSUITests: XCTestCase {
         XCTAssertFalse(app.buttons["today.actions.hitting"].exists)
         XCTAssertFalse(app.buttons["today.actions.pitching"].exists)
         let fieldingActions = app.buttons["today.actions.fielding"]
-        XCTAssertTrue(fieldingActions.isHittable, "Expected an active status control for the uncompleted Task")
-        fieldingActions.tap()
-        XCTAssertTrue(app.buttons["today.done.fielding"].waitForExistence(timeout: 2))
-        app.buttons["today.done.fielding"].tap()
-        XCTAssertTrue(app.navigationBars["Finish"].waitForExistence(timeout: 3))
-        app.buttons["Cancel"].tap()
+        XCTAssertTrue(fieldingActions.isHittable, "Expected an active one-tap completion control for the uncompleted Task")
 
         let completed = app.buttons["today.completedSection"]
         scrollToElement(completed)
@@ -104,39 +99,8 @@ final class LifeOSUITests: XCTestCase {
         assertExactlyOneTask(named: "Fielding")
     }
 
-    func testAccidentallySkippedTaskCanReturnToTheActiveHomePlan() {
-        let actions = app.buttons["today.actions.fielding"]
-        scrollToElement(actions)
-        XCTAssertTrue(actions.isHittable)
-        actions.tap()
-        let skip = app.buttons["today.skip.fielding"]
-        XCTAssertTrue(skip.waitForExistence(timeout: 2))
-        skip.tap()
-
-        let completed = app.buttons["today.completedSection"]
-        scrollToElement(completed)
-        XCTAssertTrue(completed.isHittable)
-        completed.tap()
-
-        // Skipped is the one status with a single obvious next action, so
-        // Undo Skip stays a directly-tappable control, not behind a menu.
-        let undo = app.buttons["today.undoSkip.fielding"]
-        scrollToElement(undo)
-        XCTAssertTrue(undo.isHittable, "Skipped Tasks must expose a recovery action")
-        undo.tap()
-
-        let restored = app.buttons["today.actions.fielding"]
-        scrollToElement(restored)
-        XCTAssertTrue(restored.isHittable, "Undo Skip must return the occurrence to Planned")
-        restored.tap()
-        XCTAssertTrue(app.buttons["today.done.fielding"].waitForExistence(timeout: 2), "Undo Skip must restore the Finish action")
-        app.buttons["today.done.fielding"].tap()
-        XCTAssertTrue(app.navigationBars["Finish"].waitForExistence(timeout: 3))
-        app.buttons["Cancel"].tap()
-
-        let progress = app.descendants(matching: .any)["today.progress"]
-        scrollUpToElement(progress)
-        XCTAssertEqual(progress.label, "Today's progress, 0 percent, 0 of 3 Tasks complete")
+    func testSkipRecoveryIsDeferredToTaskDetail() throws {
+        throw XCTSkip("The approved Today redesign removes Skip from the daily surface. Add and test task-detail recovery controls in the dedicated task-detail implementation chunk.")
     }
 
     private func openTodayTasks() {
@@ -172,15 +136,6 @@ final class LifeOSUITests: XCTestCase {
         scrollToElement(actions)
         XCTAssertTrue(actions.isHittable, "Expected an active status control for \(name)")
         actions.tap()
-
-        let done = app.buttons["today.done.\(name.lowercased())"]
-        XCTAssertTrue(done.waitForExistence(timeout: 2), "Expected an active Done action for \(name)")
-        done.tap()
-
-        XCTAssertTrue(app.navigationBars["Finish"].waitForExistence(timeout: 3))
-        let save = app.buttons["completion.save"]
-        XCTAssertTrue(save.waitForExistence(timeout: 2))
-        save.tap()
         XCTAssertFalse(app.navigationBars["Finish"].waitForExistence(timeout: 1))
     }
 
