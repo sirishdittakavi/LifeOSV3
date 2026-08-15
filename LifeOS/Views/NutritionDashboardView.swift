@@ -154,10 +154,11 @@ struct NutritionDashboardView: View {
             }
             .padding(.horizontal, 4)
         }
+        let remaining = max(0, target - progress.totals.proteinG)
         let detail = VStack(alignment: .leading, spacing: LifeOSSpacing.xs) {
             Text("Protein today")
                 .font(.lifeOSSectionTitle)
-            Text("\(Int(progress.totals.proteinG))g of \(Int(target))g")
+            Text("\(Int(progress.totals.proteinG))g of \(Int(target))g — \(Int(remaining))g left")
                 .font(.lifeOSSecondary)
                 .foregroundStyle(.secondary)
             calorieCaption(progress)
@@ -180,7 +181,7 @@ struct NutritionDashboardView: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Protein, \(Int(progress.totals.proteinG)) of \(Int(target)) grams today")
+        .accessibilityLabel("Protein, \(Int(progress.totals.proteinG)) of \(Int(target)) grams today, \(Int(remaining)) grams left")
         .accessibilityIdentifier("nutrition.total.protein")
     }
 
@@ -217,17 +218,20 @@ struct NutritionDashboardView: View {
                 NutritionMetricRow(
                     label: "Calories", currentText: "\(Int(progress.totals.calories))",
                     unitSuffix: "", targetText: progress.calorieTarget.map { "\(Int($0))" },
+                    remainingText: progress.calorieTarget.map { "\(Int(max(0, $0 - progress.totals.calories))) left" },
                     fraction: progress.calorieFraction, status: .neutral
                 )
                 .accessibilityIdentifier("nutrition.total.calories")
                 NutritionMetricRow(
                     label: "Carbs", currentText: "\(Int(progress.totals.carbsG))",
                     unitSuffix: "g", targetText: progress.carbsTarget.map { "\(Int($0))g" },
+                    remainingText: progress.carbsTarget.map { "\(Int(max(0, $0 - progress.totals.carbsG)))g left" },
                     fraction: progress.carbsFraction, status: .inProgress
                 )
                 NutritionMetricRow(
                     label: "Fat", currentText: "\(Int(progress.totals.fatG))",
                     unitSuffix: "g", targetText: progress.fatTarget.map { "\(Int($0))g" },
+                    remainingText: progress.fatTarget.map { "\(Int(max(0, $0 - progress.totals.fatG)))g left" },
                     fraction: progress.fatFraction, status: .recovery
                 )
                 NutritionMetricRow(
@@ -235,6 +239,9 @@ struct NutritionDashboardView: View {
                     currentText: (progress.totals.waterML / 1000).formatted(.number.precision(.fractionLength(1))),
                     unitSuffix: "L",
                     targetText: progress.waterTarget.map { "\(($0 / 1000).formatted(.number.precision(.fractionLength(1))))L" },
+                    remainingText: progress.waterTarget.map {
+                        "\((max(0, $0 - progress.totals.waterML) / 1000).formatted(.number.precision(.fractionLength(1))))L left"
+                    },
                     fraction: progress.waterFraction, status: .complete
                 )
                 .accessibilityIdentifier("nutrition.water.total")
@@ -292,6 +299,11 @@ private struct NutritionMetricRow: View {
     /// `nil` means this metric has no configured target — render a plain
     /// "current today" row with no bar, never "current / 0".
     let targetText: String?
+    /// Remaining-to-target, pre-formatted (e.g. "38g left"). `nil` whenever
+    /// `targetText` is `nil` — there's nothing to be "left" of without a
+    /// target. Shown alongside current/target per the v3 direction: lead
+    /// with current value and remaining amount, percentage stays secondary.
+    var remainingText: String? = nil
     let fraction: Double?
     var status: LOStatus = .inProgress
 
@@ -303,10 +315,9 @@ private struct NutritionMetricRow: View {
     }
 
     private var valueText: String {
-        if let targetText {
-            return "\(currentText)\(unitSuffix) / \(targetText)"
-        }
-        return "\(currentText)\(unitSuffix) today"
+        guard let targetText else { return "\(currentText)\(unitSuffix) today" }
+        guard let remainingText else { return "\(currentText)\(unitSuffix) / \(targetText)" }
+        return "\(currentText)\(unitSuffix) / \(targetText) — \(remainingText)"
     }
 
     var body: some View {
