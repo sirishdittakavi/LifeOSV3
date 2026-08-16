@@ -26,7 +26,10 @@ struct AddActivityView: View {
 
     @State private var isRecurring = false
     @State private var selectedWeekdays: Set<Int> = []
-    @State private var when: Date = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: .now) ?? .now
+    // Always at least an hour out, regardless of what time it is right now
+    // -- a fixed "6 pm today" default silently became a past time (and thus
+    // an invalid one-time Task) for the rest of every day after 6 pm.
+    @State private var when: Date = Calendar.current.date(byAdding: .hour, value: 1, to: .now) ?? .now.addingTimeInterval(3600)
 
     @State private var createdActivity: Activity?
     @State private var showingDetails = false
@@ -42,10 +45,18 @@ struct AddActivityView: View {
             || (isCreatingCategory && !newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
+    /// A one-time Task's date/time must still be in the future the moment
+    /// Create is tapped, not just when this view first appeared -- the
+    /// DatePicker's `in: Date.now...` range only constrains what the user
+    /// can pick, it does not re-validate a value that has since aged past
+    /// "now" while the sheet sat open.
+    private var oneTimeWhenIsValid: Bool { isRecurring || when >= Date.now }
+
     private var canSave: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         hasValidCategory &&
-        (!isRecurring || !selectedWeekdays.isEmpty)
+        (!isRecurring || !selectedWeekdays.isEmpty) &&
+        oneTimeWhenIsValid
     }
 
     init(profile: Profile, initialCategory: AppCategory? = nil) {
