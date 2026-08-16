@@ -466,10 +466,14 @@ struct TaskDetailView: View {
     let activity: Activity
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @Query private var calendarItems: [CalendarItem]
     @Query private var contributions: [GoalAreaContribution]
     @State private var showingEdit = false
     @State private var historyPeriod: DashboardPeriod = .week
+    @State private var showingReschedule = false
+    @State private var rescheduleDate: Date = .now
+    @State private var occurrenceActionFailed = false
 
     private var linkedGoals: [Goal] {
         guard let categoryID = activity.category?.id else { return [] }
@@ -482,6 +486,16 @@ struct TaskDetailView: View {
                   seen.insert(goal.id).inserted else { return nil }
             return goal
         }
+    }
+
+    /// The single next actionable occurrence for this exact Activity,
+    /// resolved by CalendarItem identity (never by Task name, time, or
+    /// profile name) — the only occurrence Skip/Reschedule below can act on.
+    private var nextOccurrence: CalendarItem? {
+        calendarItems
+            .filter { $0.activity?.id == activity.id && $0.status == .planned }
+            .sorted { ($0.plannedStart ?? $0.date) < ($1.plannedStart ?? $1.date) }
+            .first
     }
 
     private var history: [CalendarItem] {
@@ -532,6 +546,33 @@ struct TaskDetailView: View {
                         detail("Target", "\(target.formatted(.number.precision(.fractionLength(0...2)))) \(activity.targetUnit ?? "")")
                     } else {
                         detail("Target", "Completion only")
+                    }
+                }
+
+                if let nextOccurrence {
+                    Section("Next Occurrence") {
+                        detail("Date", nextOccurrence.date.formatted(date: .abbreviated, time: .omitted))
+                        detail("Time", nextOccurrence.plannedStart?.formatted(date: .omitted, time: .shortened) ?? "Any time")
+                        HStack(spacing: LifeOSSpacing.sm) {
+                            Button {
+                                rescheduleDate = nextOccurrence.plannedStart ?? nextOccurrence.date
+                                showingReschedule = true
+                            } label: {
+                                Label("Reschedule", systemImage: "calendar.badge.clock")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(LifeOSSecondaryButtonStyle())
+                            .accessibilityIdentifier("task.detail.reschedule")
+
+                            Button(role: .destructive) {
+                                skip(nextOccurrence)
+                            } label: {
+                                Label("Skip", systemImage: "forward.end")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(LifeOSSecondaryButtonStyle())
+                            .accessibilityIdentifier("task.detail.skip")
+                        }
                     }
                 }
 
@@ -598,11 +639,36 @@ struct TaskDetailView: View {
             .sheet(isPresented: $showingEdit) {
                 EditTaskView(activity: activity, onActivityDeleted: { dismiss() })
             }
+            .sheet(isPresented: $showingReschedule) {
+                if let nextOccurrence {
+                    RescheduleOccurrenceSheet(date: rescheduleDate) { newDate in
+                        reschedule(nextOccurrence, to: newDate)
+                        showingReschedule = false
+                    }
+                }
+            }
+            .alert("Couldn't Update This Occurrence", isPresented: $occurrenceActionFailed) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Please try again.")
+            }
         }
     }
 
     private func detail(_ label: String, _ value: String) -> some View {
         LabeledContent(label, value: value)
+    }
+
+    private func skip(_ item: CalendarItem) {
+        if !TaskOccurrenceActions.skip(item, context: modelContext) {
+            occurrenceActionFailed = true
+        }
+    }
+
+    private func reschedule(_ item: CalendarItem, to newDate: Date) {
+        if TaskOccurrenceActions.reschedule(item, activity: activity, to: newDate, context: modelContext) == nil {
+            occurrenceActionFailed = true
+        }
     }
 
     private var formattedTime: String {
@@ -637,6 +703,30 @@ struct TaskDetailView: View {
         case .rescheduled: return .lifeOSWatch
         case .unplanned: return .lifeOSRecovery
         case .planned: return .lifeOSNeutral
+        }
+    }
+}
+
+/// A minimal date/time picker for moving one specific occurrence.
+private struct RescheduleOccurrenceSheet: View {
+    @State var date: Date
+    let onConfirm: (Date) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                DatePicker("New date & time", selection: $date, in: Date.now..., displayedComponents: [.date, .hourAndMinute])
+            }
+            .navigationTitle("Reschedule")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Move") { onConfirm(date) }
+                        .accessibilityIdentifier("task.detail.reschedule.confirm")
+                }
+            }
         }
     }
 }

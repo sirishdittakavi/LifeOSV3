@@ -30,6 +30,7 @@ let package = Package(
                 "Models/SchemaVersioning.swift",
                 "Engine/CategoryHierarchy.swift",
                 "Engine/CategoryProgressEngine.swift",
+                "Engine/TaskOccurrenceActions.swift",
                 "Engine/LifeOSBackupService.swift",
                 "Engine/ImprovementTemplates.swift",
                 "Engine/PortableMetricService.swift",

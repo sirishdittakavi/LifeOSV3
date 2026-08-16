@@ -52,6 +52,7 @@
 		38DE59695CEDC04F09806282 /* EditTaskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FF57E996B62AE74D76AC88 /* EditTaskView.swift */; };
 		3F76161965A8024182D7236B /* FoodTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4951C5CB1A500F3CED34E5 /* FoodTrackerView.swift */; };
 		49E7137019B8301F15777724 /* CategoryHierarchy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55F7D1F805EAE2850186A7FE /* CategoryHierarchy.swift */; };
+		E4EF43D9932046F2A0DFF732 /* TaskOccurrenceActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 984FF9FF49A44098806AB034 /* TaskOccurrenceActions.swift */; };
 		511A359B9C1D3087768E746B /* AddImprovementCategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3089E1119EF3FEC41AE8B48 /* AddImprovementCategoryView.swift */; };
 		547334C5D48FE41C583A470C /* PortableMetricServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11A6A30395261FA5B84442F /* PortableMetricServiceTests.swift */; };
 		54956C7DE301E1EDE7AB47F0 /* PersistenceSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A7C22D36339973B2F083F70 /* PersistenceSupport.swift */; };
@@ -74,6 +75,7 @@
 		A7B033185885CD71F1FA768F /* ProfilePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12478936D140093B18A81E4C /* ProfilePicker.swift */; };
 		B81953C3320806B779E6011A /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 499BF422BE2A1E261CED49CF /* RootTabView.swift */; };
 		BBB781998C08FBFA80ED7AAD /* PlanningServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9893C70F313744DD079BA597 /* PlanningServiceTests.swift */; };
+		18F91B8BFF114393A9B78E9D /* TaskOccurrenceActionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC5E9F135AF4F038491160A /* TaskOccurrenceActionsTests.swift */; };
 		BE651337EF518EAB4A766D74 /* RecordActualView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73B48145494B4301A179594D /* RecordActualView.swift */; };
 		C42B22F16BD3D1E6D55D2FF6 /* CategoryProgressEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78943876F88DB77027A69003 /* CategoryProgressEngine.swift */; };
 		CE9C7EC7EC71B6F09AF868BD /* LifeOSBackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDDCC3A1F13B93070395E397 /* LifeOSBackupService.swift */; };
@@ -136,6 +138,7 @@
 		4D4E3B744C27472F06F91DAB /* ProfileManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileManagerView.swift; sourceTree = "<group>"; };
 		53549BD50EE3E8885AB9ECF9 /* DailyProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyProgressView.swift; sourceTree = "<group>"; };
 		55F7D1F805EAE2850186A7FE /* CategoryHierarchy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryHierarchy.swift; sourceTree = "<group>"; };
+		984FF9FF49A44098806AB034 /* TaskOccurrenceActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskOccurrenceActions.swift; sourceTree = "<group>"; };
 		591D05654CEDC34BDF4C3EEC /* SchemaVersioning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaVersioning.swift; sourceTree = "<group>"; };
 		5DD50DB9C010E97A4DD88F5A /* SeedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeedData.swift; sourceTree = "<group>"; };
 		5E9628B470CB2D29FB799F92 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -153,6 +156,7 @@
 		84FF57E996B62AE74D76AC88 /* EditTaskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditTaskView.swift; sourceTree = "<group>"; };
 		90B582C37891B169DC95F47F /* EditGoalViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditGoalViews.swift; sourceTree = "<group>"; };
 		9893C70F313744DD079BA597 /* PlanningServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanningServiceTests.swift; sourceTree = "<group>"; };
+		9AC5E9F135AF4F038491160A /* TaskOccurrenceActionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskOccurrenceActionsTests.swift; sourceTree = "<group>"; };
 		A5F1C1BAC812EC2A5FFBB0ED /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		1A911E90200F4B61AFECF4A2 /* LifeOSColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem/LifeOSColors.swift; sourceTree = "<group>"; };
 		1670AEF0314D44AEB682DA54 /* LifeOSTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem/LifeOSTypography.swift; sourceTree = "<group>"; };
@@ -215,6 +219,7 @@
 			isa = PBXGroup;
 			children = (
 				55F7D1F805EAE2850186A7FE /* CategoryHierarchy.swift */,
+				984FF9FF49A44098806AB034 /* TaskOccurrenceActions.swift */,
 				78943876F88DB77027A69003 /* CategoryProgressEngine.swift */,
 				71336B7D9F2F80BB5303A4D3 /* ImprovementTemplates.swift */,
 				CDDCC3A1F13B93070395E397 /* LifeOSBackupService.swift */,
@@ -276,6 +281,7 @@
 			children = (
 				F7362C092FD349A2E60B7559 /* GoalProgressEngineTests.swift */,
 				9893C70F313744DD079BA597 /* PlanningServiceTests.swift */,
+				9AC5E9F135AF4F038491160A /* TaskOccurrenceActionsTests.swift */,
 				F11A6A30395261FA5B84442F /* PortableMetricServiceTests.swift */,
 				A6706225FC9F05BDD4511CA8 /* ProgressAndHierarchyTests.swift */,
 				71D1F8FD38D6E699FE50FBC3 /* TestFixtures.swift */,
@@ -507,6 +513,7 @@
 			files = (
 				20B95C947978C7DC760EF8BD /* GoalProgressEngineTests.swift in Sources */,
 				BBB781998C08FBFA80ED7AAD /* PlanningServiceTests.swift in Sources */,
+				18F91B8BFF114393A9B78E9D /* TaskOccurrenceActionsTests.swift in Sources */,
 				547334C5D48FE41C583A470C /* PortableMetricServiceTests.swift in Sources */,
 				FC2EA2AA95DB24C0A8D641E1 /* ProgressAndHierarchyTests.swift in Sources */,
 				9E1A24913BE710E920A9C98D /* TestFixtures.swift in Sources */,
@@ -528,6 +535,7 @@
 				F20B0CC3F213D901E11187B4 /* AddWhatHappenedView.swift in Sources */,
 				64BD1CB168BD83CFEDCEE578 /* BackupCenterView.swift in Sources */,
 				49E7137019B8301F15777724 /* CategoryHierarchy.swift in Sources */,
+				E4EF43D9932046F2A0DFF732 /* TaskOccurrenceActions.swift in Sources */,
 				C42B22F16BD3D1E6D55D2FF6 /* CategoryProgressEngine.swift in Sources */,
 				D3110A8487A6D40D35338712 /* ColorToken.swift in Sources */,
 				7A24F57F33DE6A4FE45D5B29 /* DailyProgressView.swift in Sources */,
