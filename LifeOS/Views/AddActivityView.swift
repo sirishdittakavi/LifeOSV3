@@ -59,12 +59,30 @@ struct AddActivityView: View {
         oneTimeWhenIsValid
     }
 
+    #if DEBUG
+    private let debugAutoCreate: Bool
+    #endif
+
     init(profile: Profile, initialCategory: AppCategory? = nil) {
         self.profile = profile
         _selectedCategory = State(initialValue:
             initialCategory?.profile?.id == profile.id && initialCategory?.isActive == true ? initialCategory : nil
         )
+        #if DEBUG
+        debugAutoCreate = false
+        #endif
     }
+
+    #if DEBUG
+    /// Screenshot-only: lands directly on the post-create confirmation, the
+    /// same way tapping Create would, without simulator tap automation.
+    init(profile: Profile, debugAutoCreate: Bool) {
+        self.profile = profile
+        _selectedCategory = State(initialValue: nil)
+        _name = State(initialValue: "Evening reading")
+        self.debugAutoCreate = debugAutoCreate
+    }
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -77,6 +95,15 @@ struct AddActivityView: View {
             }
             .navigationTitle(createdActivity == nil ? "New Task" : "Task Created")
             .navigationBarTitleDisplayMode(.large)
+            #if DEBUG
+            .onAppear {
+                guard debugAutoCreate, createdActivity == nil else { return }
+                if selectedCategory == nil { isCreatingCategory = profileCategories.isEmpty }
+                if let firstCategory = profileCategories.first { selectedCategory = firstCategory }
+                else { isCreatingCategory = true; newCategoryName = "Reading" }
+                save()
+            }
+            #endif
             .toolbar {
                 if createdActivity == nil {
                     ToolbarItem(placement: .cancellationAction) {

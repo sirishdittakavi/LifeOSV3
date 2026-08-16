@@ -462,8 +462,19 @@ struct ManageAreaTasksView: View {
     }
 }
 
+#if DEBUG
+/// Screenshot-only: which exceptional occurrence action to perform
+/// automatically on appear, without simulator tap automation.
+enum DebugTaskDetailAutoAction {
+    case reschedule, skip
+}
+#endif
+
 struct TaskDetailView: View {
     let activity: Activity
+    #if DEBUG
+    var debugAutoAction: DebugTaskDetailAutoAction? = nil
+    #endif
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -624,6 +635,18 @@ struct TaskDetailView: View {
             }
             .navigationTitle("Task Details")
             .navigationBarTitleDisplayMode(.inline)
+            #if DEBUG
+            .onAppear {
+                guard let nextOccurrence, let debugAutoAction else { return }
+                switch debugAutoAction {
+                case .reschedule:
+                    rescheduleDate = nextOccurrence.plannedStart ?? nextOccurrence.date
+                    showingReschedule = true
+                case .skip:
+                    skip(nextOccurrence)
+                }
+            }
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }

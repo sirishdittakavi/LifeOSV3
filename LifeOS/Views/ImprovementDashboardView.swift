@@ -761,7 +761,7 @@ private struct GoalDetailView: View {
     }
 }
 
-private struct AddGoalView: View {
+struct AddGoalView: View {
     let profile: Profile
     let template: GoalStarterTemplate?
     @Environment(\.dismiss) private var dismiss

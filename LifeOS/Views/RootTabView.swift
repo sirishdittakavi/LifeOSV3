@@ -42,7 +42,7 @@ func debugScreenshotScene() -> String? {
 }
 
 private enum DebugScreenshotSheet: String, Identifiable {
-    case addTask, nutrition, taskDetail
+    case addTask, addTaskCreated, nutrition, taskDetail, taskDetailReschedule, taskDetailAfterSkip, addGoal
     var id: String { rawValue }
 }
 #endif
@@ -119,11 +119,21 @@ struct RootTabView: View {
             if let profile = selection.profile ?? profiles.first(where: \.isActive) {
                 switch sheet {
                 case .addTask: AddActivityView(profile: profile)
+                case .addTaskCreated: AddActivityView(profile: profile, debugAutoCreate: true)
                 case .nutrition: NutritionDashboardView(selection: selection)
                 case .taskDetail:
                     if let activity = activities.first(where: { $0.profile?.id == profile.id && $0.isActive }) {
                         TaskDetailView(activity: activity)
                     }
+                case .taskDetailReschedule:
+                    if let activity = activities.first(where: { $0.profile?.id == profile.id && $0.isActive }) {
+                        TaskDetailView(activity: activity, debugAutoAction: .reschedule)
+                    }
+                case .taskDetailAfterSkip:
+                    if let activity = activities.first(where: { $0.profile?.id == profile.id && $0.isActive }) {
+                        TaskDetailView(activity: activity, debugAutoAction: .skip)
+                    }
+                case .addGoal: AddGoalView(profile: profile)
                 }
             }
         }
@@ -202,13 +212,17 @@ struct RootTabView: View {
         guard let scene = debugScreenshotScene() else { return }
         if selection.profile == nil { selection.profile = profiles.first(where: \.isActive) }
         switch scene {
-        case "today": selectedTab = 0
+        case "today", "today-completed", "today-undo": selectedTab = 0
         case "plans": selectedTab = 1
-        case "progress", "add-goal": selectedTab = 2
+        case "progress": selectedTab = 2
         case "schedule": selectedTab = 3
         case "add-task": selectedTab = 0; debugSheet = .addTask
+        case "add-task-created": selectedTab = 0; debugSheet = .addTaskCreated
         case "nutrition": selectedTab = 0; debugSheet = .nutrition
         case "task-detail": selectedTab = 0; debugSheet = .taskDetail
+        case "task-detail-reschedule": selectedTab = 0; debugSheet = .taskDetailReschedule
+        case "task-detail-after-skip": selectedTab = 0; debugSheet = .taskDetailAfterSkip
+        case "add-goal": debugSheet = .addGoal
         default: break
         }
     }
