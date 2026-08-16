@@ -31,6 +31,7 @@ let package = Package(
                 "Engine/CategoryHierarchy.swift",
                 "Engine/CategoryProgressEngine.swift",
                 "Engine/TaskOccurrenceActions.swift",
+                "Engine/QuickAddValidation.swift",
                 "Engine/LifeOSBackupService.swift",
                 "Engine/ImprovementTemplates.swift",
                 "Engine/PortableMetricService.swift",
