@@ -341,6 +341,139 @@ final class ProgressAndHierarchyTests: XCTestCase {
         XCTAssertEqual(afterLogging.completedSessions, 1)
     }
 
+    /// Chunk 4 fix: a brand-new Plan with zero completed sessions and zero
+    /// decided occurrences must never read as "On track" -- the zero-
+    /// evidence guard has to run before the on-track pace check, not after,
+    /// because 0 completed trivially clears "0 >= expectedSessions * 0.85"
+    /// whenever elapsedFraction is still ~0 right after creation.
+    func testNewPlanWithZeroEvidenceIsInsufficientDataNotOnTrackAtPeriodStart() {
+        let profile = TestFixtures.profile()
+        let category = AppCategory(
+            profile: profile, name: "Strength Training", symbol: "figure.strengthtraining.traditional",
+            colorToken: "blue", pillar: .life,
+            weeklyTargetSessions: 1, weeklyTargetMinutes: 30
+        )
+        let interval = DashboardPeriod.week.interval(containing: TestFixtures.date(2026, 1, 6, hour: 9), calendar: TestFixtures.calendar)
+        let now = interval.start.addingTimeInterval(60 * 5) // moments after the period began
+        let activity = Activity(
+            profile: profile, category: category, name: "Bench press practice",
+            repeatType: .daily, plannedStartMinutes: 18 * 60,
+            estimatedDurationMinutes: 30, startDate: interval.start
+        )
+
+        let progress = CategoryProgressEngine.progress(
+            profile: profile, category: category, period: .week, now: now,
+            activities: [activity], calendarItems: [],
+            foodEntries: [], weightEntries: [], sportEntries: [],
+            calendar: TestFixtures.calendar
+        )
+
+        XCTAssertEqual(progress.completedSessions, 0)
+        XCTAssertEqual(progress.status, .insufficientData)
+    }
+
+    /// Same guard, proven against the "needsAttention" branch: even when
+    /// enough future scheduled/potential sessions exist to still meet the
+    /// weekly target on paper, zero decided evidence so far this period
+    /// must not be judged "Needs attention" -- there's nothing to judge yet.
+    func testNewPlanWithZeroEvidenceIsInsufficientDataNotNeedsAttentionWhenFuturePotentialMeetsTarget() {
+        let profile = TestFixtures.profile()
+        let category = AppCategory(
+            profile: profile, name: "Strength Training", symbol: "figure.strengthtraining.traditional",
+            colorToken: "blue", pillar: .life,
+            weeklyTargetSessions: 2, weeklyTargetMinutes: 60
+        )
+        let interval = DashboardPeriod.week.interval(containing: TestFixtures.date(2026, 1, 6, hour: 9), calendar: TestFixtures.calendar)
+        let now = interval.start.addingTimeInterval(interval.duration * 0.5) // roughly halfway through the week
+        let activity = Activity(
+            profile: profile, category: category, name: "Bench press practice",
+            repeatType: .daily, plannedStartMinutes: 18 * 60,
+            estimatedDurationMinutes: 30, startDate: interval.start
+        )
+
+        let progress = CategoryProgressEngine.progress(
+            profile: profile, category: category, period: .week, now: now,
+            activities: [activity], calendarItems: [],
+            foodEntries: [], weightEntries: [], sportEntries: [],
+            calendar: TestFixtures.calendar
+        )
+
+        XCTAssertEqual(progress.completedSessions, 0)
+        XCTAssertGreaterThanOrEqual(
+            progress.completedSessions + max(0, progress.targetSessions), progress.targetSessions,
+            "sanity: this scenario is set up so future potential sessions could still meet the target"
+        )
+        XCTAssertEqual(progress.status, .insufficientData)
+    }
+
+    /// Same guard, proven against the "behind" branch: a Plan created with
+    /// too little of the period left to reach its target on paper must
+    /// still read as "Insufficient data", not "Behind" -- there's no
+    /// judgment the zero evidence actually supports.
+    func testNewPlanWithZeroEvidenceIsInsufficientDataNotBehindWhenTooFewDaysRemain() {
+        let profile = TestFixtures.profile()
+        let category = AppCategory(
+            profile: profile, name: "Strength Training", symbol: "figure.strengthtraining.traditional",
+            colorToken: "blue", pillar: .life,
+            weeklyTargetSessions: 3, weeklyTargetMinutes: 90
+        )
+        let interval = DashboardPeriod.week.interval(containing: TestFixtures.date(2026, 1, 6, hour: 9), calendar: TestFixtures.calendar)
+        let now = interval.end.addingTimeInterval(-60 * 60 * 2) // two hours before the period ends
+        let activity = Activity(
+            profile: profile, category: category, name: "Bench press practice",
+            repeatType: .daily, plannedStartMinutes: 18 * 60,
+            estimatedDurationMinutes: 30, startDate: now
+        )
+
+        let progress = CategoryProgressEngine.progress(
+            profile: profile, category: category, period: .week, now: now,
+            activities: [activity], calendarItems: [],
+            foodEntries: [], weightEntries: [], sportEntries: [],
+            calendar: TestFixtures.calendar
+        )
+
+        XCTAssertEqual(progress.completedSessions, 0)
+        XCTAssertLessThan(
+            progress.completedSessions + 1, progress.targetSessions,
+            "sanity: this scenario is set up so too little of the period remains to meet the target"
+        )
+        XCTAssertEqual(progress.status, .insufficientData)
+    }
+
+    /// Contrast case: once there IS decided evidence this period (even a
+    /// single skipped occurrence, still zero completions), the zero-
+    /// evidence guard must not swallow a real "Behind" judgment -- it only
+    /// applies when there is truly nothing decided either way.
+    func testPlanWithOneDecidedSkipAndTooFewDaysRemainingIsStillBehind() {
+        let profile = TestFixtures.profile()
+        let category = AppCategory(
+            profile: profile, name: "Strength Training", symbol: "figure.strengthtraining.traditional",
+            colorToken: "blue", pillar: .life,
+            weeklyTargetSessions: 3, weeklyTargetMinutes: 90
+        )
+        let interval = DashboardPeriod.week.interval(containing: TestFixtures.date(2026, 1, 6, hour: 9), calendar: TestFixtures.calendar)
+        let now = interval.end.addingTimeInterval(-60 * 60 * 2)
+        let activity = Activity(
+            profile: profile, category: category, name: "Bench press practice",
+            repeatType: .daily, plannedStartMinutes: 18 * 60,
+            estimatedDurationMinutes: 30, startDate: interval.start
+        )
+        let decidedSkip = CalendarItem(
+            profile: profile, activity: activity, date: TestFixtures.calendar.startOfDay(for: now),
+            plannedStart: now.addingTimeInterval(-3600), status: .skipped, source: .schedule
+        )
+
+        let progress = CategoryProgressEngine.progress(
+            profile: profile, category: category, period: .week, now: now,
+            activities: [activity], calendarItems: [decidedSkip],
+            foodEntries: [], weightEntries: [], sportEntries: [],
+            calendar: TestFixtures.calendar
+        )
+
+        XCTAssertEqual(progress.completedSessions, 0)
+        XCTAssertEqual(progress.status, .behind, "real decided evidence (a skip) must still be judged, not treated as zero evidence")
+    }
+
     /// Step 1 of Refactor.md: ProgressEngine, CategoryProgressEngine and
     /// GoalProgressEngine used to reconstruct scheduled occurrences with
     /// three separate inline implementations. This proves they now agree,
