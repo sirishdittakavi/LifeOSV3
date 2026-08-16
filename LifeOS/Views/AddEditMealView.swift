@@ -50,6 +50,14 @@ struct AddEditMealView: View {
         NutritionValue(calories: calories ?? 0, proteinG: protein ?? 0, carbsG: carbs ?? 0, fatG: fat ?? 0)
     }
 
+    /// The button must be disabled, not just saveMeal()/saveAsTemplate()
+    /// silently no-op, whenever the entered totals are invalid -- a
+    /// negative field elsewhere (e.g. -10g fat) can still leave
+    /// hasAnyValue true (calories alone is > 0).
+    private var canSave: Bool {
+        hasAnyValue && NutritionEngine.isValidMacroEntry(currentTotals)
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -69,7 +77,7 @@ struct AddEditMealView: View {
 
                 Section {
                     Button("Save as Template") { showingTemplateNamePrompt = true }
-                        .disabled(!hasAnyValue)
+                        .disabled(!canSave)
                 }
 
                 if existingMeal != nil {
@@ -84,7 +92,7 @@ struct AddEditMealView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save Meal", action: saveMeal).disabled(!hasAnyValue)
+                    Button("Save Meal", action: saveMeal).disabled(!canSave)
                         .accessibilityIdentifier("nutrition.meal.save")
                 }
             }

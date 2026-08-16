@@ -33,6 +33,15 @@ struct NutritionTargetsView: View {
 
     private var profileID: UUID? { selection.profile?.id }
 
+    /// The button must be disabled, not just save() silently no-op,
+    /// whenever any entered target is negative -- every field is
+    /// otherwise optional and valid when left blank.
+    private var canSave: Bool {
+        NutritionEngine.isValidDailyTarget(protein) && NutritionEngine.isValidDailyTarget(calories) &&
+        NutritionEngine.isValidDailyTarget(carbs) && NutritionEngine.isValidDailyTarget(fat) &&
+        NutritionEngine.isValidDailyTarget(waterLiters)
+    }
+
     private var existingGoal: NutritionGoal? {
         guard let profileID else { return nil }
         return allGoals.first { $0.profileID == profileID }
@@ -55,7 +64,7 @@ struct NutritionTargetsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("Save", action: save) }
+                ToolbarItem(placement: .confirmationAction) { Button("Save", action: save).disabled(!canSave) }
             }
             .onAppear(perform: loadIfNeeded)
         }
