@@ -831,14 +831,14 @@ struct AddGoalView: View {
             .sorted { $0.sortOrder < $1.sortOrder }
     }
     private var canSave: Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !measureName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !selectedAreaIDs.isEmpty &&
-        (valueType == .text || valueType == .milestone || validNumericTarget) &&
-        (resultSource == .manual || valueType == .text || valueType == .milestone
-            || (resultSource == .activityMeasurement && selectedMeasurementDefinitionID != nil)
-            || (resultSource == .nutritionMetric && selectedNutritionMetric != nil)
-            || (resultSource == .bodyMetric && selectedBodyMetricDefinitionID != nil))
+        AddGoalValidation.canSave(
+            name: name, measureName: measureName, selectedAreaIDs: selectedAreaIDs,
+            valueType: valueType, direction: direction, baseline: baseline, target: target,
+            minimum: rangeMinimum, maximum: rangeMaximum, resultSource: resultSource,
+            selectedMeasurementDefinitionID: selectedMeasurementDefinitionID,
+            selectedNutritionMetric: selectedNutritionMetric,
+            selectedBodyMetricDefinitionID: selectedBodyMetricDefinitionID
+        )
     }
     private var validNumericTarget: Bool {
         ResultMeasureValidation.isValidTarget(
@@ -1170,14 +1170,6 @@ struct AddResultEntryView: View {
             modelContext.rollback()
         }
     }
-}
-
-enum ResultSource: String, CaseIterable, Identifiable {
-    case manual = "Manual check-in"
-    case activityMeasurement = "Activity measurement"
-    case nutritionMetric = "Nutrition"
-    case bodyMetric = "Body metric"
-    var id: String { rawValue }
 }
 
 /// Shared Result-source picker content for the three linkage forms (New

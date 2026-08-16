@@ -33,6 +33,7 @@ let package = Package(
                 "Engine/TaskOccurrenceActions.swift",
                 "Engine/QuickAddValidation.swift",
                 "Engine/OnboardingValidation.swift",
+                "Engine/AddGoalValidation.swift",
                 "Engine/LifeOSBackupService.swift",
                 "Engine/ImprovementTemplates.swift",
                 "Engine/PortableMetricService.swift",
