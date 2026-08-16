@@ -27,18 +27,23 @@ struct QuickActionSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    quickRow(title: "Log Meal", symbol: "fork.knife", tint: .lifeOSFocus) {
-                        showingMealTypePicker = true
-                    }
-                    quickRow(title: "Water", symbol: "drop.fill", tint: .lifeOSOnTrack) {
-                        showingWater = true
-                    }
-                    quickRow(title: "Weight", symbol: "scalemass.fill", tint: .lifeOSRecovery) {
-                        showingWeight = true
+            ScrollView {
+                LOCard {
+                    VStack(spacing: 0) {
+                        quickRow(title: "Log Meal", symbol: "fork.knife", tint: .lifeOSFocus, identifier: "nutrition.quickAction.logMeal") {
+                            showingMealTypePicker = true
+                        }
+                        Divider()
+                        quickRow(title: "Water", symbol: "drop.fill", tint: .lifeOSOnTrack, identifier: "nutrition.quickAction.water") {
+                            showingWater = true
+                        }
+                        Divider()
+                        quickRow(title: "Weight", symbol: "scalemass.fill", tint: .lifeOSRecovery, identifier: "nutrition.quickAction.weight") {
+                            showingWeight = true
+                        }
                     }
                 }
+                .padding(LifeOSSpacing.lg)
             }
             .navigationTitle("Log something")
             .navigationBarTitleDisplayMode(.inline)
@@ -59,7 +64,7 @@ struct QuickActionSheet: View {
         }
     }
 
-    private func quickRow(title: String, symbol: String, tint: Color, action: @escaping () -> Void) -> some View {
+    private func quickRow(title: String, symbol: String, tint: Color, identifier: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: LifeOSSpacing.md) {
                 LOIconBadge(symbol: symbol, tint: tint, diameter: 40)
@@ -72,8 +77,10 @@ struct QuickActionSheet: View {
                     .foregroundStyle(.tertiary)
             }
             .padding(.vertical, LifeOSSpacing.xs)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier)
     }
 }
 
