@@ -83,6 +83,7 @@
 		18F91B8BFF114393A9B78E9D /* TaskOccurrenceActionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC5E9F135AF4F038491160A /* TaskOccurrenceActionsTests.swift */; };
 		B63064B1AFF14B379D77A6C6 /* ScheduleNavigationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4CD35D46566451586BAA2E5 /* ScheduleNavigationTests.swift */; };
 		E56FA773C0F743468DC9CE6F /* ProgressViewAlignmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8644078C554F4D6CAB668413 /* ProgressViewAlignmentTests.swift */; };
+		9D346645284043A9935F9F87 /* ProfileIsolationAuditTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED07D9644F744EF798526776 /* ProfileIsolationAuditTests.swift */; };
 		D6298E6ABE5F42D1BECFA5B7 /* QuickAddValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20671FD0D5D9441A90E94EAE /* QuickAddValidationTests.swift */; };
 		BE651337EF518EAB4A766D74 /* RecordActualView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73B48145494B4301A179594D /* RecordActualView.swift */; };
 		C42B22F16BD3D1E6D55D2FF6 /* CategoryProgressEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78943876F88DB77027A69003 /* CategoryProgressEngine.swift */; };
@@ -170,6 +171,7 @@
 		9AC5E9F135AF4F038491160A /* TaskOccurrenceActionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskOccurrenceActionsTests.swift; sourceTree = "<group>"; };
 		E4CD35D46566451586BAA2E5 /* ScheduleNavigationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleNavigationTests.swift; sourceTree = "<group>"; };
 		8644078C554F4D6CAB668413 /* ProgressViewAlignmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressViewAlignmentTests.swift; sourceTree = "<group>"; };
+		ED07D9644F744EF798526776 /* ProfileIsolationAuditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileIsolationAuditTests.swift; sourceTree = "<group>"; };
 		20671FD0D5D9441A90E94EAE /* QuickAddValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAddValidationTests.swift; sourceTree = "<group>"; };
 		A5F1C1BAC812EC2A5FFBB0ED /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		1A911E90200F4B61AFECF4A2 /* LifeOSColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem/LifeOSColors.swift; sourceTree = "<group>"; };
@@ -306,6 +308,7 @@
 				20671FD0D5D9441A90E94EAE /* QuickAddValidationTests.swift */,
 				E4CD35D46566451586BAA2E5 /* ScheduleNavigationTests.swift */,
 				8644078C554F4D6CAB668413 /* ProgressViewAlignmentTests.swift */,
+				ED07D9644F744EF798526776 /* ProfileIsolationAuditTests.swift */,
 				F11A6A30395261FA5B84442F /* PortableMetricServiceTests.swift */,
 				A6706225FC9F05BDD4511CA8 /* ProgressAndHierarchyTests.swift */,
 				71D1F8FD38D6E699FE50FBC3 /* TestFixtures.swift */,
@@ -543,6 +546,7 @@
 				D6298E6ABE5F42D1BECFA5B7 /* QuickAddValidationTests.swift in Sources */,
 				B63064B1AFF14B379D77A6C6 /* ScheduleNavigationTests.swift in Sources */,
 				E56FA773C0F743468DC9CE6F /* ProgressViewAlignmentTests.swift in Sources */,
+				9D346645284043A9935F9F87 /* ProfileIsolationAuditTests.swift in Sources */,
 				547334C5D48FE41C583A470C /* PortableMetricServiceTests.swift in Sources */,
 				FC2EA2AA95DB24C0A8D641E1 /* ProgressAndHierarchyTests.swift in Sources */,
 				9E1A24913BE710E920A9C98D /* TestFixtures.swift in Sources */,
