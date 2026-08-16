@@ -151,7 +151,7 @@ struct ImprovementCategoryDetailView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 28)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color.lifeOSCanvas)
         .navigationTitle(category.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

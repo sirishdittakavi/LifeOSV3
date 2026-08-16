@@ -165,30 +165,62 @@ final class RemainingReleasePassUITests: XCTestCase {
         XCTAssertEqual(parentProteinTarget.value as? String, "120", "Parent's own pre-seeded 120g target must be untouched by Child's changes")
     }
 
+    /// Was skipped: QuickActionSheet's List did not respond to any tap
+    /// (five distinct strategies tried) when nested two sheets deep
+    /// (Today → Nutrition → QuickActionSheet) — a genuine SwiftUI/UIKit
+    /// touch-delivery limitation at that depth, not a test-side problem.
+    /// Fixed in QuickActionSheet.swift by replacing the List with a plain
+    /// VStack of Buttons (LOCard, matching this app's other option-picker
+    /// rows, e.g. AddGoalView's Plan picker) -- List's own scroll/cell
+    /// machinery was the part misbehaving at this sheet depth, not the
+    /// sheet nesting itself, which every other nested sheet in this app
+    /// already relies on.
     func testWaterLogAndDeleteRemainProfileScoped() throws {
-        // SKIPPED — confirmed, isolated root cause via accessibility-tree
-        // capture + a control test (tapping "Log Meal", the row above
-        // Water, in the same list): NO row in QuickActionSheet's list
-        // responds to a tap here, not just Water's. QuickActionSheet is
-        // presented as a sheet from NutritionDashboardView, itself a sheet
-        // presented from Today — a sheet nested inside a sheet. The outer
-        // toolbar button that opens this list works (different responder
-        // path); nothing inside the List does. Five distinct tap strategies
-        // (plain tap+retry, coordinate tap, robustTap, press(forDuration:),
-        // gesture-arbitration retry) all failed identically, which rules out
-        // the three previously-confirmed causes (ScrollView hit-testing,
-        // stale-sheet overlap, oversized-element hit-point corruption) and
-        // points to a genuine SwiftUI/UIKit touch-delivery limitation at
-        // this specific sheet-nesting depth — not something a test-side
-        // workaround can fix. Production fix (not attempted without
-        // sign-off): stop nesting QuickActionSheet two sheets deep, e.g.
-        // present it from Today directly instead of from within
-        // NutritionDashboardView.
-        // Intent once unblocked: log a 500mL water entry via the quick-add
-        // sheet, confirm nutrition.water.total reflects it, delete the entry
-        // via swipe-to-delete, confirm the total reverts — all for Child
-        // only, matching the profile-scoping pattern of the other 8 tests.
-        throw XCTSkip("QuickActionSheet's list is unresponsive to taps when nested two sheets deep (Today → Nutrition → QuickActionSheet) — needs a production presentation-architecture fix, not a test workaround. See comment above.")
+        switchProfile(to: "Child")
+        openNutritionDashboard()
+
+        app.buttons["nutrition.meal.add"].tap()
+        let water = app.buttons["nutrition.quickAction.water"]
+        XCTAssertTrue(water.waitForExistence(timeout: 3))
+        water.tap()
+        XCTAssertTrue(app.navigationBars["Water"].waitForExistence(timeout: 3))
+
+        let add500 = app.buttons["nutrition.water.add500"]
+        XCTAssertTrue(add500.waitForExistence(timeout: 3))
+        add500.tap()
+
+        // The sheet stays open after adding, now showing "Logged today".
+        let loggedRow = app.staticTexts["500 mL"]
+        XCTAssertTrue(loggedRow.waitForExistence(timeout: 3), "the just-logged entry must appear immediately")
+
+        app.swipeDown()
+        XCTAssertTrue(app.navigationBars["Nutrition"].waitForExistence(timeout: 3))
+        let totalAfterAdd = app.descendants(matching: .any)["nutrition.water.total"]
+        XCTAssertTrue(totalAfterAdd.waitForExistence(timeout: 3))
+        XCTAssertTrue(totalAfterAdd.label.contains("0.5"), "500 mL must show as 0.5 L: got \(totalAfterAdd.label)")
+
+        // Delete it via swipe-to-delete and confirm the total reverts.
+        app.buttons["nutrition.meal.add"].tap()
+        app.buttons["nutrition.quickAction.water"].tap()
+        XCTAssertTrue(app.navigationBars["Water"].waitForExistence(timeout: 3))
+        let entryToDelete = app.staticTexts["500 mL"]
+        XCTAssertTrue(entryToDelete.waitForExistence(timeout: 3))
+        entryToDelete.swipeLeft()
+        app.buttons["Delete"].tap()
+        XCTAssertFalse(entryToDelete.waitForExistence(timeout: 1), "the deleted entry must disappear from Logged today")
+
+        app.swipeDown()
+        XCTAssertTrue(app.navigationBars["Nutrition"].waitForExistence(timeout: 3))
+        let totalAfterDelete = app.descendants(matching: .any)["nutrition.water.total"]
+        XCTAssertTrue(totalAfterDelete.waitForExistence(timeout: 3))
+        XCTAssertFalse(totalAfterDelete.label.contains("0.5"), "deleting the only entry must revert the total: got \(totalAfterDelete.label)")
+
+        // Profile isolation: Parent must never see Child's water logging.
+        switchProfile(to: "Parent")
+        openNutritionDashboard()
+        let parentTotal = app.descendants(matching: .any)["nutrition.water.total"]
+        XCTAssertTrue(parentTotal.waitForExistence(timeout: 3))
+        XCTAssertFalse(parentTotal.label.contains("0.5"), "Parent must never see Child's water total")
     }
 
     // MARK: - Body Tracking

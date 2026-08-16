@@ -106,6 +106,22 @@ struct TodayTimelineView: View {
             }
             .sensoryFeedback(.selection, trigger: feedbackTrigger)
             .onAppear { refresh(at: .now, generate: true) }
+            #if DEBUG
+            // Screenshot-only: drives the exact same finish()/undoFinish()
+            // the one-tap checkmark calls, without simulator tap automation.
+            // Today's real completion/undo behavior above is untouched.
+            .task {
+                guard let scene = debugScreenshotScene(),
+                      scene == "today-completed" || scene == "today-undo" else { return }
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                guard let item = viewModel.todayItems.first(where: { $0.status == .planned }) else { return }
+                _ = finish(item)
+                if scene == "today-undo" {
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    _ = undoFinish(item)
+                }
+            }
+            #endif
             .onChange(of: selection.profile?.id) { viewModel.generateTodayItemsIfNeeded() }
             .onReceive(clock) { refresh(at: $0) }
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in

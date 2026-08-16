@@ -97,26 +97,41 @@ final class ProfileIsolationUITests: XCTestCase {
         XCTAssertFalse(app.buttons["today.actions.hitting"].exists, "a completed occurrence exposes no further action control to double-tap")
     }
 
-    /// A completed task exposes its green leading checkmark in history. A
-    /// second tap restores that exact occurrence without touching another
-    /// profile's identically named task.
+    /// A completed task's leading checkmark is auto-revealed immediately
+    /// (`onDone` sets `completedExpanded = true` itself -- TodayTimelineView.swift)
+    /// so this must NOT also tap "today.completedSection" first: that control
+    /// is a collapse/expand toggle, and tapping an already-expanded section
+    /// collapses it again, hiding the very checkmark the test is about to
+    /// look for. A second tap on that checkmark restores the exact occurrence
+    /// without touching another profile's identically named/scheduled Task.
     func testUndoCompletionUpdatesTodayPlanAndProgress() {
         switchProfile(to: "Child")
         completeHittingFromHome()
 
-        let completed = app.buttons["today.completedSection"]
-        scrollToElement(completed)
-        XCTAssertTrue(completed.isHittable)
-        completed.tap()
+        let progressAfterComplete = app.descendants(matching: .any)["today.progress"]
+        scrollUpToElement(progressAfterComplete)
+        XCTAssertEqual(progressAfterComplete.label, "Today's progress, 100 percent, 1 of 1 Tasks complete")
 
         let undo = app.buttons["today.undo.hitting"]
         scrollToElement(undo)
-        XCTAssertTrue(undo.isHittable, "Expected a completed Task's leading checkmark to undo it")
+        XCTAssertTrue(undo.isHittable, "Expected the auto-revealed leading checkmark to undo the completion")
         undo.tap()
 
         let progressAfterUndo = app.descendants(matching: .any)["today.progress"]
         scrollUpToElement(progressAfterUndo)
-        XCTAssertFalse(progressAfterUndo.label.contains("100 percent"), "undo must remove the completion from Today's progress: got \(progressAfterUndo.label)")
+        XCTAssertEqual(progressAfterUndo.label, "Today's progress, 0 percent, 0 of 1 Tasks complete", "undo must return Today's progress to fully incomplete, not just below 100 percent")
+
+        let actionsAfterUndo = app.buttons["today.actions.hitting"]
+        scrollToElement(actionsAfterUndo)
+        XCTAssertTrue(actionsAfterUndo.isHittable, "undo must restore the one-tap completion control for the exact occurrence that was undone")
+
+        // Cross-profile isolation: Parent has an identically named/timed
+        // "Hitting" Task (LifeOSApp.swift's UI-test fixture, deliberately).
+        // Undoing Child's completion must never touch Parent's.
+        switchProfile(to: "Parent")
+        let parentActions = app.buttons["today.actions.hitting"]
+        scrollToElement(parentActions)
+        XCTAssertTrue(parentActions.isHittable, "Child's undo must never affect Parent's identically named/timed Task")
     }
 
     // MARK: - Helpers

@@ -99,10 +99,6 @@ final class LifeOSUITests: XCTestCase {
         assertExactlyOneTask(named: "Fielding")
     }
 
-    func testSkipRecoveryIsDeferredToTaskDetail() throws {
-        throw XCTSkip("The approved Today redesign removes Skip from the daily surface. Add and test task-detail recovery controls in the dedicated task-detail implementation chunk.")
-    }
-
     private func openTodayTasks() {
         let overview = app.buttons["today.tasksOverview"]
         scrollToElement(overview)

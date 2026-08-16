@@ -174,6 +174,17 @@ enum CategoryProgressEngine {
             status = period == .day ? .notScheduled : .insufficientData
         } else if completedSessions >= targetSessions && (targetMinutes == 0 || completedMinutes >= targetMinutes) {
             status = .complete
+        } else if completedSessions == 0 && decidedDueTasks == 0 {
+            // Zero evidence either way (nothing completed, nothing decided
+            // yet this period) must never read as a pace judgment -- neither
+            // "Behind" nor "On track" -- even for a Plan created moments ago
+            // where elapsedFraction is still ~0 (0 completed sessions would
+            // otherwise clear the 85%-of-expected on-track bar trivially) or
+            // one with too few days left in the period to hit its target on
+            // paper. This must run before the on-track/needs-attention/
+            // behind pace checks below, not after -- otherwise a fresh Plan
+            // can still slip through as "On track" on zero evidence.
+            status = .insufficientData
         } else if Double(completedSessions) >= expectedSessions * 0.85 {
             status = .onTrack
         } else if potentialSessions >= targetSessions {

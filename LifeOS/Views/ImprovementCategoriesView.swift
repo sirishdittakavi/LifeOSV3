@@ -157,18 +157,7 @@ struct ImprovementCategoriesView: View {
             )
         }
         return HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(
-                    LinearGradient(
-                        colors: [ColorToken.color(for: category.colorToken).opacity(0.22), ColorToken.color(for: category.colorToken).opacity(0.12)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    )
-                )
-                Image(systemName: category.symbol)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(ColorToken.color(for: category.colorToken))
-            }
-            .frame(width: 36, height: 36)
+            LOIconBadge(symbol: category.symbol, tint: ColorToken.color(for: category.colorToken), diameter: 36)
             VStack(alignment: .leading, spacing: 3) {
                 Text(category.name).font(.lifeOSCardTitle)
                 Text("\(actionCount) Task\(actionCount == 1 ? "" : "s") · \(progress?.progressText ?? "No Task plan yet")")
