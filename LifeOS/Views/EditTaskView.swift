@@ -689,7 +689,7 @@ struct TaskDetailView: View {
     }
 
     private func reschedule(_ item: CalendarItem, to newDate: Date) {
-        if TaskOccurrenceActions.reschedule(item, activity: activity, to: newDate, context: modelContext) == nil {
+        if TaskOccurrenceActions.reschedule(item, to: newDate, context: modelContext) == nil {
             occurrenceActionFailed = true
         }
     }

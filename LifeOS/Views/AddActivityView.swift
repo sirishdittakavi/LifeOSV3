@@ -225,6 +225,11 @@ struct AddActivityView: View {
     }
 
     private func save() {
+        // Create-time validation, not just the Create button's .disabled --
+        // canSave (including oneTimeWhenIsValid) must hold at the moment of
+        // persistence, not merely when the button was last enabled/rendered.
+        guard canSave else { return }
+
         var category = selectedCategory
         if isCreatingCategory, !newCategoryName.trimmingCharacters(in: .whitespaces).isEmpty {
             let newCategory = AppCategory(

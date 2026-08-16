@@ -28,11 +28,17 @@ enum TaskOccurrenceActions {
     /// Moves exactly `item` to `newDate`: `item` itself is marked
     /// `.rescheduled` (excluded from due/decided counting, matching every
     /// other `.rescheduled` read site in the app) and a new CalendarItem is
-    /// inserted at the new date/time for `item`'s own profile and the given
-    /// Activity. Returns the new CalendarItem on success, or `nil` (with
-    /// both mutations rolled back) if the save fails.
+    /// inserted at the new date/time for `item`'s own profile and Activity.
+    ///
+    /// The replacement's profile/Activity are read from `item` itself, not
+    /// accepted as separate parameters -- a caller cannot pass a mismatched
+    /// Activity or profile even by mistake, because there is no parameter
+    /// through which to do so. Returns the new CalendarItem on success, or
+    /// `nil` (with both mutations rolled back, or nothing changed at all if
+    /// `item` has no Activity to reschedule) if the save fails.
     @discardableResult
-    static func reschedule(_ item: CalendarItem, activity: Activity, to newDate: Date, context: ModelContext) -> CalendarItem? {
+    static func reschedule(_ item: CalendarItem, to newDate: Date, context: ModelContext) -> CalendarItem? {
+        guard let activity = item.activity else { return nil }
         let previousStatus = item.status
         item.status = .rescheduled
 
