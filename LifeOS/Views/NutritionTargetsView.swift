@@ -91,6 +91,9 @@ struct NutritionTargetsView: View {
 
     private func save() {
         guard let profileID else { dismiss(); return }
+        guard NutritionEngine.isValidDailyTarget(protein), NutritionEngine.isValidDailyTarget(calories),
+              NutritionEngine.isValidDailyTarget(carbs), NutritionEngine.isValidDailyTarget(fat),
+              NutritionEngine.isValidDailyTarget(waterLiters) else { return }
         let repository = SwiftDataNutritionRepository(context: modelContext)
         let goal = existingGoal ?? {
             let created = NutritionGoal(profileID: profileID)

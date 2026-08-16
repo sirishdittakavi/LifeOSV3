@@ -118,7 +118,8 @@ struct AddEditMealView: View {
     }
 
     private func saveMeal() {
-        guard let profileID = selection.profile?.id else { return }
+        guard let profileID = selection.profile?.id,
+              NutritionEngine.isValidMacroEntry(currentTotals) else { return }
         let repository = SwiftDataNutritionRepository(context: modelContext)
         let trimmedDetails = details.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -147,7 +148,8 @@ struct AddEditMealView: View {
     }
 
     private func saveAsTemplate() {
-        guard let profileID = selection.profile?.id else { return }
+        guard let profileID = selection.profile?.id,
+              NutritionEngine.isValidMacroEntry(currentTotals) else { return }
         let trimmedName = templateName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return }
 

@@ -94,6 +94,30 @@ enum NutritionEngine {
         return min(max(value / target, 0), 1)
     }
 
+    /// Standard energy-from-macros formula (4 kcal/g protein & carbs, 9
+    /// kcal/g fat). Informational only -- used to flag an internally
+    /// inconsistent manual entry, never to override or auto-fill the
+    /// user's directly-entered Calories field. A meal stays one fixed,
+    /// user-entered set of totals (AddEditMealView.swift's locked decision);
+    /// LifeOS never computes nutrition from macros/ingredients on the
+    /// user's behalf.
+    static func caloriesFromMacros(proteinG: Double, carbsG: Double, fatG: Double) -> Double {
+        4 * proteinG + 4 * carbsG + 9 * fatG
+    }
+
+    /// A manually-entered meal/template's totals must never be negative --
+    /// there's no such thing as "-50 calories" or "-10g protein".
+    static func isValidMacroEntry(_ value: NutritionValue) -> Bool {
+        value.calories >= 0 && value.proteinG >= 0 && value.carbsG >= 0 && value.fatG >= 0
+    }
+
+    /// An unset (nil) daily target means "not tracked" and is always valid;
+    /// a set target must never be negative -- there's no such thing as a
+    /// "-2000 kcal/day" target.
+    static func isValidDailyTarget(_ value: Double?) -> Bool {
+        value.map { $0 >= 0 } ?? true
+    }
+
     /// A tracked macro/water metric for consistency counting and Goal
     /// linkage — plain-language cases only, no technical terms surfaced.
     enum Metric: String, CaseIterable, Identifiable, Hashable {

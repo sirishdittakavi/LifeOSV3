@@ -269,6 +269,60 @@ final class NutritionEngineTests: XCTestCase {
 
         XCTAssertEqual(sorted.map(\.name), ["Favorite New", "Favorite Old", "Popular", "Never Used"])
     }
+
+    // MARK: - Phase 7: no default targets on a new profile
+
+    /// Restated explicitly for Phase 7 alongside the existing coverage
+    /// above (testTargetProgressHasNoTargetsWhenNoGoalExists): a brand-new
+    /// profile with no NutritionGoal record at all must show every target
+    /// as nil, never a prescribed default.
+    func testNewProfileWithNoNutritionGoalHasNoDefaultTargetsForAnyMetric() {
+        let progress = NutritionEngine.targetProgress(
+            profileID: UUID(), date: TestFixtures.date(2026, 1, 1),
+            meals: [], waterEntries: [], goal: nil
+        )
+        XCTAssertNil(progress.calorieTarget)
+        XCTAssertNil(progress.proteinTarget)
+        XCTAssertNil(progress.carbsTarget)
+        XCTAssertNil(progress.fatTarget)
+        XCTAssertNil(progress.waterTarget)
+        XCTAssertNil(progress.calorieFraction)
+        XCTAssertNil(progress.proteinFraction)
+    }
+
+    // MARK: - caloriesFromMacros
+
+    func testCaloriesFromMacrosAppliesTheStandardFourFourNineFormula() {
+        let expected = 370.0 // 30*4 + 40*4 + 10*9
+        XCTAssertEqual(NutritionEngine.caloriesFromMacros(proteinG: 30, carbsG: 40, fatG: 10), expected)
+        XCTAssertEqual(NutritionEngine.caloriesFromMacros(proteinG: 0, carbsG: 0, fatG: 0), 0)
+        XCTAssertEqual(NutritionEngine.caloriesFromMacros(proteinG: 25, carbsG: 0, fatG: 0), 100)
+        XCTAssertEqual(NutritionEngine.caloriesFromMacros(proteinG: 0, carbsG: 0, fatG: 10), 90)
+    }
+
+    // MARK: - Non-negative validation
+
+    func testIsValidMacroEntryRejectsAnyNegativeField() {
+        XCTAssertFalse(NutritionEngine.isValidMacroEntry(NutritionValue(calories: -1, proteinG: 10, carbsG: 10, fatG: 10)))
+        XCTAssertFalse(NutritionEngine.isValidMacroEntry(NutritionValue(calories: 100, proteinG: -1, carbsG: 10, fatG: 10)))
+        XCTAssertFalse(NutritionEngine.isValidMacroEntry(NutritionValue(calories: 100, proteinG: 10, carbsG: -1, fatG: 10)))
+        XCTAssertFalse(NutritionEngine.isValidMacroEntry(NutritionValue(calories: 100, proteinG: 10, carbsG: 10, fatG: -1)))
+    }
+
+    func testIsValidMacroEntryAcceptsZeroAndPositiveValues() {
+        XCTAssertTrue(NutritionEngine.isValidMacroEntry(NutritionValue()))
+        XCTAssertTrue(NutritionEngine.isValidMacroEntry(NutritionValue(calories: 500, proteinG: 30, carbsG: 40, fatG: 10)))
+    }
+
+    func testIsValidDailyTargetAcceptsNilAsNotTracked() {
+        XCTAssertTrue(NutritionEngine.isValidDailyTarget(nil))
+    }
+
+    func testIsValidDailyTargetRejectsANegativeTarget() {
+        XCTAssertFalse(NutritionEngine.isValidDailyTarget(-1))
+        XCTAssertTrue(NutritionEngine.isValidDailyTarget(0))
+        XCTAssertTrue(NutritionEngine.isValidDailyTarget(2000))
+    }
 }
 
 final class BodyTrackingEngineTests: XCTestCase {
