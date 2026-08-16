@@ -54,6 +54,7 @@
 		49E7137019B8301F15777724 /* CategoryHierarchy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55F7D1F805EAE2850186A7FE /* CategoryHierarchy.swift */; };
 		E4EF43D9932046F2A0DFF732 /* TaskOccurrenceActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 984FF9FF49A44098806AB034 /* TaskOccurrenceActions.swift */; };
 		23875C4994CE4BCD9EBF9E33 /* QuickAddValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F33735E2178C435DA37F9E85 /* QuickAddValidation.swift */; };
+		FFED35A22FBE49BB8357FB7D /* OnboardingValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F409526783E74D089C56F391 /* OnboardingValidation.swift */; };
 		511A359B9C1D3087768E746B /* AddImprovementCategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3089E1119EF3FEC41AE8B48 /* AddImprovementCategoryView.swift */; };
 		547334C5D48FE41C583A470C /* PortableMetricServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11A6A30395261FA5B84442F /* PortableMetricServiceTests.swift */; };
 		54956C7DE301E1EDE7AB47F0 /* PersistenceSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A7C22D36339973B2F083F70 /* PersistenceSupport.swift */; };
@@ -63,6 +64,7 @@
 		7A24F57F33DE6A4FE45D5B29 /* DailyProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53549BD50EE3E8885AB9ECF9 /* DailyProgressView.swift */; };
 		91FCDF8AFE7A6B213D60E987 /* ImprovementCategoryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62420F22B16B7E6D9597D2CC /* ImprovementCategoryDetailView.swift */; };
 		9AB213881EABF49C81A2E471 /* GoalSystemComponentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1EDE1219CF03BE2D0BD6CA /* GoalSystemComponentTests.swift */; };
+		C80B3A278947430485D7FD52 /* OnboardingGraphPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F19FC144814FE29DB31F1B /* OnboardingGraphPersistenceTests.swift */; };
 		9C777A54A21460DFD68995AF /* WeeklyScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 819A9C738D6E1A4BD64EA744 /* WeeklyScheduleView.swift */; };
 		9DEB65FA95807B256D662CD9 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1C1BAC812EC2A5FFBB0ED /* DesignSystem.swift */; };
 		8801F20E309145CC88F97BFF /* LifeOSColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A911E90200F4B61AFECF4A2 /* LifeOSColors.swift */; };
@@ -142,6 +144,7 @@
 		55F7D1F805EAE2850186A7FE /* CategoryHierarchy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryHierarchy.swift; sourceTree = "<group>"; };
 		984FF9FF49A44098806AB034 /* TaskOccurrenceActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskOccurrenceActions.swift; sourceTree = "<group>"; };
 		F33735E2178C435DA37F9E85 /* QuickAddValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAddValidation.swift; sourceTree = "<group>"; };
+		F409526783E74D089C56F391 /* OnboardingValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingValidation.swift; sourceTree = "<group>"; };
 		591D05654CEDC34BDF4C3EEC /* SchemaVersioning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaVersioning.swift; sourceTree = "<group>"; };
 		5DD50DB9C010E97A4DD88F5A /* SeedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeedData.swift; sourceTree = "<group>"; };
 		5E9628B470CB2D29FB799F92 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -172,6 +175,7 @@
 		C9AAA0DFB09417257C7322E2 /* ImprovementDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImprovementDashboardView.swift; sourceTree = "<group>"; };
 		CDDCC3A1F13B93070395E397 /* LifeOSBackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeOSBackupService.swift; sourceTree = "<group>"; };
 		CE1EDE1219CF03BE2D0BD6CA /* GoalSystemComponentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalSystemComponentTests.swift; sourceTree = "<group>"; };
+		C2F19FC144814FE29DB31F1B /* OnboardingGraphPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGraphPersistenceTests.swift; sourceTree = "<group>"; };
 		E3ADED4567B9BD9952F48311 /* PlanningService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanningService.swift; sourceTree = "<group>"; };
 		02777BA2DFF794368D772802 /* CalendarRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarRepository.swift; sourceTree = "<group>"; };
 		CF4E4DC4F5283BD1D5C21450 /* ProgressMetric.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressMetric.swift; sourceTree = "<group>"; };
@@ -225,6 +229,7 @@
 				55F7D1F805EAE2850186A7FE /* CategoryHierarchy.swift */,
 				984FF9FF49A44098806AB034 /* TaskOccurrenceActions.swift */,
 				F33735E2178C435DA37F9E85 /* QuickAddValidation.swift */,
+				F409526783E74D089C56F391 /* OnboardingValidation.swift */,
 				78943876F88DB77027A69003 /* CategoryProgressEngine.swift */,
 				71336B7D9F2F80BB5303A4D3 /* ImprovementTemplates.swift */,
 				CDDCC3A1F13B93070395E397 /* LifeOSBackupService.swift */,
@@ -253,6 +258,7 @@
 			children = (
 				CE1EDE1219CF03BE2D0BD6CA /* GoalSystemComponentTests.swift */,
 				0ACD7D5668D340FDA83FFFCC /* NutritionComponentTests.swift */,
+				C2F19FC144814FE29DB31F1B /* OnboardingGraphPersistenceTests.swift */,
 			);
 			path = LifeOSComponentTests;
 			sourceTree = "<group>";
@@ -510,6 +516,7 @@
 			files = (
 				9AB213881EABF49C81A2E471 /* GoalSystemComponentTests.swift in Sources */,
 				5981589DF4ED4AEB89D68667 /* NutritionComponentTests.swift in Sources */,
+				C80B3A278947430485D7FD52 /* OnboardingGraphPersistenceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -544,6 +551,7 @@
 				49E7137019B8301F15777724 /* CategoryHierarchy.swift in Sources */,
 				E4EF43D9932046F2A0DFF732 /* TaskOccurrenceActions.swift in Sources */,
 				23875C4994CE4BCD9EBF9E33 /* QuickAddValidation.swift in Sources */,
+				FFED35A22FBE49BB8357FB7D /* OnboardingValidation.swift in Sources */,
 				C42B22F16BD3D1E6D55D2FF6 /* CategoryProgressEngine.swift in Sources */,
 				D3110A8487A6D40D35338712 /* ColorToken.swift in Sources */,
 				7A24F57F33DE6A4FE45D5B29 /* DailyProgressView.swift in Sources */,

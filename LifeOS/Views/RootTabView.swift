@@ -316,20 +316,18 @@ private struct LifeOSOnboardingView: View {
     private var trimmedOutcome: String { outcomeName.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var trimmedAreaName: String { areaName.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    private var canContinueStep0: Bool { !trimmedImprovement.isEmpty }
+    private var canContinueStep0: Bool { OnboardingValidation.canContinueFromIntent(improvementText) }
     private var canContinueStep1: Bool {
-        !trimmedOutcome.isEmpty && (valueType == .milestone || valueType == .text || validNumericTarget)
-    }
-    private var validNumericTarget: Bool {
-        ResultMeasureValidation.isValidTarget(
-            valueType: valueType, direction: direction,
-            baseline: 0, target: target,
-            minimum: rangeMinimum, maximum: rangeMaximum
+        OnboardingValidation.canContinueFromOutcome(
+            outcomeName: outcomeName, valueType: valueType, direction: direction,
+            target: target, minimum: rangeMinimum, maximum: rangeMaximum
         )
     }
     private var canCreate: Bool {
-        !trimmedAreaName.isEmpty && !draftTasks.isEmpty
-            && draftTasks.allSatisfy { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !$0.weekdays.isEmpty }
+        OnboardingValidation.canCreate(
+            areaName: areaName,
+            taskNamesAndWeekdays: draftTasks.map { (name: $0.name, weekdays: $0.weekdays) }
+        )
     }
 
     var body: some View {
